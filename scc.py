@@ -21,16 +21,17 @@
 #    59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             #
 ############################################################################
 __module_name__ = "SCCwatcher"
-__module_version__ = "1.62"
+__module_version__ = "1.63"
 __module_description__ = "SCCwatcher"
 
-import xchat, os, re, string, urllib, ftplib, time, math,threading
+import xchat, os, re, string, urllib, ftplib, time, math, threading
 
 #the globals go here
 dlduration = ""
 from_main2 = ""
 extra_paths = "no"
 recent_list = ""
+dupelist = ""
 full_xpath = ""
 option = {}
 xchatdir = xchat.get_info("xchatdir")
@@ -166,7 +167,7 @@ def logging(text, operation):
 		os.mkdir(option["logpath"])
 	
 	fullpath = option["logpath"] + "sccwatcher.log"
-	current_time = time.strftime("%a, %d %b %Y %H:%M:%S", time.gmtime())
+	current_time = time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())
 	text = current_time+" - "+operation+":"+text+"\n"
 	scclog = open(fullpath, 'a')
 	scclog.write(text)
@@ -178,7 +179,7 @@ def dir_check(xpath, cat):
 	extra_paths = "yes"
 	if xpath == "SCCDATE":
 		# Create a dir in the DDMM format
-		xpath = time.strftime("%m%d", time.gmtime())
+		xpath = time.strftime("%m%d", time.localtime())
 		tree = "no"
 	elif xpath == "SCCGRP":
 		xpath = cat
@@ -268,14 +269,24 @@ def dir_check(xpath, cat):
 			extra_paths = "no"
 		full_xpath = full_xpath2
 
+#This function also tracks individual release names for dupe protection since v1.63
 def update_recent(file, dldir, size, dduration):
-	global recent_list
-	time_now = time.strftime("%a, %d %b %Y %H:%M:%S", time.gmtime())
+	global recent_list, dupelist
+	time_now = time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())
 	formatted = color["dgrey"]+ time_now + color["black"] + " - " + color["bpurple"] + file + color["black"] + " - " + color["dgrey"] + size + color["black"] + " - " + color["dgrey"] + dduration+" Seconds" + color["black"] + " - " + color["dgrey"] + os.path.normcase(dldir)
+	#recent list update or initial creation
 	if len(string.join(recent_list, ' ')) > 0:
 		recent_list.append(formatted)
 	else:
 		recent_list = [formatted]
+	
+	#Dupe list update or initial creation
+	if len(string.join(dupelist, ' ')) > 0:
+		dupelist.append(file)
+	else:
+		dupelist = [file]
+		
+	
 
 def on_text(word, word_eol, userdata):
 	#what the hell why didnt I do this before???? Enough sending vars, GLOBAL FTW!
@@ -358,7 +369,24 @@ def on_text(word, word_eol, userdata):
 						if option["logenabled"] == 'on':
 							logging(xchat.strip(sizeavoid), "AVOID")
 						counter = 0
-				
+			
+			#And here's the dupe check
+			#only if we're about to download should we do a dupe check
+			if counter > 0:
+				if option["dupecheck"] == "on":
+					#Check for the release name in the dupe list
+					try:
+						dupelist.index(matchedtext.group(3))
+						counter = 0
+						dupeavoid = "\007"+color["bpurple"]+"SCCwatcher has determined that "+color["dgrey"]+matchedtext.group(3)+color["bpurple"]+" is a dupe. Torrent not downloaded."
+						if option["verbose"] == 'on':
+							verbose(dupeavoid)
+						if option["logenabled"] == 'on':
+							logging(xchat.strip(dupeavoid), "DUPE")
+					#If its not there reset the counter and log/verbose if enabled
+					except:
+						notadupe="RABBLERABBLERABBLE!"
+							
 			#got a match!! let's download
 			if counter > 0:
 				# If theres a specified directory, run through the directory checker to make sure the dir exists and is accessable
@@ -737,4 +765,4 @@ if (__name__ == "__main__"):
 loadmsg = "\0034 "+__module_name__+" "+__module_version__+" has been loaded\003"
 print loadmsg
 #LICENSE GPL
-#Last modified 2-01-09
+#Last modified 2-20-09
