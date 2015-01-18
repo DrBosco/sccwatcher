@@ -21,7 +21,7 @@
 #    59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             #
 ############################################################################
 __module_name__ = "SCCwatcher"
-__module_version__ = "1.63"
+__module_version__ = "1.64"
 __module_description__ = "SCCwatcher"
 
 import xchat, os, re, string, urllib, ftplib, time, math, threading
@@ -47,7 +47,7 @@ def reload_vars():
 		par1, par2 = re.split("=", line)
 		option[par1] = string.strip(par2)
 		line = inifile.readline()
-	inifile.close
+	inifile.close()
 	option["watchlist"] = re.split(' ', option["watchlist"])
 	option["avoidlist"] = re.split(' ', option["avoidlist"])
 	print color["dgreen"], "SCCwatcher scc.ini reload successfully"
@@ -271,7 +271,7 @@ def dir_check(xpath, cat):
 
 #This function also tracks individual release names for dupe protection since v1.63
 def update_recent(file, dldir, size, dduration):
-	global recent_list, dupelist
+	global recent_list
 	time_now = time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())
 	formatted = color["dgrey"]+ time_now + color["black"] + " - " + color["bpurple"] + file + color["black"] + " - " + color["dgrey"] + size + color["black"] + " - " + color["dgrey"] + dduration+" Seconds" + color["black"] + " - " + color["dgrey"] + os.path.normcase(dldir)
 	#recent list update or initial creation
@@ -280,6 +280,8 @@ def update_recent(file, dldir, size, dduration):
 	else:
 		recent_list = [formatted]
 	
+def update_dupe(file):
+	global dupelist
 	#Dupe list update or initial creation
 	if len(string.join(dupelist, ' ')) > 0:
 		dupelist.append(file)
@@ -318,7 +320,12 @@ def on_text(word, word_eol, userdata):
 					watchlist = watchlist.replace('/','\/')
 					watchlist_splitted = re.split(':', watchlist)
 					#here we split off anything extra for a download dir
-					download_dir = re.split(';', watchlist_splitted[1])
+					#Using a try incase someone entered a watch with no colon at all (no watchlist_splitted[1]
+					try:
+						watchlist_splitted[1]
+						download_dir = re.split(';', watchlist_splitted[1])
+					except:
+						this="isavar"
 					# and then make sure watchlist_splitted[1] has the correct data, sans download dir
 					watchlist_splitted[1] = download_dir[0]
 					watchlist_splitted[0] = '^' + watchlist_splitted[0] + '$'
@@ -389,6 +396,8 @@ def on_text(word, word_eol, userdata):
 							
 			#got a match!! let's download
 			if counter > 0:
+				#Now that we're downloading for sure, add the release name to the dupecheck list.
+				update_dupe(matchedtext.group(3))
 				# If theres a specified directory, run through the directory checker to make sure the dir exists and is accessable
 				try:
 					download_dir[1]
@@ -765,4 +774,4 @@ if (__name__ == "__main__"):
 loadmsg = "\0034 "+__module_name__+" "+__module_version__+" has been loaded\003"
 print loadmsg
 #LICENSE GPL
-#Last modified 2-20-09
+#Last modified 3-05-09
