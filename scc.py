@@ -21,7 +21,7 @@
 #    59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             #
 ############################################################################
 __module_name__ = "SCCwatcher"
-__module_version__ = "1.74"
+__module_version__ = "1.75"
 __module_description__ = "SCCwatcher"
 
 import xchat, os, re, string, urllib, ftplib, time, threading, base64, urllib2, smtplib, subprocess, platform
@@ -473,7 +473,6 @@ def update_recent(file, dldir, size, dduration):
 	#Check the size of the menu so far
 	menu_size = len(last5recent_list)
 	if menu_size == 0:
-		print "DEBUG1"
 		xchat.command('menu DEL "SCCwatcher/Recent Grab List/Recent List/(none)')
 		last5recent_list["1"] = file
 	
@@ -481,13 +480,11 @@ def update_recent(file, dldir, size, dduration):
 		entry = str(menu_size + 1)
 		last5recent_list[entry] = file
 	else:
-		print "DEBUG3"
 		#Cut the first one, and move all others down. Then add the new one to the end.
 		xchat.command('menu DEL "SCCwatcher/Recent Grab List/Recent List/%s' % last5recent_list["1"])
 		del(last5recent_list["1"])
 		n = 1
 		while n < 5:
-			print "DEBUG4-" + str(n)
 			cnum = str(n+1)
 			enum = str(n)
 			last5recent_list[enum] = last5recent_list[cnum]
@@ -1485,12 +1482,12 @@ def help(trigger):
 	
 	elif trigger[1] == "cmdon":
 		option["use_external_command"] = "on"
-		print color["red"], "External Command Executuion has been enabled, use cmdoff to turn it off."
+		print color["red"], "External Command Execution has been enabled, use cmdoff to turn it off."
 		xchat.command('menu -t1 add "SCCwatcher/Use External Command" "sccwatcher cmdon" "sccwatcher cmdoff"')
 	
 	elif trigger[1] == "cmdoff":
 		option["use_external_command"] = "off"
-		print color["red"], "External Command Executuion has been disabled, use cmdon to turn it on."
+		print color["red"], "External Command Execution has been disabled, use cmdoff to turn it on."
 		xchat.command('menu -t0 add "SCCwatcher/Use External Command" "sccwatcher cmdon" "sccwatcher cmdoff"')
 	
 	else:
@@ -1521,4 +1518,4 @@ if (__name__ == "__main__"):
 		main()
 
 #LICENSE GPL
-#Last modified 7-14-09
+#Last modified 7-19-09
