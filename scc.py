@@ -21,7 +21,7 @@
 #    59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             #
 ############################################################################
 __module_name__ = "SCCwatcher"
-__module_version__ = "1.67"
+__module_version__ = "1.68"
 __module_description__ = "SCCwatcher"
 
 import xchat, os, re, string, urllib, ftplib, time, math, threading, base64, urllib2, smtplib
@@ -42,7 +42,7 @@ def reload_vars():
 	inifile = open(os.path.join(xchatdir,"scc.ini"))
 	line = inifile.readline()
 	while line != "":
-		par1, par2 = re.split("=", line)
+		par1, par2 = line.split("=", 1)
 		option[par1] = string.strip(par2)
 		line = inifile.readline()
 	inifile.close()
@@ -85,7 +85,7 @@ def load_vars():
 		inifile = open(os.path.join(xchatdir,"scc.ini"))
 		line = inifile.readline()
 		while line != "":
-			par1, par2 = re.split("=", line)
+			par1, par2 = line.split("=", 1)
 			option[par1] = string.strip(par2)
 			line = inifile.readline()
 		inifile.close()
@@ -738,7 +738,11 @@ class email(threading.Thread):
 		#connect to the server
 		try:
 			thread_data.smtpconn = smtplib.SMTP(option["smtp_server"])
+			#Uncomment the line below to be dazzled with all the crazy server chatter. Very spammy.
+			#thread_data.smtpconn.set_debuglevel(1)
+			thread_data.smtpconn.ehlo()
 			thread_data.is_connected = True
+			
 		#If theres an error while connecting, verbose/log it
 		except:
 			thread_data.verbtext="\007"+color["bpurple"]+"SCCwatcher encountered an error while connecting to SMTP server, no email was sent"
@@ -771,25 +775,25 @@ class email(threading.Thread):
 			#Otherwise just continue on without authenticating
 			else:
 				thread_data.is_auth = True
-		
-		if thread_data.is_auth == True:
-			try:
-				#The actual message we will be sending needs to be created with the function message_builder()
-				thread_data.smtpconn.sendmail(option["smtp_from"], option["smtp_to"], self.message_builder())
-				thread_data.smtpconn.close()
-				thread_data.verbtext="\007"+color["bpurple"]+"SCCwatcher successfully emailed " + color["dgrey"] + option["smtp_to"]
-				if option["verbose"] == 'on':
-					verbose(thread_data.verbtext)
-				if option["logenabled"] == 'on':
-					thread_data.verbtext = xchat.strip(thread_data.verbtext)
-					logging(xchat.strip(thread_data.verbtext), "SMTP_SUCCESS")
-			except:
-				thread_data.verbtext="\007"+color["bpurple"]+"SCCwatcher encountered an error while talking to the SMTP server, no email was sent"
-				if option["verbose"] == 'on':
-					verbose(thread_data.verbtext)
-				if option["logenabled"] == 'on':
-					thread_data.verbtext = xchat.strip(thread_data.verbtext)
-					logging(xchat.strip(thread_data.verbtext), "SMTP_FAIL")
+				
+			if thread_data.is_auth == True:
+				try:
+					#The actual message we will be sending needs to be created with the function message_builder()
+					thread_data.smtpconn.sendmail(option["smtp_from"], option["smtp_to"], self.message_builder())
+					thread_data.smtpconn.close()
+					thread_data.verbtext="\007"+color["bpurple"]+"SCCwatcher successfully emailed " + color["dgrey"] + option["smtp_to"]
+					if option["verbose"] == 'on':
+						verbose(thread_data.verbtext)
+					if option["logenabled"] == 'on':
+						thread_data.verbtext = xchat.strip(thread_data.verbtext)
+						logging(xchat.strip(thread_data.verbtext), "SMTP_SUCCESS")
+				except:
+					thread_data.verbtext="\007"+color["bpurple"]+"SCCwatcher encountered an error while talking to the SMTP server, no email was sent"
+					if option["verbose"] == 'on':
+						verbose(thread_data.verbtext)
+					if option["logenabled"] == 'on':
+						thread_data.verbtext = xchat.strip(thread_data.verbtext)
+						logging(xchat.strip(thread_data.verbtext), "SMTP_FAIL")
 		if option["use_external_command"] == "on":
 			do_cmd(self.matchedtext, self.disp_path, self.nicesize).start()
 
