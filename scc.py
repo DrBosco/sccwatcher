@@ -21,7 +21,7 @@
 #    59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             #
 ############################################################################
 __module_name__ = "SCCwatcher"
-__module_version__ = "1.70"
+__module_version__ = "1.71"
 __module_description__ = "SCCwatcher"
 
 import xchat, os, re, string, urllib, ftplib, time, math, threading, base64, urllib2, smtplib, subprocess
@@ -822,7 +822,7 @@ class webui_upload(threading.Thread):
 				logging(thread_data.verbtext3, "END_UTOR_ADD")
 		
 class email(threading.Thread):
-	def __init__(self, matchedtext, disp_path, nicesize):
+	def __init__(self, matchedtext, disp_path, nicesize, nice_tag_extra):
 		self.matchedtext = matchedtext
 		self.disp_path = disp_path
 		self.nicesize = nicesize
@@ -1174,7 +1174,7 @@ load_vars()
 
 # This gets the script movin
 if (__name__ == "__main__"):
-		main()
+	main()
 
 loadmsg = "\0034 "+__module_name__+" "+__module_version__+" has been loaded\003"
 print loadmsg
