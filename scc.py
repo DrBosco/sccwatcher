@@ -21,7 +21,7 @@
 #    59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             #
 ############################################################################
 __module_name__ = "SCCwatcher"
-__module_version__ = "1.82"
+__module_version__ = "1.83"
 __module_description__ = "SCCwatcher"
 
 import xchat, os, re, string, urllib, ftplib, time, threading, base64, urllib2, smtplib, subprocess, platform, socket
@@ -41,13 +41,22 @@ last5recent_list = {}
 dupelist = ""
 full_xpath = ""
 option = {}
+has_tab_data = False
 xchatdir = xchat.get_info("xchatdir")
 color = {"white":"\00300", "black":"\00301", "blue":"\00302", "green":"\00303", "red":"\00304",
 "dred":"\00305", "purple":"\00306", "dyellow":"\00307", "yellow":"\00308", "bgreen":"\00309",
 "dgreen":"\00310", "green":"\00311", "lblue":"\00312", "bpurple":"\00313", "dgrey":"\00314",
 "lgrey":"\00315", "close":"\003"}
+
+#Just a simple class derived from urllib's FancyURLopener.
+class sccwDownloader(urllib.FancyURLopener):
+	#This is where we adjust the useragent.
+	version = "Mozilla/5.0 (compatible; Python urllib; SCCwatcher; v%s" % (__module_version__)
+
+
+
 def reload_vars():
-	global option
+	global option, has_tab_data
 	#backup some values we want to keep, if they exist
 	try:
 		cc = option["_current_context_"]
@@ -56,19 +65,40 @@ def reload_vars():
 		cc = None
 		ec = "off"
 	#removing debug key from the options dict.
-	remove_debug = option.pop("DEBUG")
+	try:
+		remove_debug = option.pop("DEBUG")
+	except:
+		pass
 	inifile = open(os.path.join(xchatdir,"scc.ini"))
 	line = inifile.readline()
 	while line != "":
-		par1, par2 = line.split("=", 1)
-		option[par1] = string.strip(par2)
+		# Skip over lines with comments in them
+		if line[0] != "#":
+			try:
+				par1, par2 = line.split("=", 1)
+				option[par1] = string.strip(par2)
+			except:
+				#Line that doesnt conform to standards, tell the user which line fucked up
+				LOADERROR = "\007"+color["bpurple"]+"SCCwatcher encountered an error in your scc.ini file. The following line caused the error: " + color["dgrey"] + str(line)
+				if option["verbose"] == 'on':
+					verbose(LOADERROR)
+				if option["logenabled"] == 'on':
+					logging(xchat.strip(LOADERROR), "RELOAD_ERROR-INI")
 		line = inifile.readline()
+		
 	inifile.close()
 	option["watchlist"] = re.split(' ', option["watchlist"])
 	option["avoidlist"] = re.split(' ', option["avoidlist"])
 	print color["dgreen"], "SCCwatcher scc.ini reload successfully"
-	option["service"] = 'on'
-	xchat.command('menu -t1 add "SCCwatcher/Enable Autograbbing" "sccwatcher on" "sccwatcher off"')
+	
+	# Before we turn on services, make sure SCC IRC server is still connected to and the announce channel exists
+	if xchat.find_context(channel='#announce') is not None:
+		option["service"] = 'on'
+		xchat.command('menu -t1 add "SCCwatcher/Enable Autograbbing" "sccwatcher on" "sccwatcher off"')
+	else:
+		option["service"] = 'off'
+		xchat.command('menu -t0 add "SCCwatcher/Enable Autograbbing" "sccwatcher on" "sccwatcher off"')
+		
 	if option["ftpenable"] == 'on':
 		detailscheck = re.match("ftp:\/\/(.*):(.*)@(.*):([^\/]*.)/(.*)", option["ftpdetails"])
 		if detailscheck is None:
@@ -107,11 +137,6 @@ def reload_vars():
 	
 	option["_current_context_"] = cc
 	option["_extra_context_"] = ec
-	
-	if option["service"] == "on":
-		xchat.command('menu -t1 add "SCCwatcher/Enable Autograbbing" "sccwatcher on" "sccwatcher off"')
-	else:
-		xchat.command('menu -t0 add "SCCwatcher/Enable Autograbbing" "sccwatcher on" "sccwatcher off"')
 	
 	
 	if option["download_ssl"] == "on":
@@ -168,16 +193,79 @@ def reload_vars():
 		xchat.command('menu add "SCCwatcher/Watchlist/Temporarily Remove Watch/%s"' % str(x))
 		xchat.command('menu add "SCCwatcher/Watchlist/Temporarily Remove Watch/%s/Confirm Remove" "sccwatcher remwatch %s"' % (str(x), str(x)))
 	
+	# here we check for an option that specifies what tab we should be sending the verbose output to.
+	# If its blank or nonexistant then we assume the user doesnt have any preference they want to set ahead of time.
+	# If it does have something, we assume its the name of the tab they want the output to go to. I'm not sure of what characters are safe to put into a tab name but the user wont be doing anything weird
+	has_tab_data = False
+	try:
+		option["verbose_tab"]
+		#Ok so the option exists, now does it have anything in it?
+		if len(option["verbose_tab"]) > 0:
+			#Ok there is a tab preference here, lets keep going
+			has_tab_data = True
+		else:
+			# The option is there but its blank so the user doesn't want a tab set ahead of time
+			has_tab_data = False
+	except:
+		#The option doesnt exist so we can assume they dont want any tab ahead of time
+		has_tab_data = False
+	
+	#Because we are reloading the settings here, we cannot count on the delay in enabling downloading to also create the tabs for us so we do it now.
+	#Ok now that we have tested the option, we can go ahead and set up the output settings if thats what is needed
+	if has_tab_data == True:
+		sop_outtext = color["red"] + "SCCwatcher will now use this tab for all verbose output. Use /sccwatcher anytab to go back to the original way sccwatcher outputs."
+		# We have to make sure SCCwatcher knows we need extra tabs.
+		option["_extra_context_"] = "on"
+		option["_current_context_type_"] = "SCCTAB"
+		#First we need to get a context object for SCCnet so we can be sure the new tab opens in the SCC server branch.
+		# I'm not 100% sure whether this will mess up on BNC users who may not be connected straight to irc.sceneaccess.org
+		# I am running through a ZNC server myself and it didn't seem to effect things. But just in case this DOES fail on someone the backup will be just looking for #sceneaccess
+		scc_context = xchat.find_context(server="irc.sceneaccess.org")
+		if scc_context is None:
+			# If it's None we know either the connection hasnt been made to the server yet or there is a difference in someone's BNC config that obscures the actual server address.
+			scc_context = xchat.find_context(channel="#sceneaccess")
+		if scc_context is None:
+			# If it's STILL None then this user is also only joined to one channnel. Since this is an autodownloader we will assume this channel is the scc announce channel.
+			# This could possibly come back as a different server if they share the same channel names. This is just our last ditch maneuver to still use the designated output tab.
+			scc_context = xchat.find_context(channel="#announce")
+		#Create the new tab if we have the right context object, if not we will report the error and not create the new tab
+		if scc_context:
+			scc_context.command("QUERY %s" % option["verbose_tab"])
+			#Set the new tab as the context to use
+			option["_current_context_"] = xchat.find_context(channel="%s" % option["verbose_tab"])
+			#set the context name
+			option["_current_context_name_"] = option["_current_context_"].get_info("channel")
+			option["_current_context_"].prnt(sop_outtext)
+			xchat.command('menu -e0 -t1 add "SCCwatcher/Verbose Output Settings/Using Non-Default Output?" "echo"')
+		else:
+			OHNOEZ = "\007"+color["bpurple"]+"SCCwatcher failed to create your verbose output tab because it could not find the SCC IRC server. Please make sure you are connected to the SCC IRC server and you have joined the announce channel."
+			if option["verbose"] == 'on':
+				verbose(OHNOEZ)
+			if option["logenabled"] == 'on':
+				logging(xchat.strip(OHNOEZ), "WRITE_ERROR")
 	
 def load_vars():
-	global option, announce_regex, sccnet
+	global option, announce_regex, sccnet, has_tab_data
 	try:
 		inifile = open(os.path.join(xchatdir,"scc.ini"))
 		line = inifile.readline()
 		while line != "":
-			par1, par2 = line.split("=", 1)
-			option[par1] = string.strip(par2)
+			if line[0] != "#":
+				try:
+					par1, par2 = line.split("=", 1)
+					option[par1] = string.strip(par2)
+				except:
+					#Line that doesnt conform to standards, tell the user which line fucked up
+					LOADERROR = "\007"+color["bpurple"]+"SCCwatcher encountered an error in your scc.ini file. The following line caused the error: " + color["dgrey"] + str(line)
+					if option["verbose"] == 'on':
+						verbose(LOADERROR)
+					if option["logenabled"] == 'on':
+						logging(xchat.strip(LOADERROR), "LOAD_ERROR-INI")
+
 			line = inifile.readline()
+			
+			
+			
 		inifile.close()
 		option["watchlist"] = re.split(' ', option["watchlist"])
 		option["avoidlist"] = re.split(' ', option["avoidlist"])
@@ -229,9 +317,29 @@ def load_vars():
 			else:
 				print "\007"+color["dgrey"]+option["sizelimit"]+color["red"]+" is not a valid entry for sizelimit. Valid examples: 150K, 150M, 150G"
 		
+		# here we check for an option that specifies what tab we should be sending the verbose output to.
+		# If its blank or nonexistant then we assume the user doesnt have any preference they want to set ahead of time.
+		# If it does have something, we assume its the name of the tab they want the output to go to. I'm not sure of what characters are safe to put into a tab name but the user wont be doing anything weird
+		has_tab_data = False
+		try:
+			option["verbose_tab"]
+			#Ok so the option exists, now does it have anything in it?
+			if len(option["verbose_tab"]) > 0:
+				#Ok there is a tab preference here, lets keep going
+				has_tab_data = True
+			else:
+				# The option is there but its blank so the user doesn't want a tab set ahead of time
+				has_tab_data = False
+		except:
+			#The option doesnt exist so we can assume they dont want any tab ahead of time
+			has_tab_data = False
+			
+		
+		
+		
 		print color["dgreen"], "SCCwatcher scc.ini Load Success, detecting the network details, the script will be ready in", option["startdelay"], "seconds "
 		#compile the regexp, do this one time only
-		announce_regex = re.compile('(.*)NEW in (.*): -> ([^\s]*.) \((.*)\) - \(http:\/\/www.sceneaccess.org\/details(?:\.php)?\?id=(\d+)\)(.*)')
+		announce_regex = re.compile('(.*)NEW in (.*): -> ([^\s]*.) \((.*)\) - \(https?:\/\/(?:www\.)?sceneaccess\.(?:org|eu)\/details(?:\.php)?\?id=(\d+)\)(.*)')
 		
 		#Create the menus
 		#lots of ifs because we have to make sure the default values reflect whats in scc.ini
@@ -333,9 +441,7 @@ def load_vars():
 		if option["logenabled"] == "on":
 			loadmsg = "\0034 "+__module_name__+" "+__module_version__+" has been loaded\003"
 			logging(xchat.strip(loadmsg), "LOAD")
-		
-		
-		
+	
 	except EnvironmentError:
 		print color["red"], "\007Could not open scc.ini! Put it in "+xchatdir+" !"
 	
@@ -348,9 +454,47 @@ def starttimer(userdata):
 		xchat.unhook(starttimerhook)
 		starttimerhook = None
 	if sccnet is not None:
+		#Now here is where we specifically check for verbose tabs and create them. It is safer doing it here because we are already sure the user has SCC open and the announce chan
+		
+		#Ok now that we have tested the option, we can go ahead and set up the output settings if thats what is needed
+		if has_tab_data == True:
+			sop_outtext = color["red"] + "SCCwatcher will now use this tab for all verbose output. Use /sccwatcher anytab to go back to the original way sccwatcher outputs."
+			# We have to make sure SCCwatcher knows we need extra tabs.
+			option["_extra_context_"] = "on"
+			option["_current_context_type_"] = "SCCTAB"
+			
+			#First we need to get a context object for SCCnet so we can be sure the new tab opens in the SCC server branch.
+			# I'm not 100% sure whether this will mess up on BNC users who may not be connected straight to irc.sceneaccess.org
+			# I am running through a ZNC server myself and it didn't seem to effect things. But just in case this DOES fail on someone the backup will be just looking for #sceneaccess
+			scc_context = xchat.find_context(server="irc.sceneaccess.org")
+			if scc_context is None:
+				# If it's None we know either the connection hasnt been made to the server yet or there is a difference in someone's BNC config that obscures the actual server address.
+				scc_context = xchat.find_context(channel="#sceneaccess")
+			if scc_context is None:
+				# If it's STILL None then this user is also only joined to one channnel. Since this is an autodownloader we will assume this channel is the scc announce channel.
+				# This could possibly come back as a different server if they share the same channel names. This is just our last ditch maneuver to still use the designated output tab.
+				scc_context = xchat.find_context(channel="#announce")
+			#Create the new tab if we have the right context object, if not we will report the error and not create the new tab
+			if scc_context:
+				scc_context.command("QUERY %s" % option["verbose_tab"])
+				#Set the new tab as the context to use
+				option["_current_context_"] = xchat.find_context(channel="%s" % option["verbose_tab"])
+				#set the context name
+				option["_current_context_name_"] = option["_current_context_"].get_info("channel")
+				option["_current_context_"].prnt(sop_outtext)
+				xchat.command('menu -e0 -t1 add "SCCwatcher/Verbose Output Settings/Using Non-Default Output?" "echo"')
+			else:
+				OHNOEZ = "\007"+color["bpurple"]+"SCCwatcher failed to create your verbose output tab because it could not find the SCC IRC server. Please make sure you are connected to the SCC IRC server and you have joined the announce channel."
+				if option["verbose"] == 'on':
+					verbose(OHNOEZ)
+				if option["logenabled"] == 'on':
+					logging(xchat.strip(OHNOEZ), "WRITE_ERROR")
+		
+		#And lastly we turn on the service, update the checkbox in the menu to reflect the new status, and send a message to the user about this.
 		option["service"] = 'on'
 		xchat.command('menu -t1 add "SCCwatcher/Enable Autograbbing" "sccwatcher on" "sccwatcher off"')
-		print color["dgreen"], "Network detected succesfully, script loaded and working properly";
+		verbose(color["dgreen"] + "Network detected succesfully, script loaded and working properly")
+		
 	else:
 		option["service"] = 'notdetected'
 		xchat.command('menu -t0 add "SCCwatcher/Enable Autograbbing" "sccwatcher on" "sccwatcher off"')
@@ -364,6 +508,11 @@ def main():
 	
 def verbose(text):
 	global option
+	try:
+		option["_extra_context_"]
+	except:
+		option["_extra_context_"] = "off"
+		
 	if option["_extra_context_"] == "on":
 		if option["_current_context_"] is not None:
 			context_name = option["_current_context_"].get_info("channel")
@@ -405,8 +554,7 @@ class dir_check:
 	def __init__(self, dldir, cat):
 		self.dldir = dldir
 		self.cat = cat
-		self.tree = ""
-		#This value will get appened with the new dirs
+		#This is the base dir that the extra paths will be appended to
 		self.full_path = option["savepath"]
 		#This is the stuff thats going to get appended to the savepath
 		self.npath = ""
@@ -442,13 +590,11 @@ class dir_check:
 		if xpath == "SCCDATE":
 			# Create a dir in the DDMM format
 			xpath = time.strftime("%m%d", time.localtime())
-			self.tree = "no"
 			
 		if xpath == "SCCGRP":
 			xpath = self.cat
 			xpath = xpath.replace('/','.')
 			path = xpath.replace('-','.')
-			self.tree = "no"
 			
 		if xpath == "SCCGRPTREE":
 			xpath = self.cat
@@ -474,7 +620,7 @@ class dir_check:
 		#Check if the DIR is writeable
 		checkW_xpath = os.access(xpath, os.W_OK)
 		if checkW_xpath is False:
-			OHNOEZ = "\007"+color["bpurple"]+"SCCwatcher cannot write to the save dir: "+color["dgrey"]+xpath+". Please make sure the user running xchat has the proper permissions."
+			OHNOEZ = "\007"+color["bpurple"]+"SCCwatcher cannot write to the save dir: "+color["dgrey"]+xpath+color["bpurple"]+". Please make sure the user running xchat has the proper permissions."
 			if option["verbose"] == 'on':
 				verbose(OHNOEZ)
 			if option["logenabled"] == 'on':
@@ -536,38 +682,66 @@ def on_text(word, word_eol, userdata):
 	# word[2] = The channel rank of the user, i.e. + % @ & or ~
 	# word_eol[0] = Username + message text + user rank all on a single line.
 	# word_eol[1] = Message text + user rank all on a single line
-	# word_eol[2] = User rank
+	# word_eol[2] = User rank (None, +, %, ~, and others)
 	
 	can_continue = False
 	
-	if option["service"] != 'on':
+	# Make sure sccnet is valid if this isn't a manual download request
+	if userdata == "BYPASS" or userdata == "TESTING":
+		pass
+	elif option["service"] == "on":
+		# We use try/except as a safe way to test whether or not a variable exists and has what we want
+		try:
+			#First test the variable only
+			sccnet
+			#Second we test for a specific method we will need
+			sccnet.get_info('network')
+		except:
+			# Somehow sccnet is no longer an active context object so we need to disable autodownloading to prevent any errors
+			option["service"] = "off"
+			# And update the menu item's checkbox
+			xchat.command('menu -t0 add "SCCwatcher/Enable Autograbbing" "sccwatcher on" "sccwatcher off"')
+			# Report the error
+			net_error = [color["red"] + "SCCwatcher had a problem using the detected network settings. Please redetect the network settings through the SCCwatcher menu or with the command: " + color["dgrey"] + "/sccwatcher detectnetwork"]
+			net_error.append(color["red"] + "Autodownloading has been disabled, please redetect your network settings to enable again.")
+			for x in net_error:
+				verbose(x)
+			# Finally we return and stop execution. Next time we get here the service will be disabled or the user will have reenabled it already.
+			return
+	
+	#If we are manually downloading, we don't care if the service is enabled. The user requested specifically to download.
+	if userdata == "BYPASS" or userdata == "TESTING":
+		pass
+	elif option["service"] != 'on':
 		return
+	
 	counter = 0
 	# Just temp setting incase the shit hits the fan it will still sorta be correct. Shouldn't go wrong tho :D
 	zxfpath = option["savepath"]
 	#get the context where a new message was written
 	#If this is a manual add then we just bypass this
-	if userdata == "BYPASS":
+	if userdata == "BYPASS" or userdata == "TESTING":
 		pass
 	else:
 		destination = xchat.get_context()
 	#did the message where sent to the right net, chan and by the right bot?
 	#If your wondering what the hell xchat.strip does, it removes all color and extra trash from text. I wish the xchat python plugin devs would have documented this function, it sure would have made my job easier.
 	#If this is a manual add then we just bypass this
-	if userdata == "BYPASS":
+	if userdata == "BYPASS" or userdata == "TESTING":
 		pass
 	else:
 		stnick = xchat.strip(word[0])
-	if userdata == "BYPASS":
+	if userdata == "BYPASS" or userdata == "TESTING":
 		can_continue = True
 	elif destination.get_info('network') == sccnet.get_info('network') and destination.get_info('channel') == sccnet.get_info('channel') and stnick == "SCC":
 		can_continue = True
 	
 	
 	if can_continue == True:
-		if userdata == "BYPASS":
+		if userdata == "BYPASS" or userdata == "TESTING":
 			#If we are manually adding then use word as the regex object.
 			matchedtext = word
+			word = ['MANUAL_TEST', matchedtext.group(0), '']
 		else:
 			matchedtext = announce_regex.match(xchat.strip(word[1]))
 		#the bot wrote something we can understand, we can proceed with the parsing
@@ -681,7 +855,7 @@ def on_text(word, word_eol, userdata):
 			#Size details
 			sizedetail = matchedtext.group(4).replace(')', '')
 			sizedetail = sizedetail.replace('(', '')
-			sizedetail = re.search("([0-9]{1,6}\.[0-9]{2})(.*)(M|m|K|k|G|g)(.*)", sizedetail)
+			sizedetail = re.search("([0-9]{1,6}\.[0-9]{1,2})(.*)(M|m|K|k|G|g)B?(.*)", sizedetail)
 			#sizedetail.group(1) = 541.34
 			#sizedetail.group(3) = M
 			nicesize = sizedetail.group(1)+sizedetail.group(3)
@@ -729,7 +903,7 @@ def on_text(word, word_eol, userdata):
 								logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
 							
 			#got a match!! let's download
-			if counter > 0 or userdata == "BYPASS":
+			if (counter > 0 or userdata == "BYPASS") and userdata != "TESTING":
 				#Now that we're downloading for sure, add the release name to the dupecheck list.
 				update_dupe(matchedtext.group(3))
 				if option["DEBUG"] == "on":
@@ -742,7 +916,7 @@ def on_text(word, word_eol, userdata):
 				#And set the download url. If download_ssl is on, generate an ssl url instead.
 				if option["download_ssl"] == "on":
 					#downloadurl = "https://www.sceneaccess.org/downloadbig2.php/" + matchedtext.group(5) + "/" + option["passkey"] + "/" + matchedtext.group(3) + ".torrent"
-					downloadurl = "https://www.sceneaccess.org/download/" + matchedtext.group(5) + "/" + option["passkey"] + "/" + matchedtext.group(3) + ".torrent"
+					downloadurl = "https://www.sceneaccess.eu/download/" + matchedtext.group(5) + "/" + option["passkey"] + "/" + matchedtext.group(3) + ".torrent"
 					
 					if option["DEBUG"] == "on":
 						DEBUG_MESSAGE = "\007"+color["bpurple"]+"DEBUG_OUTPUT: Using the following SSL download url: " + color["dgrey"] + str(downloadurl)
@@ -753,7 +927,7 @@ def on_text(word, word_eol, userdata):
 					
 				else:
 					#downloadurl = "http://www.sceneaccess.org/downloadbig2.php/" + matchedtext.group(5) + "/" + option["passkey"] + "/" + matchedtext.group(3) + ".torrent"
-					downloadurl = "http://www.sceneaccess.org/download/" + matchedtext.group(5) + "/" + option["passkey"] + "/" + matchedtext.group(3) + ".torrent"
+					downloadurl = "http://www.sceneaccess.eu/download/" + matchedtext.group(5) + "/" + option["passkey"] + "/" + matchedtext.group(3) + ".torrent"
 					
 					if option["DEBUG"] == "on":
 						DEBUG_MESSAGE = "\007"+color["bpurple"]+"DEBUG_OUTPUT: Using the following non-SSL download url: " + color["dgrey"] + str(downloadurl)
@@ -803,8 +977,12 @@ def on_text(word, word_eol, userdata):
 				if option["utorrent_mode"] is not "0" and option["utorrent_mode"] is not "1" and option["utorrent_mode"] is not "2":
 					verbtext = "\007"+color["bpurple"]+"SCCwatcher cannot download because you have set utorrent_mode to an invalid number. Please check your scc.ini and fix this error. utorrent_mode is currently set to: " + color["dgrey"] + option["utorrent_mode"]
 					verbose(verbtext)
-				
-	
+			
+			elif userdata == "TESTING" and counter > 0:
+				verbose_text = color["bpurple"] + "SCCwatcher would have downloaded that release."
+				if option["verbose"] == 'on':
+					verbose(verbose_text)
+					
 def more_help(command):
 	command = command.lower()
 	if command == 'help':
@@ -946,10 +1124,11 @@ def remove_watch(delitem):
 			print color["bpurple"], delitem+color["red"], "was not found in the watchlist"
 	else:
 		print color["red"], "Invalid entry. Must be in the form of:"+color["dgrey"]+" name:category"
+
+
 #This decoder class was borrowed from:
 # http://buffis.com/2007/07/28/bittorrent-bencode-decoder-in-python-using-30-lines-of-code/
 #I take absolutely no credit for anything but copy and pasting that code here and adding the part in __init__ where it reads the provided file into self.data.
-
 class Decoder:
 	def __init__(self, file):
 		self.readme = open(file, 'rb')
@@ -1065,7 +1244,7 @@ class download(threading.Thread):
 		thread_data = threading.local()
 		
 		if option["DEBUG"] == "on":
-			DEBUG_MESSAGE = "\007"+color["bpurple"]+"DEBUG_OUTPUT: Starting download process."
+			DEBUG_MESSAGE = "\007"+color["bpurple"]+"DEBUG_OUTPUT: Starting download process. Try #" + str(self.count+1) + " of " + str(option["max_dl_tries"])
 			if option["verbose"] == 'on':
 				verbose(DEBUG_MESSAGE)
 			if option["logenabled"] == 'on':
@@ -1074,7 +1253,10 @@ class download(threading.Thread):
 		# And here we download. This wont hold up the main thread because this class is in a subthread,
 		#Using a try-except here incase urlretrieve has problems
 		try:
-			thread_data.dl = urllib.urlretrieve(self.dlurl, self.flname)
+			thread_data.opener = sccwDownloader()
+			thread_data.dl = thread_data.opener.retrieve(self.dlurl, self.flname)
+			
+			#thread_data.dl = urllib.urlretrieve(self.dlurl, self.flname)   no longer works anymore, have to have a custom downloader with special useragent
 		#Problem with urllib, so we create a blank file and send it to the size check. It will fail the check and redownload
 		except:
 			blankfile = open(self.flname, 'w')
@@ -1521,14 +1703,16 @@ def on_local(word, word_eol, userdata):
 	global option
 	ftrigger = re.split(' ',word_eol[0])
 	try:
-		ftrigger[0]
+		print ftrigger
+		ftrigger[1] #make sure we have an argument
+		ftrigger[1][0] #Make sure that argument isnt just blank
 		#Before all text was being lower()'d but remwatch and remavoid are case sensitive, so this only turns the first arg to lower, leaving the other args intact
 		arg1 = ftrigger.pop(1).lower()
 		ftrigger.insert(1, arg1)
-		#help(ftrigger)
+		help(ftrigger)
 	except:
 		print "No argument given, for help type: /sccwatcher help"
-	help(ftrigger)
+	#help(ftrigger)
 	return xchat.EAT_ALL
 
 def help(trigger):
@@ -1677,11 +1861,16 @@ def help(trigger):
 	elif trigger[1] == 'on':
 		if option["service"] == 'notdetected':
 			xchat.command('menu -t0 add "SCCwatcher/Enable Autograbbing" "sccwatcher on" "sccwatcher off"')
-			print color["red"], " Didn't detected the correct network infos! Autodownloading is disabled. Make sure you have joined #announce channel and reload the script!"      
+			print color["red"], " Didn't detected the correct network infos! Autodownloading is disabled. Make sure you have joined #announce channel and then redetect the network through the SCCwatcher toolbar menu."      
 		else:
-			option["service"] = 'on'
-			xchat.command('menu -t1 add "SCCwatcher/Enable Autograbbing" "sccwatcher on" "sccwatcher off"')
-			print color["dgreen"], "Autodownloading has been turned on"
+			if xchat.find_context(channel='#announce') is not None:
+				option["service"] = 'on'
+				xchat.command('menu -t1 add "SCCwatcher/Enable Autograbbing" "sccwatcher on" "sccwatcher off"')
+				print color["dgreen"], "Autodownloading has been turned on"
+			else:
+				option["service"] = 'off'
+				print color["red"], " Didn't detected the correct network infos! Autodownloading is disabled. Make sure you have joined #announce channel and then redetect the network through the SCCwatcher toolbar menu."      
+				xchat.command('menu -t0 add "SCCwatcher/Enable Autograbbing" "sccwatcher on" "sccwatcher off"')
 	
 	elif trigger[1] == 'emailoff':
 		option["smtp_emailer"] = 'off'
@@ -1811,11 +2000,120 @@ def manual_torrent_add(word, word_eol, userdata):
 		on_text(rlsdb_matchedtext, None, "BYPASS")
 		
 	else:
+		verbose("\00305The line you entered was incorrect somehow. Please double check that the line you copied was actually from #announce and was complete and try again\003")
+		verbose("\00305If you continue to have problems please post the problem in the SCCwatcher forum topic.\003")
+	
+	return xchat.EAT_ALL
+
+def announce_line_tester(word, word_eol, userdata):
+	global option
+	#basically using manual_torrent_add's checking code and then using some of the option checking code in on_text.
+	
+	#This is just incase someone uses the command and doesnt enter anything
+	try:
+		word_eol[1]
+	except:
+		word_eol = ['Nothing', 'Nothing', 'Nothing']
+		
+	manual_matchedtext = announce_regex.match(xchat.strip(word_eol[1]))
+	if manual_matchedtext is not None:
+		#group(1) = Garbage at the beginning of the line
+		#group(2) = Torrent's section (TV/XviD, TV-X264, etc)
+		#group(3) = Release name
+		#group(4) = Pretime and size
+		#group(5) = Torrent's site ID
+		#group(6) = Garbage at the end of the line
+		# Sending the data like this:
+		# on_text(regex_object, blank, bypass_checks_flag)
+		
+		#Ok now the thing is, we don't want to actuall *do* anything when we send this to on_text.
+		#So we are going to disable logging if its enabled but leave verbose output on so you can see (should it be forced on if its off? yes for now)
+		if option["logenabled"] == "on":
+			option["logenabled"] = "off"
+			option["__logenabled"] = "on"
+		
+		if option["verbose"] == "off":
+			option["verbose"] = "on"
+			option["__verbose"] = "off"
+		
+		#We are also going to turn debugging output on just because when testing you might want extra info
+		option["DEBUG"] = "on"
+		
+		on_text(manual_matchedtext, None, "TESTING")
+		
+		#now turn debug output off
+		option["DEBUG"] = "off"
+		
+		#Now reset settings back to what they were.
+		try:
+			option["__verbose"]
+			option["verbose"] = option["__verbose"]
+		except:
+			option["verbose"] = "on"
+		
+		try:
+			option["__logenabled"]
+			option["logenabled"] = option["__logenabled"]
+		except:
+			option["logenabled"] = "off"
+		
+		
+	elif re.match("^(.*)\((.*)\) - \((.*)\) - \((.*)\) - \((.*)\) - \(.*details(?:\.php)?\?id=([0-9]{1,12})\)", xchat.strip(word_eol[1])) is not None:
+		matched_first = re.match("^(.*)\((.*)\) - \((.*)\) - \((.*)\) - \((.*)\) - \(.*details\?id=([0-9]{1,12})\)", xchat.strip(word_eol[1]))
+		for_regex = ("_" + matched_first.group(3) + "__" + matched_first.group(2) + "___" + matched_first.group(5) + ") - (" + matched_first.group(4) + "____" + matched_first.group(6) + "@@")
+		#matched_first.group(1) = Junk at the beginning we dont need
+		#matched_first.group(2) = Release name
+		#matched_first.group(3) = Torrent's section (TV/XviD, TV-X264, etc)
+		#matched_first.group(4) = Torrent size
+		#matched_first.group(5) = How long ago was it uploaded
+		#matched_first.group(6) = Torrent's site ID
+		rlsdb_matchedtext = re.match("(_)(.*)__(.*)___(.*)____(.*)(@@)", for_regex)
+		#rlsdb_matchedtext.group(1) = Underscore (in place of normal junk)
+		#rlsdb_matchedtext.group(2) = Torrent's section (TV/XviD, TV-X264, etc)
+		#rlsdb_matchedtext.group(3) = Release name
+		#rlsdb_matchedtext.group(4) = How long ago torrent was uploaded and torrent's size.
+		#rlsdb_matchedtext.group(5) = Torrent's site ID
+		#rlsdb_matchedtext.group(6) = double 'at' (junk normally at the end)
+		
+		#Ok now the thing is, we don't want to actuall *do* anything when we send this to on_text.
+		#So we are going to disable logging if its enabled but leave verbose output on so you can see (should it be forced on if its off?)
+		if option["logenabled"] == "on":
+			option["logenabled"] = "off"
+			option["__logenabled"] = "on"
+		
+		if option["verbose"] == "off":
+			option["verbose"] = "on"
+			option["__verbose"] = "off"
+		
+		#We are also going to turn debugging output on just because when testing you might want extra info
+		option["DEBUG"] = "on"
+		
+		# Sending the data like this:
+		# on_text(regex_object, blank, bypass_checks_flag)
+		on_text(rlsdb_matchedtext, None, "TESTING")
+		
+		#now turn debug output off
+		option["DEBUG"] = "off"
+		
+		#Now reset settings back to what they were.
+		try:
+			option["__verbose"]
+			option["verbose"] = option["__verbose"]
+		except:
+			option["verbose"] = "on"
+		
+		try:
+			option["__logenabled"]
+			option["logenabled"] = option["__logenabled"]
+		except:
+			option["logenabled"] = "off"
+		
+	else:
 		verbose("\00305The line you entered was incorrect somehow. Please double check that the line you copied was actually from #announce or RLSdb's search results and was complete and try again\003")
 		verbose("\00305If you continue to have problems please post the problem in the SCCwatcher forum topic.\003")
 	
 	return xchat.EAT_ALL
-	
+
 def unload_cb(userdata):
 	quitmsg = "\0034 "+__module_name__+" "+__module_version__+" has been unloaded\003"
 	print quitmsg
@@ -1831,6 +2129,7 @@ xchat.hook_print('Channel Message', on_text)
 xchat.hook_command('SCCwatcher', on_local, help="Edit main setting in scc.ini. use \002/sccwatcher help\002 for usage information.")
 xchat.hook_command('manualadd', manual_torrent_add, help="Manually grab torrents by pasting lines from #announce")
 xchat.hook_unload(unload_cb)
+xchat.hook_command('test_line', announce_line_tester, help="This will test a line to see if it would be downloaded by your current settings in scc.ini")
 
 #load scc.ini
 load_vars()
@@ -1840,4 +2139,4 @@ if (__name__ == "__main__"):
 		main()
 
 #LICENSE GPL
-#Last modified 4-04-11 (MM/DD/YY)
+#Last modified 02-24-14 (MM/DD/YY)
