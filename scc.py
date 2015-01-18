@@ -1,9 +1,9 @@
 #!/usr/bin/python
 ############################################################################
-#    Copyright (C) 2007 by realty                                          #
-#             Currently maintained/updated by TRB  since 1.5               #
+#    Copyright (C) 2009 by TRB                                             #
+#                                                                          #
 #    exclusively written for scc                                           #
-#    some code from cancel's bot                                           #
+#    some code from reality and cancel's bot                               #
 #                                                                          #
 #    This program is free software; you can redistribute it and#or modify  #
 #    it under the terms of the GNU General Public License as published by  #
@@ -21,12 +21,14 @@
 #    59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             #
 ############################################################################
 __module_name__ = "SCCwatcher"
-__module_version__ = "1.551"
+__module_version__ = "1.6"
 __module_description__ = "SCCwatcher"
 
-import xchat, os, re, string, urllib, ftplib, time, math
+import xchat, os, re, string, urllib, ftplib, time, math,threading
 
 #the globals go here
+dlduration = ""
+from_main2 = ""
 extra_paths = "no"
 recent_list = ""
 full_xpath = ""
@@ -266,10 +268,10 @@ def dir_check(xpath, cat):
 			extra_paths = "no"
 		full_xpath = full_xpath2
 
-def update_recent(file, dldir, size):
+def update_recent(file, dldir, size, dduration):
 	global recent_list
 	time_now = time.strftime("%a, %d %b %Y %H:%M:%S", time.gmtime())
-	formatted = color["dgrey"]+ time_now + color["black"] + " - " + color["bpurple"] + file + color["black"] + " - " + color["dgrey"] + size + color["black"] + " - " + color["dgrey"] + os.path.normcase(dldir)
+	formatted = color["dgrey"]+ time_now + color["black"] + " - " + color["bpurple"] + file + color["black"] + " - " + color["dgrey"] + size + color["black"] + " - " + color["dgrey"] + dduration+" Seconds" + color["black"] + " - " + color["dgrey"] + os.path.normcase(dldir)
 	if len(string.join(recent_list, ' ')) > 0:
 		recent_list.append(formatted)
 	else:
@@ -278,6 +280,7 @@ def update_recent(file, dldir, size):
 def on_text(word, word_eol, userdata):
 	if option["service"] != 'on':
 		return
+
 	counter = 0
 	#get the context where a new message was written
 	destination = xchat.get_context()
@@ -363,14 +366,12 @@ def on_text(word, word_eol, userdata):
 					dir_check(download_dir[1], matchedtext.group(2))
 				except:
 					chicken = "lol" # Had to put something here :D
-				
-				
+	
 				if extra_paths == "yes":
 					disp_path = full_xpath
 				else:
 					disp_path = option["savepath"]
 					
-				update_recent(matchedtext.group(3), disp_path, nicesize)
 				verbtext = "\007"+color["bpurple"]+"SCCwatcher is downloading torrent for: "+color["dgrey"]+matchedtext.group(3)
 				if option["verbose"] == 'on':
 					verbose(verbtext)
@@ -380,9 +381,14 @@ def on_text(word, word_eol, userdata):
 				downloadurl = "https://www.sceneaccess.org/download2.php/" + matchedtext.group(5) + "/" + option["passkey"] + "/" + matchedtext.group(3) + ".torrent"
 				#Check if we should download into extra paths
 				if extra_paths == "yes":
-					urllib.urlretrieve(downloadurl, full_xpath + matchedtext.group(3) + ".torrent")
+					filename = full_xpath + matchedtext.group(3) + ".torrent"
 				else:
-					urllib.urlretrieve(downloadurl, option["savepath"] + matchedtext.group(3) + ".torrent")
+					filename = option["savepath"] + matchedtext.group(3) + ".torrent"
+					
+				download(downloadurl, filename).start()				
+				from_main = [matchedtext.group(3), os.path.normcase(disp_path), nicesize]
+				dlfinished("File Not Downloaded. Dunno why but that sucks man :(", from_main, "no")
+				
 				# Is ftp uploading enabled in scc.ini ?
 				if option["ftpenable"] == 'on':
 					#try to see if the ftp details are available, if the are: upload
@@ -525,7 +531,47 @@ def remove_watch(delitem):
 	else:
 		print color["red"], "Invalid entry. Must be in the form of:"+color["dgrey"]+" name:category"
 
+#I know the below function is fairly grabled and crap, but im tired as hell. It works so w/e.
+def dlfinished(dur, from_main, is_finished):
+	global from_main2
+	#from_main is a list of items btw
+	#from_main[0] = release name
+	#from_main[1] = savepath path
+	#from_main[2] = nicesize
+	
+	#prevent function from reseting its own var
+	if is_finished == "no":
+		from_main2 = from_main
+	
+	if is_finished == "yes":
+		update_recent(from_main2[0], from_main2[1], from_main2[2], dur)
+		#Print/log the confirmation of download completed and duration
+		verbtext3 = "\007"+color["bpurple"]+"SCCwatcher successfully downloaded torrent for "+color["dgrey"] + from_main2[0] + " in "+dur+" seconds."
+		if option["verbose"] == 'on':
+			verbose(verbtext3)
+		if option["logenabled"] == 'on':
+			verbtext3 = xchat.strip(verbtext3) +" - "+ os.path.normcase(from_main2[1])
+			logging(verbtext3, "END_GRAB")
 		
+#Threaded download class.
+class download(threading.Thread):
+	def __init__(self, dlurl, flname):
+		self.dlurl = dlurl
+		self.flname = flname
+		threading.Thread.__init__(self)
+	def run (self):
+		# I'm adding in some timer things just for the hell of it
+		start_time = time.time()
+		# And here we download, but instead of halting the main thread (and xchat), this is in its own thread.
+		urllib.urlretrieve(self.dlurl, self.flname)
+		# Calculating download duration
+		end_time = time.time()
+		duration = end_time - start_time
+		#round off extra crap from duration to 3 digits
+		duration = str(float(round(duration, 3)))
+		#log/print download confirmation
+		dlfinished(duration,0,"yes")
+
 # I had to split up the on_local and the ifs because using try on all of it was causing problems
 def on_local(word, word_eol, userdata):
 	global option
@@ -679,4 +725,4 @@ if (__name__ == "__main__"):
 loadmsg = "\0034 "+__module_name__+" "+__module_version__+" has been loaded\003"
 print loadmsg
 #LICENSE GPL
-#Last modified 1-20-09
+#Last modified 1-30-09
