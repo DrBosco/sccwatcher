@@ -21,18 +21,18 @@
 #    59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             #
 ############################################################################
 __module_name__ = "SCCwatcher"
-__module_version__ = "1.52"
+__module_version__ = "1.53"
 __module_description__ = "SCCwatcher"
 
-import xchat, os, re, string, urllib, ftplib
+import xchat, os, re, string, urllib, ftplib, time
 
 print "\0034",__module_name__, __module_version__,"has been loaded\003"
 
 #the globals go here
 option = {}
 xchatdir = xchat.get_info("xchatdir")
-color = {"white":"\0030", "black":"\0031", "blue":"\0032", "green":"\0033", "red":"\0034",
-"dred":"\0035", "purple":"\0036", "dyellow":"\0037", "yellow":"\0038", "bgreen":"\0039",
+color = {"white":"\00300", "black":"\00301", "blue":"\00302", "green":"\00303", "red":"\00304",
+"dred":"\00305", "purple":"\00306", "dyellow":"\00307", "yellow":"\00308", "bgreen":"\00309",
 "dgreen":"\00310", "green":"\00311", "lblue":"\00312", "bpurple":"\00313", "dgrey":"\00314",
 "lgrey":"\00315", "close":"\003"}
 def reload_vars():
@@ -101,14 +101,28 @@ def main():
 def verbose(which,mtext,host,port,dir):
 	currloc = xchat.find_context()
 	# There isnt a context-orentiated command to print, so I had to work waaaaay around. Because context commands dont carry variables, I had to place all the into a var.
-	print1 = "py exec print \""+color["bpurple"]+"SCCwatcher is downloading torrent for: "+color["dgrey"]+mtext+"\""
-	print2 = "py exec print \""+color["bpurple"]+"SCCwatcher is uploading torrent "+color["dgrey"]+mtext+".torrent"+color["bpurple"]+" to "+color["dgrey"]+"ftp://"+color["dgrey"]+host+":"+port+"/"+dir+"\""
+	print1 = color["bpurple"]+"SCCwatcher is downloading torrent for: "+color["dgrey"]+mtext
+	print2 = color["bpurple"]+"SCCwatcher is uploading file "+color["dgrey"]+mtext+".torrent"+color["bpurple"]+" to "+color["dgrey"]+"ftp://"+color["dgrey"]+host+":"+port+"/"+dir
 	which=int(which)
 	if which == 1:
-		currloc.command(print1)
+		currloc.prnt(print1)
 	if which == 2:
-		currloc.command(print2)
-		
+		currloc.prnt(print2)
+
+def logging(which,mtext,host,port,dir):
+	fullpath = option["logpath"] + "sccwatcher.log"
+	current_time = time.strftime("%a, %d %b %Y %H:%M:%S", time.gmtime())
+	print1 = current_time+":	SCCwatcher is downloading torrent for: "+mtext+"\n"
+	print2 = current_time+":	SCCwatcher is uploading file "+mtext+".torrent to ftp://"+host+":"+port+"/"+dir+"\n"
+	scclog = open(fullpath, 'a')
+	
+	if which == 1:
+		scclog.write(print1)
+		scclog.close()
+	if which == 2:
+		scclog.write(print2)
+		scclog.close()
+
 def on_text(word, word_eol, userdata):
 	if option["service"] != 'on':
 		return
@@ -159,6 +173,8 @@ def on_text(word, word_eol, userdata):
 				urllib.urlretrieve(downloadurl,option["savepath"] + matchedtext.group(2) + ".torrent")
 				if option["verbose"] == 'on':
 					verbose(1,matchedtext.group(2),'', '', '')
+				if option["logenabled"] == 'on':
+					logging(1,matchedtext.group(2),'', '', '')
 				# Is ftp uploading enabled in scc.ini ?
 				if option["ftpenable"] == 'on':
 					#try to see if the ftp details are available, if the are: upload
@@ -166,6 +182,8 @@ def on_text(word, word_eol, userdata):
 					if ftpdetails is not None:
 						if option["verbose"] == 'on':
 							verbose(2,matchedtext.group(2),ftpdetails.group(3),ftpdetails.group(4),ftpdetails.group(5))
+						if option["logenabled"] == 'on':
+							logging(2,matchedtext.group(2),ftpdetails.group(3),ftpdetails.group(4),ftpdetails.group(5))
 						# ftp://user:psw@host:port/directory/torrents/
 						#ftpdetails.group(1) # user
 						#ftpdetails.group(2) # psw
@@ -226,6 +244,10 @@ def more_help(command):
 		print color["bpurple"], "Detectnetwork: " + color["blue"] + "Re-detects the network settings, incase when SCCwatcher couldn't detect them when it first loaded."
 	elif command == 'ftpdetails':
 		print color["bpurple"], "ftpdetails: " + color["blue"] + "Displays your current FTPdetails"
+	elif command == 'logon':
+		print color["bpurple"], "logon: " + color["blue"] + "Enables logging to file."
+	elif command == 'logoff':
+		print color["bpurple"], "logoff: " + color["blue"] + "Disables logging to file."
 	else:
 		print color["red"], "Unknown command, "+color["black"]+command
 
@@ -300,7 +322,7 @@ def help(trigger):
 			more_help(trigger[2])
 		except:
 			print color["blue"], "Current accepted commands are: "
-			print color["dgrey"], "Help, Loud, Quiet, Rehash, Addwatch, Addavoid, Remwatch, Remavoid, Status, Watchlist, Avoidlist, On, Off, ftpon, ftpoff, updateftp, ftpdetails, detectnetwork" 
+			print color["dgrey"], "Help, Loud, Quiet, Rehash, Addwatch, Addavoid, Remwatch, Remavoid, Status, Watchlist, Avoidlist, On, Off, ftpon, ftpoff, updateftp, ftpdetails, logon, logoff, detectnetwork" 
 			print color["blue"], "Too see info on individual commands use: "+color["bpurple"]+"/sccwatcher help <command>"
 	elif trigger[1] == 'ftpon':
 		ftpdetails = re.match("ftp:\/\/(.*):(.*)@(.*):([^\/]*.)/(.*)", option["ftpdetails"])
@@ -346,16 +368,24 @@ def help(trigger):
 		
 	elif trigger[1] == 'remavoid':
 		remove_avoid(trigger[2])
-
-	elif trigger[1] == 'del' or trigger[1] == 'delete':
-		print color["red"],"Function not yet implemented"
+	
+	elif trigger[1] == 'logon':
+		print color["blue"]+"Logging to file is now turned on, use 'logoff' to turn it back off"
+		option["logenabled"] = 'on'
+	
+	elif trigger[1] == 'logoff':
+		print color["blue"]+"Logging to file is now turned off, use 'logon' to turn it back on"
+		option["logenabled"] = 'off'
 
 	elif trigger[1] == 'status':
+		print color["bpurple"], "SCCwatcher version " +color["blue"] + __module_version__
 		print color["bpurple"], "Auto downloading is: " + color["blue"] + option["service"]
 		print color["bpurple"], "Start delay is set to:" + color["blue"],option["startdelay"]+ " seconds"
 		print color["bpurple"], "Verbose output is: " + color["blue"] + option["verbose"]
+		print color["bpurple"], "Logging to file is: " + color["blue"] + option["logenabled"]
 		print color["bpurple"], "Uploading to ftp is: " + color["blue"] + option["ftpenable"]
 		print color["bpurple"], "Savepath is set to: " + color["blue"] + option["savepath"]
+		print color["bpurple"], "Logpath is set to: " + color["blue"] + option["logpath"]
 		print color["lblue"], "Current watchlist: " + color["dgreen"] + str(option["watchlist"])
 		print color["lblue"], "Current avoidlist: " + color["dred"] + str(option["avoidlist"])
 	
