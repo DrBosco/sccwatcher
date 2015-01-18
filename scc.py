@@ -21,10 +21,10 @@
 #    59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             #
 ############################################################################
 __module_name__ = "SCCwatcher"
-__module_version__ = "1.72"
+__module_version__ = "1.73"
 __module_description__ = "SCCwatcher"
 
-import xchat, os, re, string, urllib, ftplib, time, math, threading, base64, urllib2, smtplib, subprocess
+import xchat, os, re, string, urllib, ftplib, time, math, threading, base64, urllib2, smtplib, subprocess, platform
 
 #the globals go here
 extra_paths = "no"
@@ -160,7 +160,8 @@ def starttimer(userdata):
 	else:
 		option["service"] = 'notdetected'
 		print color["red"], "\007Could not detect the correct network! Autodownloading has been disabled. Make sure you have joined #scc-announce channel and then do /sccwatcher detectnetwork"
- 
+
+
 starttimerhook = None
 def main():
 	sdelay=int(option["startdelay"]+"000")
@@ -437,8 +438,11 @@ def on_text(word, word_eol, userdata):
 			if counter > 0:
 				#Now that we're downloading for sure, add the release name to the dupecheck list.
 				update_dupe(matchedtext.group(3))
-				#And set the download url
-				downloadurl = "http://www.sceneaccess.org/downloadbig2.php/" + matchedtext.group(5) + "/" + option["passkey"] + "/" + matchedtext.group(3) + ".torrent"
+				#And set the download url. If download_ssl is on, generate an ssl url instead.
+				if option["download_ssl"] == "on":
+					downloadurl = "https://www.sceneaccess.org/downloadbig2.php/" + matchedtext.group(5) + "/" + option["passkey"] + "/" + matchedtext.group(3) + ".torrent"
+				else:
+					downloadurl = "http://www.sceneaccess.org/downloadbig2.php/" + matchedtext.group(5) + "/" + option["passkey"] + "/" + matchedtext.group(3) + ".torrent"
 				#And make the nice_tag_extra a string, since later it will be needed in string format, and we wont be needing its boolean type anymore anyway.
 				nice_tag_extra = str(nice_tag_extra)
 				#Utorrent is either disabled or is working in tandom with normal download.
@@ -540,6 +544,10 @@ def more_help(command):
 		print color["bpurple"], "thistab: " + color["blue"] + "Changes the verbose output to be the tab this command was used in. This will not change unless you use the anytab command."
 	elif command == 'scctab':
 		print color["bpurple"], "scctab: " + color["blue"] + "Creates a tab named SCCwatcher and directs all verbose output to it. This will not change unless you use the anytab command, or close the SCCwatcher tab."
+	elif command == 'sslon':
+		print color["bpurple"], "sslon: " + color["blue"] + "This command will enable SSL downloading, which will download all torrents over an encrypted HTTPS connection. This may increase the amount of time it takes to grab a torrent."
+	elif command == 'ssloff':
+		print color["bpurple"], "ssloff: " + color["blue"] + "This command disables the SSL downloading feature, forcing SCCwatcher to download all torrents using an unencrypted HTTP connection."
 	
 	else:
 		print color["red"], "Unknown command, "+color["black"]+command
@@ -829,7 +837,7 @@ class email(threading.Thread):
 		thread_data = threading.local()
 		#connect to the server
 		try:
-			thread_data.smtpconn = smtplib.SMTP(option["smtp_server"])
+			thread_data.smtpconn = smtplib.SMTP(option["smtp_server"], option["smtp_port"])
 			#Uncomment the line below to be dazzled with all the crazy server chatter. Very spammy.
 			#thread_data.smtpconn.set_debuglevel(1)
 			thread_data.smtpconn.ehlo()
@@ -895,8 +903,16 @@ class email(threading.Thread):
 		thread_data.current_time = time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())
 		#Here we replace all the special strings with actual data
 		# Acceptable special strings are:
-		# %torrent% %category% %size% %time% %dlpath% %ulpath% %utserver% %tag
+		# %torrent% %category% %size% %time% %dlpath% %ulpath% %utserver% %tag %torrentpath% %sccgrptree% %sccgrp%
 		# To see what they mean, just see below.
+		thread_data.sccgrp = self.matchedtext.group(2)
+		thread_data.sccgrp = thread_data.sccgrp.replace('/','.')
+		thread_data.sccgrp = thread_data.sccgrp.replace('-','.')
+		thread_data.sccgrptree = self.matchedtext.group(2)
+		thread_data.sccgrptree = thread_data.sccgrptree.replace('-', os.sep)
+		thread_data.sccgrptree = thread_data.sccgrptree.replace('/', os.sep)
+		
+		thread_data.fulltpath = self.disp_path + self.matchedtext.group(3) + ".torrent"
 		thread_data.ftpdetails = re.match("ftp:\/\/(.*):(.*)@(.*):([^\/]*.)/(.*)", option["ftpdetails"])
 		if thread_data.ftpdetails is not None:
 			thread_data.ftpstring = "ftp://" + thread_data.ftpdetails.group(3) + ":" + thread_data.ftpdetails.group(4) + "/" + thread_data.ftpdetails.group(5)
@@ -912,6 +928,9 @@ class email(threading.Thread):
 		thread_data.email_body = thread_data.email_body.replace('%ulpath%', thread_data.ftpstring)
 		thread_data.email_body = thread_data.email_body.replace('%utserver%', thread_data.utstring)
 		thread_data.email_body = thread_data.email_body.replace('%tag%', self.nice_tag_extra)
+		thread_data.email_body = thread_data.email_body.replace('%torrentpath%', thread_data.fulltpath)
+		thread_data.email_body = thread_data.email_body.replace('%sccgrptree%', thread_data.sccgrptree)
+		thread_data.email_body = thread_data.email_body.replace('%sccgrp%', thread_data.sccgrp)
 		
 		thread_data.email_subject = option["smtp_subject"].replace('%torrent%', self.matchedtext.group(3))
 		thread_data.email_subject = thread_data.email_subject.replace('%category%', self.matchedtext.group(2))
@@ -921,6 +940,9 @@ class email(threading.Thread):
 		thread_data.email_subject = thread_data.email_subject.replace('%ulpath%', thread_data.ftpstring)
 		thread_data.email_subject = thread_data.email_subject.replace('%utserver%', thread_data.utstring)
 		thread_data.email_subject = thread_data.email_subject.replace('%tag%', self.nice_tag_extra)
+		thread_data.email_subject = thread_data.email_subject.replace('%torrentpath%', thread_data.fulltpath)
+		thread_data.email_subject = thread_data.email_subject.replace('%sccgrptree%', thread_data.sccgrptree)
+		thread_data.email_subject = thread_data.email_subject.replace('%sccgrp%', thread_data.sccgrp)
 		
 		thread_data.message = """
 Subject: %s
@@ -952,6 +974,14 @@ class do_cmd(threading.Thread):
 		# Acceptable special strings are:
 		# %torrent% %category% %size% %time% %dlpath% %ulpath% %utserver%
 		# To see what they mean, just see below.
+		thread_data.sccgrp = self.matchedtext.group(2)
+		thread_data.sccgrp = thread_data.sccgrp.replace('/','.')
+		thread_data.sccgrp = thread_data.sccgrp.replace('-','.')
+		thread_data.sccgrptree = self.matchedtext.group(2)
+		thread_data.sccgrptree = thread_data.sccgrptree.replace('-', os.sep)
+		thread_data.sccgrptree = thread_data.sccgrptree.replace('/', os.sep)
+			
+		thread_data.fulltpath = self.disp_path + self.matchedtext.group(3) + ".torrent"
 		thread_data.ftpdetails = re.match("ftp:\/\/(.*):(.*)@(.*):([^\/]*.)/(.*)", option["ftpdetails"])
 		if thread_data.ftpdetails is not None:
 			thread_data.ftpstring = "ftp://" + thread_data.ftpdetails.group(3) + ":" + thread_data.ftpdetails.group(4) + "/" + thread_data.ftpdetails.group(5)
@@ -967,9 +997,23 @@ class do_cmd(threading.Thread):
 		thread_data.command_string = thread_data.command_string.replace('%ulpath%', thread_data.ftpstring)
 		thread_data.command_string = thread_data.command_string.replace('%utserver%', thread_data.utstring)
 		thread_data.command_string = thread_data.command_string.replace('%tag%', self.nice_tag_extra)
+		thread_data.command_string = thread_data.command_string.replace('%torrentpath%', thread_data.fulltpath)
+		thread_data.command_string = thread_data.command_string.replace('%sccgrptree%', thread_data.sccgrptree)
+		thread_data.command_string = thread_data.command_string.replace('%sccgrp%', thread_data.sccgrp)
+		
+		#Check what OS we are on so we know if we need to use 'shell=True' with subprocess.Popen
+		thread_data.osver = platform.system()
+		
+		# If for some reason you are having trouble with this new script, specifically external commands, it could be because of the new execution method (subprocess.Popen). 
+		# To fix this, you need to replace the do_cmd class in this script with the one from version 1.72.
+		# If you have problems doing that then PM TRB and he will give you a pastebin link to a fully modified version.
 		
 		try:
-			os.system(thread_data.command_string)
+			if thread_data.osver == "Windows":
+				subprocess.Popen(thread_data.command_string)
+			else:
+				subprocess.Popen(thread_data.command_string, shell=True)
+			
 			thread_data.verbtext="\007"+color["bpurple"]+"SCCwatcher successfully ran the external command " + color["dgrey"] + thread_data.command_string
 			if option["verbose"] == 'on':
 				verbose(thread_data.verbtext)
@@ -1019,7 +1063,7 @@ def help(trigger):
 			more_help(trigger[2])
 		except:
 			print color["blue"], "Current accepted commands are: "
-			print color["dgrey"], "Help, Loud, Quiet, Rehash, Addwatch, Addavoid, Remwatch, Remavoid, Status, Watchlist, Avoidlist, On, Off, ftpon, ftpoff, updateftp, ftpdetails, logon, logoff, recent, recentclear, detectnetwork, emailon, emailoff, anytab, thistab, sccab, deloutput" 
+			print color["dgrey"], "Help, Loud, Quiet, Rehash, Addwatch, Addavoid, Remwatch, Remavoid, Status, Watchlist, Avoidlist, On, Off, ftpon, ftpoff, updateftp, ftpdetails, logon, logoff, recent, recentclear, detectnetwork, emailon, emailoff, anytab, thistab, sccab, deloutput, sslon, ssloff" 
 			print color["blue"], "Too see info on individual commands use: "+color["bpurple"]+"/sccwatcher help <command>"
 			
 	elif trigger[1] == 'ftpon':
@@ -1089,6 +1133,7 @@ def help(trigger):
 	elif trigger[1] == 'status':
 		print color["bpurple"], "SCCwatcher version " +color["blue"] + __module_version__
 		print color["bpurple"], "Auto downloading is: " + color["blue"] + option["service"]
+		print color["bpurple"], "SSL downloading is: " + color["blue"] + option["download_ssl"]
 		print color["bpurple"], "Maximum redownload tries is : " + color["blue"] + option["max_dl_tries"]
 		print color["bpurple"], "Delay (in seconds) between download retry is: " + color["blue"] + option["retry_wait"]
 		print color["bpurple"], "Dupechecking is: " + color["blue"] + option["dupecheck"]
@@ -1140,6 +1185,13 @@ def help(trigger):
 		option["smtp_emailer"] = 'on'
 		print color["red"], "Emailing has been turned on, use 'emailoff' to turn it back off"
 	
+	elif trigger[1] == 'sslon':
+		option["download_ssl"] = 'on'
+		print color["red"], "SSL downloading is now enabled, use 'ssloff' to disable it."
+		
+	elif trigger[1] == 'ssloff':
+		option["download_ssl"] = 'off'
+		print color["red"], "SSL downloading is now disabled, use 'sslon' to enable it."
 	
 	elif trigger[1] == "setoutput":
 		print color["red"] + "This command has been depreciated. You can now use anytab, thistab, or scctab. The deloutput command has also been removed in favor of anytab."
@@ -1201,4 +1253,4 @@ if (__name__ == "__main__"):
 loadmsg = "\0034 "+__module_name__+" "+__module_version__+" has been loaded\003"
 print loadmsg
 #LICENSE GPL
-#Last modified 5-7-09
+#Last modified 5-14-09
