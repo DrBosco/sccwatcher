@@ -17,7 +17,7 @@
 #                                                                          #
 ############################################################################
 __module_name__ = "SCCwatcher"
-__module_version__ = "1.84"
+__module_version__ = "1.85"
 __module_description__ = "SCCwatcher"
 
 import xchat, os, re, string, urllib, ftplib, time, threading, base64, urllib2, smtplib, subprocess, platform, socket, cookielib
@@ -39,18 +39,20 @@ option = {}
 has_tab_data = False
 sccnet = None
 announce_regex = None
+downloaderHeaders = None
 xchatdir = xchat.get_info("xchatdir")
 color = {"white":"\00300", "black":"\00301", "blue":"\00302", "green":"\00303", "red":"\00304",
 "dred":"\00305", "purple":"\00306", "dyellow":"\00307", "yellow":"\00308", "bgreen":"\00309",
 "dgreen":"\00310", "green":"\00311", "lblue":"\00312", "bpurple":"\00313", "dgrey":"\00314",
 "lgrey":"\00315", "close":"\003"}
 
+
 class sccwDownloader(urllib.FancyURLopener):
-	#This is where we adjust the useragent.
-	version = "Mozilla/5.0 (compatible; Python urllib; SCCwatcher; v%s" % (__module_version__)
+        #This is where we adjust the useragent.
+        version = "Mozilla/5.0 (compatible; Python urllib; SCCwatcher; v%s" % (__module_version__)
 
 def reload_vars():
-	global option, has_tab_data
+	global option, has_tab_data, downloaderHeaders
 	#backup some values we want to keep, if they exist
 	try:
 		cc = option["_current_context_"]
@@ -136,6 +138,8 @@ def reload_vars():
 	
 	option["_current_context_"] = cc
 	option["_extra_context_"] = ec
+	
+	#Check if 
 	
 	#Set the needed headers if the user wants to bypass cloudflare
 	#Headers for our downloader. Most of them I just copied from a normal browser to ensure compatibility with browser-checkers
@@ -252,7 +256,7 @@ def reload_vars():
 			logging(xchat.strip(OHNOEZ), "WRITE_ERROR")
 	
 def load_vars():
-	global option, announce_regex, sccnet, has_tab_data
+	global option, announce_regex, sccnet, has_tab_data, downloaderHeaders
 	try:
 		inifile = open(os.path.join(xchatdir,"scc.ini"))
 		line = inifile.readline()
@@ -565,8 +569,8 @@ def logging(text, operation):
 		scclog.write(text)
 		scclog.close()
 	
-# I decided to make the dir_check function a class because it made the code much easier to work with
-# Now instead of a mashup of if's and else's I have a steady flow of assign and return from internal functions.
+#This class checks to make sure the directory given actually exists and creates it if not.
+#It can also create directories in varius styles, e.g. SCCDATE, SCCGRP, SCCGRPTREE
 class dir_check:
 	def __init__(self, dldir, cat):
 		self.dldir = dldir
@@ -1177,6 +1181,7 @@ class download(threading.Thread):
 		#Add to the count since we just tried to download.
 		self.count += 1
 		thread_data = threading.local()
+		thread_data.need_cf_bypass = False
 		
 		#Set to false first as a precaution incase something fails.
 		thread_data.torrent_is_valid = False
@@ -1206,9 +1211,21 @@ class download(threading.Thread):
 				thread_data.torrent_is_valid = False  # A thown exception means this .torrent isn't valid for one reason or another.
 				
 				if option["DEBUG"] == "on":
-					DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Torrent file failed bencode check."
+					DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Torrent file failed bencode check. Checking for cloudflare interference..."
 					verbose(DEBUG_MESSAGE)
 					logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
+				cfcheck = open(tfile, 'r')
+				tcheck = cfcheck.read()
+				cfcheck.close()
+				#Look for cloudflare
+				cf_req_reg = re.search("cloudflare", tcheck, re.IGNORECASE)
+				if cf_req_reg is not None:
+					#We got some cloudflare business so we need to do the bypass to get it working.
+					thread_data.need_cf_bypass = True
+					if option["DEBUG"] == "on":
+						DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Cloudflare interference verified. Using cloudflare workaround next try..."
+						verbose(DEBUG_MESSAGE)
+						logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
 		
 		
 		if thread_data.torrent_is_valid == False:
@@ -1219,14 +1236,14 @@ class download(threading.Thread):
 				#Sleep a second to give the server some breathing room.
 				time.sleep(int(option["retry_wait"]))
 				#Then download again
-				self.download(stime)
+				self.download(stime, thread_data.need_cf_bypass)
 			#We have reached the limit, verbose/log event and discontinue download operations.
 			else:
 				self.final_output(False, stime)
 		else:
 			self.final_output(True, stime)
 		
-	def download(self, stime):
+	def download(self, stime, req=False):
 		thread_data = threading.local()
 		
 		if option["DEBUG"] == "on":
@@ -1238,10 +1255,17 @@ class download(threading.Thread):
 		# And here we download. This wont hold up the main thread because this class is in a subthread,
 		#Using a try-except here incase urlretrieve has problems
 		try:
-			#Old stuff, new stuff bypasses cloudflare shit
-			
 			#If we have the option, use the cookiefile and bypass the cloudflare protection.
-			if option.has_key("cookiefile"):
+			if option.has_key("cookiefile") and len(option["cookiefile"]) > 2 and option.has_key("useragent") and len(option["useragent"]) > 5 and req is True:
+				
+				#DBG
+				if option["DEBUG"] == "on":
+					DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Found cookiefile and useragent option, length checks good."
+					verbose(DEBUG_MESSAGE)
+					logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
+				#END DBG
+				
+				
 				thread_data.cookie_path = option["savepath"] + option["cookiefile"]
 				thread_data.cookie_jar = cookielib.MozillaCookieJar()
 				thread_data.cookie_jar.load(thread_data.cookie_path)
@@ -1253,11 +1277,33 @@ class download(threading.Thread):
 					thread_data.savefile.write(thread_data.connection.read())
 				thread_data.savefile.close()
 				thread_data.connection.close()
+				
+				#DBG
+				if option["DEBUG"] == "on":
+					DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Finished downloading and saved to file."
+					verbose(DEBUG_MESSAGE)
+					logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
+				#END DBG
+				
 			else:
+				
+				#DBG
+				if option["DEBUG"] == "on":
+					DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: No cookiefile or useragent option or length checks failed."
+					verbose(DEBUG_MESSAGE)
+					logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
+				#END DBG	
+					
 				#Download normally
-				thread_data.opener = sccwDownloader()
-				thread_data.dl = thread_data.opener.retrieve(self.dlurl, self.flname)
-			
+				thread_data.dl = urllib.urlretrieve(self.dlurl, self.flname)
+				
+				
+				#DBG
+				if option["DEBUG"] == "on":
+					DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: finished normal download"
+					verbose(DEBUG_MESSAGE)
+					logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
+				#END DBG	
 			
 			#thread_data.dl = urllib.urlretrieve(self.dlurl, self.flname)
 		#Problem with urllib, so we create a blank file and send it to the size check. It will fail the check and redownload
@@ -1784,8 +1830,14 @@ def help(trigger):
 
 	elif trigger[1] == 'status':
 		print color["bpurple"], "SCCwatcher version " +color["blue"] + __module_version__
+		if option["DEBUG"] == "on":
+			print color["bpurple"], "Debug output is: " + color["blue"] + option["DEBUG"]
 		print color["bpurple"], "Auto downloading is: " + color["blue"] + option["service"]
 		print color["bpurple"], "SSL downloading is: " + color["blue"] + option["download_ssl"]
+		if option.has_key("cookiefile") and len(option["cookiefile"]) > 2 and option.has_key("useragent") and len(option["useragent"]) > 5:
+			print color["bpurple"], "Cloudflare workaround is " + color["blue"] + "Enabled"
+		else:
+			print color["bpurple"], "Cloudflare workaround is " + color["blue"] + "Disabled"
 		print color["bpurple"], "Maximum redownload tries is : " + color["blue"] + option["max_dl_tries"]
 		print color["bpurple"], "Delay (in seconds) between download retry is: " + color["blue"] + option["retry_wait"]
 		print color["bpurple"], "Dupechecking is: " + color["blue"] + option["dupecheck"]
@@ -1795,8 +1847,6 @@ def help(trigger):
 		print color["bpurple"], "Verbose output is: " + color["blue"] + option["verbose"]
 		print color["bpurple"], "Using custom tab for verbose output is: " + color["blue"] + option["_extra_context_"]
 		print color["bpurple"], "Logging to file is: " + color["blue"] + option["logenabled"]
-		if option["DEBUG"] == "on":
-			print color["bpurple"], "Debug output is: " + color["blue"] + option["DEBUG"]
 		print color["bpurple"], "Uploading to ftp is: " + color["blue"] + option["ftpenable"]
 		print color["bpurple"], "uTorrent WebUI Mode is: " + color["blue"] + option["utorrent_mode"]
 		print color["bpurple"], "Savepath is set to: " + color["blue"] + option["savepath"]
@@ -2033,4 +2083,5 @@ if (__name__ == "__main__"):
 		main()
 
 #LICENSE GPL
-#Last modified 12-26-14 (MM/DD/YY)
+#Last modified 01-17-15 (MM/DD/YY)
+
