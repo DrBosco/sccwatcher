@@ -21,7 +21,7 @@
 #    59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             #
 ############################################################################
 __module_name__ = "SCCwatcher"
-__module_version__ = "1.68"
+__module_version__ = "1.681"
 __module_description__ = "SCCwatcher"
 
 import xchat, os, re, string, urllib, ftplib, time, math, threading, base64, urllib2, smtplib
@@ -771,7 +771,7 @@ class email(threading.Thread):
 					if option["logenabled"] == 'on':
 						thread_data.verbtext = xchat.strip(thread_data.verbtext)
 						logging(xchat.strip(thread_data.verbtext), "SMTP_FAIL")
-						thread_data.is_auth = False
+					thread_data.is_auth = False
 			#Otherwise just continue on without authenticating
 			else:
 				thread_data.is_auth = True
