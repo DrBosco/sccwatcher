@@ -21,7 +21,7 @@
 #    59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             #
 ############################################################################
 __module_name__ = "SCCwatcher"
-__module_version__ = "1.6"
+__module_version__ = "1.61"
 __module_description__ = "SCCwatcher"
 
 import xchat, os, re, string, urllib, ftplib, time, math,threading
@@ -278,9 +278,10 @@ def update_recent(file, dldir, size, dduration):
 		recent_list = [formatted]
 
 def on_text(word, word_eol, userdata):
+	#what the hell why didnt I do this before???? Enough sending vars, GLOBAL FTW!
+	global matchedtext, disp_path, nicesize
 	if option["service"] != 'on':
 		return
-
 	counter = 0
 	#get the context where a new message was written
 	destination = xchat.get_context()
@@ -386,43 +387,13 @@ def on_text(word, word_eol, userdata):
 					filename = option["savepath"] + matchedtext.group(3) + ".torrent"
 					
 				download(downloadurl, filename).start()				
-				from_main = [matchedtext.group(3), os.path.normcase(disp_path), nicesize]
-				dlfinished("File Not Downloaded. Dunno why but that sucks man :(", from_main, "no")
-				
-				# Is ftp uploading enabled in scc.ini ?
-				if option["ftpenable"] == 'on':
-					#try to see if the ftp details are available, if the are: upload
-					ftpdetails = re.match("ftp:\/\/(.*):(.*)@(.*):([^\/]*.)/(.*)", option["ftpdetails"])
-					if ftpdetails is not None:
-						verbtext2 = "\007"+color["bpurple"]+"SCCwatcher is uploading file "+color["dgrey"]+matchedtext.group(3)+".torrent"+color["bpurple"]+" to "+color["dgrey"]+"ftp://"+color["dgrey"]+ftpdetails.group(3)+":"+ftpdetails.group(4)+"/"+ftpdetails.group(5)
-						if option["verbose"] == 'on':
-							verbose(verbtext2)
-						if option["logenabled"] == 'on':
-							logging(xchat.strip(verbtext2), "UPLOAD")
-						# ftp://user:psw@host:port/directory/torrents/
-						#ftpdetails.group(1) # user
-						#ftpdetails.group(2) # psw
-						#ftpdetails.group(3) # host
-						#ftpdetails.group(4) # port
-						#ftpdetails.group(5) # directory/torrents/
-						s = ftplib.FTP() # Create the ftp object
-						s.connect(ftpdetails.group(3), ftpdetails.group(4)) # Connect
-						s.login(ftpdetails.group(1), ftpdetails.group(2)) # Login
-						if option["ftppassive"] == 'on':
-							s.set_pasv(True) # Set passive-mode 
-						s.cwd(ftpdetails.group(5)) # Change directory
-						if extra_paths == "yes":
-							f = open(full_xpath + matchedtext.group(3) + ".torrent",'rb') # Open file to send
-						else:
-							f = open(option["savepath"] + matchedtext.group(3) + ".torrent",'rb') # Open file to send
-						s.storbinary('STOR ' + matchedtext.group(3) + ".torrent", f) # Send the file
-						f.close() # Close file
-						s.quit() # Close ftp
-					else:
-						print color["red"]+"There is a problem with your ftp details, please double check scc.ini and make sure you have entered them properly. Temporarily disabling FTP uploading, you can reenable it by using /sccwatcher ftpon"
-						option["ftpenable"] = 'off'
+				# The upload will be cascaded from the download thread to prevent a train wreck.
 		else:
-			print color["red"], "WTF!!! The bot wrote something I could'nt understand "			
+			stupid_var = "stupid"
+			# GET IT?!!??!!?@!
+			#Ehhh what'du know....
+			# <_<
+			
 
 def more_help(command):
 	command = command.lower()
@@ -531,35 +502,13 @@ def remove_watch(delitem):
 	else:
 		print color["red"], "Invalid entry. Must be in the form of:"+color["dgrey"]+" name:category"
 
-#I know the below function is fairly grabled and crap, but im tired as hell. It works so w/e.
-def dlfinished(dur, from_main, is_finished):
-	global from_main2
-	#from_main is a list of items btw
-	#from_main[0] = release name
-	#from_main[1] = savepath path
-	#from_main[2] = nicesize
-	
-	#prevent function from reseting its own var
-	if is_finished == "no":
-		from_main2 = from_main
-	
-	if is_finished == "yes":
-		update_recent(from_main2[0], from_main2[1], from_main2[2], dur)
-		#Print/log the confirmation of download completed and duration
-		verbtext3 = "\007"+color["bpurple"]+"SCCwatcher successfully downloaded torrent for "+color["dgrey"] + from_main2[0] + " in "+dur+" seconds."
-		if option["verbose"] == 'on':
-			verbose(verbtext3)
-		if option["logenabled"] == 'on':
-			verbtext3 = xchat.strip(verbtext3) +" - "+ os.path.normcase(from_main2[1])
-			logging(verbtext3, "END_GRAB")
-		
 #Threaded download class.
 class download(threading.Thread):
 	def __init__(self, dlurl, flname):
 		self.dlurl = dlurl
 		self.flname = flname
 		threading.Thread.__init__(self)
-	def run (self):
+	def run(self):
 		# I'm adding in some timer things just for the hell of it
 		start_time = time.time()
 		# And here we download, but instead of halting the main thread (and xchat), this is in its own thread.
@@ -570,8 +519,57 @@ class download(threading.Thread):
 		#round off extra crap from duration to 3 digits
 		duration = str(float(round(duration, 3)))
 		#log/print download confirmation
-		dlfinished(duration,0,"yes")
-
+		update_recent(matchedtext.group(3), disp_path, nicesize, duration)
+		#Print/log the confirmation of download completed and duration
+		verbtext3 = "\007"+color["bpurple"]+"SCCwatcher successfully downloaded torrent for "+color["dgrey"] + matchedtext.group(3) + " in "+duration+" seconds."
+		if option["verbose"] == 'on':
+			verbose(verbtext3)
+		if option["logenabled"] == 'on':
+			verbtext3 = xchat.strip(verbtext3) +" - "+ os.path.normcase(disp_path)
+			logging(verbtext3, "END_GRAB")
+		
+		#Ok now that we have the file, we can do the upload if necessary:
+		if option["ftpenable"] == 'on':
+			upload(self.flname).start()
+		
+		
+class upload(threading.Thread):
+	def __init__(self, torrentname):
+		self.torrentname = torrentname
+		threading.Thread.__init__(self)	
+	#Uploading tiem nao!!!!
+	def run(self):
+		#try to see if the ftp details are available, if the are: upload
+		ftpdetails = re.match("ftp:\/\/(.*):(.*)@(.*):([^\/]*.)/(.*)", option["ftpdetails"])
+		if ftpdetails is not None:
+			verbtext2 = "\007"+color["bpurple"]+"SCCwatcher is uploading file "+color["dgrey"]+matchedtext.group(3)+".torrent"+color["bpurple"]+" to "+color["dgrey"]+"ftp://"+color["dgrey"]+ftpdetails.group(3)+":"+ftpdetails.group(4)+"/"+ftpdetails.group(5)
+			if option["verbose"] == 'on':
+				verbose(verbtext2)
+			if option["logenabled"] == 'on':
+				logging(xchat.strip(verbtext2), "UPLOAD")
+			# ftp://user:psw@host:port/directory/torrents/
+			#ftpdetails.group(1) # user
+			#ftpdetails.group(2) # psw
+			#ftpdetails.group(3) # host
+			#ftpdetails.group(4) # port
+			#ftpdetails.group(5) # directory/torrents/
+			s = ftplib.FTP() # Create the ftp object
+			s.connect(ftpdetails.group(3), ftpdetails.group(4)) # Connect
+			s.login(ftpdetails.group(1), ftpdetails.group(2)) # Login
+			if option["ftppassive"] == 'on':
+				s.set_pasv(True) # Set passive-mode 
+			s.cwd(ftpdetails.group(5)) # Change directory
+			if extra_paths == "yes":
+				f = open(full_xpath + matchedtext.group(3) + ".torrent",'rb') # Open file to send
+			else:
+				f = open(option["savepath"] + matchedtext.group(3) + ".torrent",'rb') # Open file to send
+			s.storbinary('STOR ' + matchedtext.group(3) + ".torrent", f) # Send the file
+			f.close() # Close file
+			s.quit() # Close ftp
+		else:
+			print color["red"]+"There is a problem with your ftp details, please double check scc.ini and make sure you have entered them properly. Temporarily disabling FTP uploading, you can reenable it by using /sccwatcher ftpon"
+			option["ftpenable"] = 'off'
+		
 # I had to split up the on_local and the ifs because using try on all of it was causing problems
 def on_local(word, word_eol, userdata):
 	global option
