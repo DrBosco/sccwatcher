@@ -21,7 +21,7 @@
 #    59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             #
 ############################################################################
 __module_name__ = "SCCwatcher"
-__module_version__ = "1.75"
+__module_version__ = "1.76"
 __module_description__ = "SCCwatcher"
 
 import xchat, os, re, string, urllib, ftplib, time, threading, base64, urllib2, smtplib, subprocess, platform
@@ -874,9 +874,16 @@ class download(threading.Thread):
 	def download(self, stime):
 		thread_data = threading.local()
 		# And here we download. This wont hold up the main thread because this class is in a subthread,
-		thread_data.dl = urllib.urlretrieve(self.dlurl, self.flname)
-		# See if it grabbed it correctly
-		self.check_size(self.flname, stime)
+		#Using a try-except here incase urlretrieve has problems
+		try:
+			thread_data.dl = urllib.urlretrieve(self.dlurl, self.flname)
+			# See if it grabbed it correctly
+			self.check_size(self.flname, stime)
+		#Problem with urllib, so we create a blank file and send it to the size check. It will fail the check and redownload
+		except:
+			blankfile = open(self.flname, 'w')
+			blankfile.write("")
+			blankfile.close()
 		
 	def final_output(self, status, stime):
 		thread_data = threading.local()
@@ -1478,7 +1485,7 @@ def help(trigger):
 		xchat.command('GETSTR Name:Group "sccwatcher addwatch" "Temporarily Add Watch"')
 		
 	elif trigger[1] == "_guiaddavoid":
-		xchat.command('GETSTR Name:Group "sccwatcher addavoid" "Temporarily Add Watch"')
+		xchat.command('GETSTR word-to-avoid "sccwatcher addavoid" "Temporarily Add Watch"')
 	
 	elif trigger[1] == "cmdon":
 		option["use_external_command"] = "on"
@@ -1518,4 +1525,4 @@ if (__name__ == "__main__"):
 		main()
 
 #LICENSE GPL
-#Last modified 7-19-09
+#Last modified 7-30-09
