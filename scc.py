@@ -21,7 +21,7 @@
 #    59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             #
 ############################################################################
 __module_name__ = "SCCwatcher"
-__module_version__ = "1.71"
+__module_version__ = "1.72"
 __module_description__ = "SCCwatcher"
 
 import xchat, os, re, string, urllib, ftplib, time, math, threading, base64, urllib2, smtplib, subprocess
@@ -169,12 +169,14 @@ def main():
 def verbose(text):
 	if option["_extra_context_"] == "on":
 		if option["_current_context_"] is not None:
-			try:
+			context_name = option["_current_context_"].get_info("channel")
+			if context_name == option["_current_context_name_"]:
 				option["_current_context_"].prnt(text)
-			except:
-				errortext = "\007\00304There was an error using your set output tab, please redefine the output tab with /sccwatcher setoutput. Reseting output to normal."
+			else:
+				errortext = "\007\00304There was an error using your set output tab, please redefine the output tab with setoutput. Reseting output to normal."
 				currloc = xchat.find_context()
 				currloc.prnt(errortext)
+				currloc.prnt(text)
 				option["_extra_context_"] = "off"
 		else:
 			option["_extra_context_"] = "off"
@@ -196,106 +198,90 @@ def logging(text, operation):
 	scclog = open(fullpath, 'a')
 	scclog.write(text)
 	scclog.close()
-
-
-def dir_check(xpath, cat):
-	global extra_paths
-	extra_paths = "yes"
-	if xpath == "SCCDATE":
-		# Create a dir in the DDMM format
-		xpath = time.strftime("%m%d", time.localtime())
-		tree = "no"
-	elif xpath == "SCCGRP":
-		xpath = cat
-		xpath = xpath.replace('/','.')
-		path = xpath.replace('-','.')
-		tree = "no"
-	elif xpath == "SCCGRPTREE":
-		xpath = cat
-		# Replace that pesky - in TV-X264 with a slash so its like the other groups
-		xpath = xpath.replace('-','/')
-		xpath_split = re.split('/', xpath)
-		try:
-			xpath_split[1]
-			tree = "yes"
-		except:
-			tree = "no"
-	else:
-		tree = "no"
-	
-	if tree == "no":
-		full_xpath = option["savepath"] + xpath + "/"
-		#Check if the dir exists
-		checkF_xpath = os.access(full_xpath, os.F_OK)
-		#If not create it and notify the user whats going on
-		if checkF_xpath is False:
-			OHNOEZ = "\007"+color["bpurple"]+"SCCwatcher is creating the following dir: "+color["dgrey"]+option["savepath"]+xpath
-			if option["verbose"] == 'on':
-				verbose(OHNOEZ)
-			if option["logenabled"] == 'on':
-				logging(xchat.strip(OHNOEZ), "CREATE_DIR")
+# I decided to make the dir_check function a class because it made the code much easier to work with
+# Now instead of a mashup of if's and else's I have a steady flow of assign and return from internal functions.
+class dir_check:
+	def __init__(self, dldir, cat):
+		self.dldir = dldir
+		self.cat = cat
+		self.tree = ""
+		#This value will get appened with the new dirs
+		self.full_path = option["savepath"]
+		#This is the stuff thats going to get appended to the savepath
+		self.npath = ""
+		
+	def check(self):
+		global extra_paths
+		extra_paths = "yes"
+		#This will seperate all the download dir options into a list
+		dir_list = re.split(";", self.dldir)
+		#Now we can easily loop through all the options
+		for x in dir_list:
+			#Get the dir's name-to-be
+			dirname = self.categorize(x)
+			#Append the new dir to the eventual path:
+			self.npath = os.path.join(self.npath, dirname)
+		#Ok now we should have a nice list of extra dirs in self.npath, so lets split em up and start making dirs
+		dir_split = self.npath.split(os.sep)
+		
+		#We use another list similar to npath to keep track of our current dir.
+		#This list also contains the savepath
+		cur_dir = option["savepath"]
+		for x in dir_split:
+			cur_dir = os.path.join(cur_dir, x)
+			self.create_dir(cur_dir)
+		
+		#And finally, return the entire new savepath
+		self.full_path = os.path.join(self.full_path, self.npath)
+		#DONT FORGET THE TRAILING SLASH!!!!
+		self.full_path = self.full_path + os.sep
+		return self.full_path
 			
-			os.mkdir(full_xpath)
-		#Check if the DIR is writeable
-		checkW_xpath = os.access(full_xpath, os.W_OK)
-		if checkW_xpath is False:
-			OHNOEZ = "\007"+color["bpurple"]+"SCCwatcher cannot write to the save dir: "+color["dgrey"]+option["savepath"]+xpath+". Please make sure the user running xchat has the proper permissions."
-			if option["verbose"] == 'on':
-				verbose(OHNOEZ)
-			if option["logenabled"] == 'on':
-				logging(xchat.strip(OHNOEZ), "WRITE_ERROR")
-			#disable extra paths
-			extra_paths = "no"
+	def categorize(self, xpath):
+		if xpath == "SCCDATE":
+			# Create a dir in the DDMM format
+			xpath = time.strftime("%m%d", time.localtime())
+			self.tree = "no"
+			
+		if xpath == "SCCGRP":
+			xpath = self.cat
+			xpath = xpath.replace('/','.')
+			path = xpath.replace('-','.')
+			self.tree = "no"
+			
+		if xpath == "SCCGRPTREE":
+			xpath = self.cat
+			# Replace that pesky - in TV-X264 with a slash so its like the other groups
+			xpath = xpath.replace('-', os.sep)
+			#Replace any forward slashes with the correct versions for the current OS
+			xpath = xpath.replace('/', os.sep)
+			
+		return xpath
 	
-	else:
-		# It's too bad I cant tell python to create one dir, and extra above it if needed. I have to do it one by one.
-		full_xpath1 = option["savepath"] + xpath_split[0] + "/"
-		full_xpath2 = option["savepath"] + xpath_split[0] + "/" + xpath_split[1] + "/"
-		#Check if the first dir exists
-		checkF_xpath1 = os.access(full_xpath1, os.F_OK)
-		#If not create it and notify the user whats going on
-		if checkF_xpath1 is False:
-			OHNOEZ = "\007"+color["bpurple"]+"SCCwatcher is creating the following dir: "+color["dgrey"]+option["savepath"]+xpath_split[0]
+	def create_dir(self, xpath):
+		#Check if the dir exists
+		checkF_xpath = os.access(xpath, os.F_OK)
+		#If it doesn't, create it and notify the user whats going on
+		if checkF_xpath is False:
+			OHNOEZ = "\007"+color["bpurple"]+"SCCwatcher is creating the following dir: " + color["dgrey"] + xpath
 			if option["verbose"] == 'on':
 				verbose(OHNOEZ)
 			if option["logenabled"] == 'on':
 				logging(xchat.strip(OHNOEZ), "CREATE_DIR")
-			os.mkdir(full_xpath1)
-		#Check if the first DIR is writeable
-		checkW_xpath1 = os.access(full_xpath1, os.W_OK)
-		if checkW_xpath1 is False:
-			OHNOEZ = "\007"+color["bpurple"]+"SCCwatcher cannot write to the save dir: "+color["dgrey"]+option["savepath"]+xpath_split[0]+". Please make sure the user running xchat has the proper permissions."
+			os.makedirs(xpath)
+			
+		#Check if the DIR is writeable
+		checkW_xpath = os.access(xpath, os.W_OK)
+		if checkW_xpath is False:
+			OHNOEZ = "\007"+color["bpurple"]+"SCCwatcher cannot write to the save dir: "+color["dgrey"]+xpath+". Please make sure the user running xchat has the proper permissions."
 			if option["verbose"] == 'on':
 				verbose(OHNOEZ)
 			if option["logenabled"] == 'on':
 				logging(xchat.strip(OHNOEZ), "WRITE_ERROR")
 			#disable extra paths
 			extra_paths = "no"
-		#Check if the second dir exists
-		checkF_xpath2 = os.access(full_xpath2, os.F_OK)
-		#If not create it and notify the user whats going on
-		if checkF_xpath2 is False:
-			OHNOEZ = "\007"+color["bpurple"]+"SCCwatcher is creating the following dir: "+color["dgrey"]+ os.path.normcase(full_xpath2)
-			if option["verbose"] == 'on':
-				verbose(OHNOEZ)
-			if option["logenabled"] == 'on':
-				logging(xchat.strip(OHNOEZ), "CREATE_DIR")
-			os.mkdir(full_xpath2)
-		#Check if the second DIR is writeable
-		checkW_xpath2 = os.access(full_xpath2, os.W_OK)
-		if checkW_xpath2 is False:
-			OHNOEZ = "\007"+color["bpurple"]+"SCCwatcher cannot write to the save dir: "+color["dgrey"] + os.path.normcase(full_xpath2) + ". Please make sure the user running xchat has the proper permissions."
-			if option["verbose"] == 'on':
-				verbose(OHNOEZ)
-			if option["logenabled"] == 'on':
-				logging(xchat.strip(OHNOEZ), "WRITE_ERROR")
-			#disable extra paths
-			extra_paths = "no"
-		full_xpath = full_xpath2
-	# Return the var instead of globalizing it.
-	return full_xpath
 
-#This function also tracks individual release names for dupe protection since v1.63
+
 def update_recent(file, dldir, size, dduration):
 	global recent_list
 	entry_number = str(int(len(recent_list)) + 1)
@@ -319,8 +305,7 @@ def update_dupe(file):
 	
 
 def on_text(word, word_eol, userdata):
-	#what the hell why didnt I do this before???? Enough sending vars, GLOBAL FTW!
-	global matchedtext, disp_path, nicesize
+	# Removed globals in favor of var passing. More reliable under high load
 	if option["service"] != 'on':
 		return
 	counter = 0
@@ -378,7 +363,7 @@ def on_text(word, word_eol, userdata):
 						nice_tag_extra = tag_extra.group(1)
 						watchlist_splitted[1] = watchlist_splitted[1].replace(tag_extra.group(0), "")
 					#Now after the above we should have 2 vars with nicely formatted data inside. 
-					# download_dir is either None if no dldir, or is a string containing the extra dir
+					# download_dir is either None if no dldir, or is a string containing the extra dir(s)
 					# nice_tag_extra is either None if no tag, or is a string of the tag
 					
 					#Add some stuff for the regex searches
@@ -454,14 +439,15 @@ def on_text(word, word_eol, userdata):
 				update_dupe(matchedtext.group(3))
 				#And set the download url
 				downloadurl = "http://www.sceneaccess.org/downloadbig2.php/" + matchedtext.group(5) + "/" + option["passkey"] + "/" + matchedtext.group(3) + ".torrent"
-				#And make the nice_tag_extra a string, since we're not checking it anymore
+				#And make the nice_tag_extra a string, since later it will be needed in string format, and we wont be needing its boolean type anymore anyway.
 				nice_tag_extra = str(nice_tag_extra)
 				#Utorrent is either disabled or is working in tandom with normal download.
 				if option["utorrent_mode"] == "0" or option["utorrent_mode"] == "1":
 					# If theres a specified directory, run through the directory checker to make sure the dir exists and is accessable
 					if download_dir is not None:
 						# Because full_xpath is no longer global, we assign zxfpath to dir_checks return value (full_xpath)
-						zxfpath = dir_check(download_dir, matchedtext.group(2))
+						dircheck_obj = dir_check(download_dir, matchedtext.group(2))
+						zxfpath = dircheck_obj.check()
 					
 					if extra_paths == "yes":
 						disp_path = zxfpath
@@ -545,9 +531,16 @@ def more_help(command):
 	elif command == 'emailoff':
 		print color["bpurple"], "emailoff: " + color["blue"] + "Turns the emailing function off. Use 'emailon' to turn it on"
 	elif command == 'setoutput':
-		print color["bpurple"], "setoutput: " + color["blue"] + "Sets the currently active tab as the place for all verbose output. You can reset back to the default output by using /sccwatcher deloutput"
+		print color["bpurple"], "setoutput: " + color["blue"] + "This command has been depreciated. You can now use anytab, thistab, or scctab."
 	elif command == 'deloutput':
-		print color["bpurple"], "deloutput: " + color["blue"] + "Returns the verbose output to default (Currently active tab at the time of output). You can set a tab for output by using /sccwatcher setoutput"
+		print color["bpurple"], "deloutput: " + color["blue"] + "This command has been depreciated. You can now use anytab to reset the verbose output back to default."
+	elif command == 'anytab':
+		print color["bpurple"], "anytab: " + color["blue"] + "Changes the verbose output to be any currently active tab at the time of printing."
+	elif command == 'thistab':
+		print color["bpurple"], "thistab: " + color["blue"] + "Changes the verbose output to be the tab this command was used in. This will not change unless you use the anytab command."
+	elif command == 'scctab':
+		print color["bpurple"], "scctab: " + color["blue"] + "Creates a tab named SCCwatcher and directs all verbose output to it. This will not change unless you use the anytab command, or close the SCCwatcher tab."
+	
 	else:
 		print color["red"], "Unknown command, "+color["black"]+command
 
@@ -625,11 +618,13 @@ class download(threading.Thread):
 		thread_data = threading.local()
 		# I'm adding in some timer things just for the hell of it
 		thread_data.start_time = time.time()
+		#self.count keeps track of how many tries sccwatcher has made to grab the file.
 		self.count = 0
 		# Goto the download function
 		self.download(thread_data.start_time)
 		
 	def check_size(self, file, stime):
+		#Add to the count since we just tried to download.
 		self.count += 1
 		thread_data = threading.local()
 		thread_data.filesize = int(os.path.getsize(file))
@@ -653,7 +648,7 @@ class download(threading.Thread):
 	
 	def download(self, stime):
 		thread_data = threading.local()
-		# And here we download, but instead of halting the main thread (and xchat), this is in its own thread.
+		# And here we download. This wont hold up the main thread because this class is in a subthread,
 		thread_data.dl = urllib.urlretrieve(self.dlurl, self.flname)
 		# See if it grabbed it correctly
 		self.check_size(self.flname, stime)
@@ -698,7 +693,7 @@ class download(threading.Thread):
 				verbose(thread_data.verbtext3)
 			if option["logenabled"] == 'on':
 				thread_data.verbtext3 = xchat.strip(thread_data.verbtext3) +" - "+ os.path.normcase(self.disp_path)
-				logging(thread_data.verbtext3, "END_GRAB")
+				logging(thread_data.verbtext3, "END_GRAB_FAILED")
 	
 #threaded upload class
 class upload(threading.Thread):
@@ -988,7 +983,8 @@ class do_cmd(threading.Thread):
 			if option["logenabled"] == 'on':
 				thread_data.verbtext = xchat.strip(thread_data.verbtext)
 				logging(xchat.strip(thread_data.verbtext), "EXT_CMD_FAIL")
-		
+
+
 # I had to split up the on_local and the ifs because using try on all of it was causing problems
 def on_local(word, word_eol, userdata):
 	global option
@@ -1005,6 +1001,9 @@ def on_local(word, word_eol, userdata):
 
 def help(trigger):
 	global recent_list, option
+	#For use with custom tabs.
+	sop_outtext = color["red"] + "SCCwatcher will now use this tab for all verbose output. Use /sccwatcher anytab to go back to the original way sccwatcher outputs."
+	
 	try:
 		option["sizelimit"]
 	except:
@@ -1020,7 +1019,7 @@ def help(trigger):
 			more_help(trigger[2])
 		except:
 			print color["blue"], "Current accepted commands are: "
-			print color["dgrey"], "Help, Loud, Quiet, Rehash, Addwatch, Addavoid, Remwatch, Remavoid, Status, Watchlist, Avoidlist, On, Off, ftpon, ftpoff, updateftp, ftpdetails, logon, logoff, recent, recentclear, detectnetwork, emailon, emailoff, setoutput, deloutput" 
+			print color["dgrey"], "Help, Loud, Quiet, Rehash, Addwatch, Addavoid, Remwatch, Remavoid, Status, Watchlist, Avoidlist, On, Off, ftpon, ftpoff, updateftp, ftpdetails, logon, logoff, recent, recentclear, detectnetwork, emailon, emailoff, anytab, thistab, sccab, deloutput" 
 			print color["blue"], "Too see info on individual commands use: "+color["bpurple"]+"/sccwatcher help <command>"
 			
 	elif trigger[1] == 'ftpon':
@@ -1141,20 +1140,43 @@ def help(trigger):
 		option["smtp_emailer"] = 'on'
 		print color["red"], "Emailing has been turned on, use 'emailoff' to turn it back off"
 	
-	elif trigger[1] == 'setoutput':
+	
+	elif trigger[1] == "setoutput":
+		print color["red"] + "This command has been depreciated. You can now use anytab, thistab, or scctab. The deloutput command has also been removed in favor of anytab."
+	
+	elif trigger[1] == "thistab":
+		#Use extra context
 		option["_extra_context_"] = "on"
+		#Set the tab as the context to use
 		option["_current_context_"] = xchat.find_context()
-		print color["red"] + "SCCwatcher will now use this tab for all verbose output. To change the tab, use /sccwatcher setout again in a different tab, or use /sccwatcher deloutput to go back to the original way sccwatcher outputs."
+		#set the context name
+		option["_current_context_name_"] = option["_current_context_"].get_info("channel")
+		option["_current_context_"].prnt(sop_outtext)
 		
-	elif trigger[1] == 'deloutput':
+	elif trigger[1] == "scctab":
+		#Use extra context
+		option["_extra_context_"] = "on"
+		#Create the new tab
+		xchat.command("QUERY SCCwatcher")
+		#Set the new tab as the context to use
+		option["_current_context_"] = xchat.find_context(channel="SCCwatcher")
+		#set the context name
+		option["_current_context_name_"] = option["_current_context_"].get_info("channel")
+		option["_current_context_"].prnt(sop_outtext)
+	
+	elif trigger[1] == "anytab":
 		option["_extra_context_"] = "off"
-		option["_current_context_"] = None
-		print color["red"], "SCCwatcher will now output to whichever tab is currently active. Use /sccwatcher setoutput to change this."
-		
+		option["_current_context_type_"] = "ANYTAB"
+		print color["red"] + "SCCwatcher will now output all text to whichever tab is active at the time of printing."
+	
+	elif trigger[1] == 'deloutput':
+		print color["red"] + "This command has been depreciated. You can now use anytab to reset the verbose output to default."
+	
 	else:
 		print color["red"], "Unknown command, " + color["black"] + trigger[1]
 		print color["red"], "For help type: /sccwatcher help"
-   
+
+
 def unload_cb(userdata):
 	quitmsg = "\0034 "+__module_name__+" "+__module_version__+" has been unloaded\003"
 	print quitmsg
@@ -1174,9 +1196,9 @@ load_vars()
 
 # This gets the script movin
 if (__name__ == "__main__"):
-	main()
+		main()
 
 loadmsg = "\0034 "+__module_name__+" "+__module_version__+" has been loaded\003"
 print loadmsg
 #LICENSE GPL
-#Last modified 4-13-09
+#Last modified 5-7-09
