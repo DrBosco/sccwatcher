@@ -21,10 +21,10 @@
 #    59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             #
 ############################################################################
 __module_name__ = "SCCwatcher"
-__module_version__ = "1.69"
+__module_version__ = "1.70"
 __module_description__ = "SCCwatcher"
 
-import xchat, os, re, string, urllib, ftplib, time, math, threading, base64, urllib2, smtplib
+import xchat, os, re, string, urllib, ftplib, time, math, threading, base64, urllib2, smtplib, subprocess
 
 #the globals go here
 extra_paths = "no"
@@ -348,18 +348,43 @@ def on_text(word, word_eol, userdata):
 					watchlist = watchlist.replace('*','(.*)')
 					watchlist = watchlist.replace('/','\/')
 					watchlist_splitted = re.split(':', watchlist)
-					#here we split off anything extra for a download dir
+					#Here we're going to search the watch for anything extra like a tag or a download dir
 					#Using a try incase someone entered a watch with no colon at all (no watchlist_splitted[1]
+					dldir_extra = None
+					tag_extra = None
+					nice_tag_extra = None
+					download_dir = None
 					try:
 						watchlist_splitted[1]
-						download_dir = re.split(';', watchlist_splitted[1])
+						dldir_extra = re.search(";(.*)", watchlist_splitted[1])
+						tag_extra = re.search("\[(.*)\]", watchlist_splitted[1])
 					except:
-						this="isavar"
-					# and then make sure watchlist_splitted[1] has the correct data, sans download dir
-					watchlist_splitted[1] = download_dir[0]
+						pass
+					#Now lets see if we found anything
+					if dldir_extra is not None:
+						#we got a dl dir for sure, lets make sure theres no tag in it too.
+						if tag_extra is not None:
+							#ok so we have a tag stuck in there too, lets cut the tag out and set the downloaddir var.
+							download_dir =  dldir_extra.group(1).replace(tag_extra.group(0), "")
+							nice_tag_extra = tag_extra.group(1)
+						else:
+							#ok so we don't have a tag, so just set the var to dldir_extra
+							download_dir = dldir_extra.group(1)
+						#Now we clean up watchlist_splitted[1]
+						watchlist_splitted[1] = watchlist_splitted[1].replace(dldir_extra.group(0), "")
+					#No extra download dir so check if there is a tag
+					elif tag_extra is not None:
+						#Ok we gots a tag at least, so set the tag var and clean up watchlist_splitted[1]
+						nice_tag_extra = tag_extra.group(1)
+						watchlist_splitted[1] = watchlist_splitted[1].replace(tag_extra.group(0), "")
+					#Now after the above we should have 2 vars with nicely formatted data inside. 
+					# download_dir is either None if no dldir, or is a string containing the extra dir
+					# nice_tag_extra is either None if no tag, or is a string of the tag
+					
+					#Add some stuff for the regex searches
 					watchlist_splitted[0] = '^' + watchlist_splitted[0] + '$'
 					watchlist_splitted[1] = '^' + watchlist_splitted[1] + '$'
-					#do the check for the section and the release name
+					#do the check for the section and the release name. re.I means the search is case insensitive
 					if re.search(watchlist_splitted[1], matchedtext.group(2), re.I) and re.search(watchlist_splitted[0], matchedtext.group(3), re.I):
 						counter += 1
 						break
@@ -421,25 +446,23 @@ def on_text(word, word_eol, userdata):
 							logging(xchat.strip(dupeavoid), "DUPE")
 					#if its not a dupe, rabblerabblerabble do nothing.
 					except:
-						notadupe="RABBLERABBLERABBLE!"
+						pass
 							
 			#got a match!! let's download
 			if counter > 0:
 				#Now that we're downloading for sure, add the release name to the dupecheck list.
 				update_dupe(matchedtext.group(3))
-				
+				#And set the download url
 				downloadurl = "http://www.sceneaccess.org/downloadbig2.php/" + matchedtext.group(5) + "/" + option["passkey"] + "/" + matchedtext.group(3) + ".torrent"
-				
+				#And make the nice_tag_extra a string, since we're not checking it anymore
+				nice_tag_extra = str(nice_tag_extra)
 				#Utorrent is either disabled or is working in tandom with normal download.
 				if option["utorrent_mode"] == "0" or option["utorrent_mode"] == "1":
 					# If theres a specified directory, run through the directory checker to make sure the dir exists and is accessable
-					try:
-						download_dir[1]
+					if download_dir is not None:
 						# Because full_xpath is no longer global, we assign zxfpath to dir_checks return value (full_xpath)
-						zxfpath = dir_check(download_dir[1], matchedtext.group(2))
-					except:
-						chicken = "lol" # Had to put something here :D
-		
+						zxfpath = dir_check(download_dir, matchedtext.group(2))
+					
 					if extra_paths == "yes":
 						disp_path = zxfpath
 						filename = zxfpath + matchedtext.group(3) + ".torrent"
@@ -454,7 +477,7 @@ def on_text(word, word_eol, userdata):
 						verbtext = xchat.strip(verbtext) +" - "+ os.path.normcase(disp_path)
 						logging(verbtext, "GRAB")
 					#The number of passed vars has gone up in an effort to alleviate var overwrites under high load.
-					download(downloadurl, filename, zxfpath, matchedtext, disp_path, nicesize, extra_paths).start()
+					download(downloadurl, filename, zxfpath, matchedtext, disp_path, nicesize, extra_paths, nice_tag_extra).start()
 					# The upload will be cascaded from the download thread to prevent a train wreck.
 					
 				# If utorrent adding is enabled, perform those operations
@@ -465,7 +488,7 @@ def on_text(word, word_eol, userdata):
 					if option["logenabled"] == 'on':
 						verbtext3 = xchat.strip(verbtext)
 						logging(verbtext3, "START_UTOR_ADD")
-					webui_upload(downloadurl, matchedtext, nicesize).start()
+					webui_upload(downloadurl, matchedtext, nicesize, nice_tag_extra).start()
 				if option["utorrent_mode"] is not "0" and option["utorrent_mode"] is not "1" and option["utorrent_mode"] is not "2":
 					verbtext = "\007"+color["bpurple"]+"SCCwatcher cannot download because you have set utorrent_mode to an invalid number. Please check your scc.ini and fix this error. utorrent_mode is currently set to: " + color["dgrey"] + option["utorrent_mode"]
 					verbose(verbtext)
@@ -587,7 +610,7 @@ def remove_watch(delitem):
 
 #Threaded download class.
 class download(threading.Thread):
-	def __init__(self, dlurl, flname, zxfpath, matchedtext, disp_path, nicesize, extra_paths):
+	def __init__(self, dlurl, flname, zxfpath, matchedtext, disp_path, nicesize, extra_paths, nice_tag_extra):
 		self.dlurl = dlurl
 		self.flname = flname
 		self.zxfpath = zxfpath
@@ -595,6 +618,7 @@ class download(threading.Thread):
 		self.disp_path = disp_path
 		self.nicesize = nicesize
 		self.extra_paths = extra_paths
+		self.nice_tag_extra = nice_tag_extra
 		threading.Thread.__init__(self)
 	def run(self):
 		#create thread-local data to further prevent var overwrites under high load
@@ -609,8 +633,9 @@ class download(threading.Thread):
 		self.count += 1
 		thread_data = threading.local()
 		thread_data.filesize = int(os.path.getsize(file))
-		#Check if the file is less than 50 bytes (shouldn't be)
-		if thread_data.filesize < 50:
+		#Check if the file is less than 100 bytes (shouldn't be).
+		#Used to be 50 bytes, but some false torrents with text inside still got through. This should fix that problem with this higher cutoff.
+		if thread_data.filesize < 100:
 			#Delete the bad file
 			os.remove(file)
 			# Have we reached the retry limit?
@@ -659,14 +684,14 @@ class download(threading.Thread):
 			#Ok now that we have the file, we can do the upload if necessary:
 			#If we're doing an upload, then dont do an email or external command, as that will be handled by the upload class.
 			if option["ftpenable"] == 'on':
-				upload(self.flname, self.zxfpath, self.matchedtext, self.disp_path, self.extra_paths, self.nicesize).start()
+				upload(self.flname, self.zxfpath, self.matchedtext, self.disp_path, self.extra_paths, self.nicesize, self.nice_tag_extra).start()
 			else:
 				#If emailing is enabled, dont do external command as that will be handled by the email class.
 				if option["smtp_emailer"] == "on":
-					email(self.matchedtext, self.disp_path, self.nicesize).start()
+					email(self.matchedtext, self.disp_path, self.nicesize, self.nice_tag_extra).start()
 				else:
 					if option["use_external_command"] == "on":
-						do_cmd(self.matchedtext, self.disp_path, self.nicesize).start()
+						do_cmd(self.matchedtext, self.disp_path, self.nicesize, self.nice_tag_extra).start()
 		else:
 			thread_data.verbtext3 = "\007"+color["bpurple"]+"SCCwatcher failed to downloaded torrent for "+color["dgrey"] + self.matchedtext.group(3) + color["bpurple"]+" after " +color["dgrey"]+ option["max_dl_tries"] + color["bpurple"]+" tries. Manually download at: " +color["dgrey"]+ self.dlurl
 			if option["verbose"] == 'on':
@@ -677,13 +702,14 @@ class download(threading.Thread):
 	
 #threaded upload class
 class upload(threading.Thread):
-	def __init__(self, torrentname, zxfpath, matchedtext, disp_path, extra_paths, nicesize):
+	def __init__(self, torrentname, zxfpath, matchedtext, disp_path, extra_paths, nicesize, nice_tag_extra):
 		self.torrentname = torrentname
 		self.zxfpath = zxfpath
 		self.matchedtext = matchedtext		
 		self.disp_path = disp_path
 		self.extra_paths = extra_paths
 		self.nicesize = nicesize
+		self.nice_tag_extra = nice_tag_extra
 		threading.Thread.__init__(self)
 	#Uploading tiem nao!!!!
 	def run(self):
@@ -733,17 +759,18 @@ class upload(threading.Thread):
 			print color["red"]+"There is a problem with your ftp details, please double check scc.ini and make sure you have entered them properly. Temporarily disabling FTP uploading, you can reenable it by using /sccwatcher ftpon"
 			option["ftpenable"] = 'off'
 		if option["smtp_emailer"] == "on":
-			email(self.matchedtext, self.disp_path, self.nicesize).start()
+			email(self.matchedtext, self.disp_path, self.nicesize, self.nice_tag_extra).start()
 		else:
 			if option["use_external_command"] == "on":
-				do_cmd(self.matchedtext, self.disp_path, self.nicesize).start()
+				do_cmd(self.matchedtext, self.disp_path, self.nicesize, self.nice_tag_extra).start()
 
 #Threaded upload class. Thanks to backdraft for providing most of the code. Sure made my life easier. :)
 class webui_upload(threading.Thread):
-	def __init__(self, turl, matchedtext, nicesize):
+	def __init__(self, turl, matchedtext, nicesize, nice_tag_extra):
 		self.turl = turl
 		self.matchedtext = matchedtext
 		self.nicesize = nicesize
+		self.nice_tag_extra = nice_tag_extra
 		threading.Thread.__init__(self)	
 		
 	def run(self):
@@ -778,10 +805,10 @@ class webui_upload(threading.Thread):
 				thread_data.webuiloc = "WEBUI-" + option["utorrent_hostname"]
 				update_recent(self.matchedtext.group(3), thread_data.webuiloc, self.nicesize, thread_data.duration)
 				if option["smtp_emailer"] == "on":
-					email(self.matchedtext, "NONE", self.nicesize).start()
+					email(self.matchedtext, "NONE", self.nicesize, self.nice_tag_extra).start()
 				else:
 					if option["use_external_command"] == "on":
-						do_cmd(self.matchedtext, "NONE", self.nicesize).start()
+						do_cmd(self.matchedtext, "NONE", self.nicesize, self.nice_tag_extra).start()
 				
 			thread_data.verbtext = "\007"+color["bpurple"]+"SCCwatcher successfully added torrent for " + color["dgrey"] + self.matchedtext.group(3) + color["bpurple"] + " to the uTorrent WebUI at " + color["dgrey"] + option["utorrent_hostname"] + color["bpurple"] + " in " + color["dgrey"] + thread_data.duration + color["bpurple"] + " seconds."
 			if option["verbose"] == 'on':
@@ -799,6 +826,7 @@ class email(threading.Thread):
 		self.matchedtext = matchedtext
 		self.disp_path = disp_path
 		self.nicesize = nicesize
+		self.nice_tag_extra = nice_tag_extra
 		threading.Thread.__init__(self)	
 	#Send tiem nao
 	def run(self):
@@ -864,7 +892,7 @@ class email(threading.Thread):
 						thread_data.verbtext = xchat.strip(thread_data.verbtext)
 						logging(xchat.strip(thread_data.verbtext), "SMTP_FAIL")
 		if option["use_external_command"] == "on":
-			do_cmd(self.matchedtext, self.disp_path, self.nicesize).start()
+			do_cmd(self.matchedtext, self.disp_path, self.nicesize, self.nice_tag_extra).start()
 
 	#Here we build our email message
 	def message_builder(self):
@@ -872,7 +900,7 @@ class email(threading.Thread):
 		thread_data.current_time = time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())
 		#Here we replace all the special strings with actual data
 		# Acceptable special strings are:
-		# %torrent% %category% %size% %time% %dlpath% %ulpath% %utserver%
+		# %torrent% %category% %size% %time% %dlpath% %ulpath% %utserver% %tag
 		# To see what they mean, just see below.
 		thread_data.ftpdetails = re.match("ftp:\/\/(.*):(.*)@(.*):([^\/]*.)/(.*)", option["ftpdetails"])
 		if thread_data.ftpdetails is not None:
@@ -888,6 +916,7 @@ class email(threading.Thread):
 		thread_data.email_body = thread_data.email_body.replace('%dlpath%', self.disp_path)
 		thread_data.email_body = thread_data.email_body.replace('%ulpath%', thread_data.ftpstring)
 		thread_data.email_body = thread_data.email_body.replace('%utserver%', thread_data.utstring)
+		thread_data.email_body = thread_data.email_body.replace('%tag%', self.nice_tag_extra)
 		
 		thread_data.email_subject = option["smtp_subject"].replace('%torrent%', self.matchedtext.group(3))
 		thread_data.email_subject = thread_data.email_subject.replace('%category%', self.matchedtext.group(2))
@@ -896,6 +925,7 @@ class email(threading.Thread):
 		thread_data.email_subject = thread_data.email_subject.replace('%dlpath%', self.disp_path)
 		thread_data.email_subject = thread_data.email_subject.replace('%ulpath%', thread_data.ftpstring)
 		thread_data.email_subject = thread_data.email_subject.replace('%utserver%', thread_data.utstring)
+		thread_data.email_subject = thread_data.email_subject.replace('%tag%', self.nice_tag_extra)
 		
 		thread_data.message = """
 Subject: %s
@@ -913,10 +943,11 @@ Content-Type: text/html; charset=ISO-8859-1
 		return thread_data.message
 
 class do_cmd(threading.Thread):
-	def __init__(self, matchedtext, disp_path, nicesize):
+	def __init__(self, matchedtext, disp_path, nicesize, nice_tag_extra):
 		self.matchedtext = matchedtext
 		self.disp_path = disp_path
 		self.nicesize = nicesize
+		self.nice_tag_extra = nice_tag_extra
 		threading.Thread.__init__(self)	
 	#Send tiem nao
 	def run(self):
@@ -940,6 +971,7 @@ class do_cmd(threading.Thread):
 		thread_data.command_string = thread_data.command_string.replace('%dlpath%', self.disp_path)
 		thread_data.command_string = thread_data.command_string.replace('%ulpath%', thread_data.ftpstring)
 		thread_data.command_string = thread_data.command_string.replace('%utserver%', thread_data.utstring)
+		thread_data.command_string = thread_data.command_string.replace('%tag%', self.nice_tag_extra)
 		
 		try:
 			os.system(thread_data.command_string)
@@ -1147,4 +1179,4 @@ if (__name__ == "__main__"):
 loadmsg = "\0034 "+__module_name__+" "+__module_version__+" has been loaded\003"
 print loadmsg
 #LICENSE GPL
-#Last modified 4-11-09
+#Last modified 4-13-09
