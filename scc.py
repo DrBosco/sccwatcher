@@ -21,10 +21,10 @@
 #    59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             #
 ############################################################################
 __module_name__ = "SCCwatcher"
-__module_version__ = "1.64"
+__module_version__ = "1.65"
 __module_description__ = "SCCwatcher"
 
-import xchat, os, re, string, urllib, ftplib, time, math, threading
+import xchat, os, re, string, urllib, ftplib, time, math, threading, base64, urllib2
 
 #the globals go here
 dlduration = ""
@@ -299,8 +299,7 @@ def on_text(word, word_eol, userdata):
 	#get the context where a new message was written
 	destination = xchat.get_context()
 	#did the message where sent to the right net, chan and by the right bot?
-	#MAKE WAY FOR COLORED NICK! YEY!
-	#If your wondering what the hell xchat.strip does, it removes all color and extra trash from text. I wish the python plugin devs would have documented this function, it sure would have made my job easier.
+	#If your wondering what the hell xchat.strip does, it removes all color and extra trash from text. I wish the xchat python plugin devs would have documented this function, it sure would have made my job easier.
 	stnick = xchat.strip(word[0])
 	if destination.get_info('network') == sccnet.get_info('network') and destination.get_info('channel') == sccnet.get_info('channel') and stnick == "SCC":
 		matchedtext = p.match(xchat.strip(word_eol[1]))
@@ -390,7 +389,7 @@ def on_text(word, word_eol, userdata):
 							verbose(dupeavoid)
 						if option["logenabled"] == 'on':
 							logging(xchat.strip(dupeavoid), "DUPE")
-					#If its not there reset the counter and log/verbose if enabled
+					#if its not a dupe, rabblerabblerabble do nothing.
 					except:
 						notadupe="RABBLERABBLERABBLE!"
 							
@@ -398,40 +397,48 @@ def on_text(word, word_eol, userdata):
 			if counter > 0:
 				#Now that we're downloading for sure, add the release name to the dupecheck list.
 				update_dupe(matchedtext.group(3))
-				# If theres a specified directory, run through the directory checker to make sure the dir exists and is accessable
-				try:
-					download_dir[1]
-					dir_check(download_dir[1], matchedtext.group(2))
-				except:
-					chicken = "lol" # Had to put something here :D
-	
-				if extra_paths == "yes":
-					disp_path = full_xpath
-				else:
-					disp_path = option["savepath"]
+				
+				downloadurl = "http://www.sceneaccess.org/download2.php/" + matchedtext.group(5) + "/" + option["passkey"] + "/" + matchedtext.group(3) + ".torrent"
+				
+				#Utorrent is either disabled or is working in tandom with normal download.
+				if option["utorrent_mode"] == "0" or option["utorrent_mode"] == "1":
+					# If theres a specified directory, run through the directory checker to make sure the dir exists and is accessable
+					try:
+						download_dir[1]
+						dir_check(download_dir[1], matchedtext.group(2))
+					except:
+						chicken = "lol" # Had to put something here :D
+		
+					if extra_paths == "yes":
+						disp_path = full_xpath
+						filename = full_xpath + matchedtext.group(3) + ".torrent"
+					else:
+						disp_path = option["savepath"]
+						filename = option["savepath"] + matchedtext.group(3) + ".torrent"
 					
-				verbtext = "\007"+color["bpurple"]+"SCCwatcher is downloading torrent for: "+color["dgrey"]+matchedtext.group(3)
-				if option["verbose"] == 'on':
+					verbtext = "\007"+color["bpurple"]+"SCCwatcher is downloading torrent for: "+color["dgrey"]+matchedtext.group(3)
+					if option["verbose"] == 'on':
+						verbose(verbtext)
+					if option["logenabled"] == 'on':
+						verbtext = xchat.strip(verbtext) +" - "+ os.path.normcase(disp_path)
+						logging(verbtext, "GRAB")
+						
+					download(downloadurl, filename).start()				
+					# The upload will be cascaded from the download thread to prevent a train wreck.
+					
+				# If utorrent adding is enabled, perform those operations
+				if option["utorrent_mode"] == "1" or option["utorrent_mode"] == "2":
+					verbtext = "\007"+color["bpurple"]+"SCCwatcher is adding torrent for " + color["dgrey"] + matchedtext.group(3) + color["bpurple"] + " to the uTorrent WebUI at " + color["dgrey"] + option["utorrent_hostname"]
+					if option["verbose"] == 'on':
+						verbose(verbtext)
+					if option["logenabled"] == 'on':
+						verbtext3 = xchat.strip(verbtext)
+						logging(verbtext3, "START_UTOR_ADD")
+					webui_upload(downloadurl).start()
+				if option["utorrent_mode"] is not "0" and option["utorrent_mode"] is not "1" and option["utorrent_mode"] is not "2":
+					verbtext = "\007"+color["bpurple"]+"SCCwatcher cannot download because you have set utorrent_mode to an invalid number. Please check your scc.ini and fix this error. utorrent_mode is currently set to: " + color["dgrey"] + option["utorrent_mode"]
 					verbose(verbtext)
-				if option["logenabled"] == 'on':
-					verbtext = xchat.strip(verbtext) +" - "+ os.path.normcase(disp_path)
-					logging(verbtext, "GRAB")
-				downloadurl = "https://www.sceneaccess.org/download2.php/" + matchedtext.group(5) + "/" + option["passkey"] + "/" + matchedtext.group(3) + ".torrent"
-				#Check if we should download into extra paths
-				if extra_paths == "yes":
-					filename = full_xpath + matchedtext.group(3) + ".torrent"
-				else:
-					filename = option["savepath"] + matchedtext.group(3) + ".torrent"
-					
-				download(downloadurl, filename).start()				
-				# The upload will be cascaded from the download thread to prevent a train wreck.
-		else:
-			stupid_var = "stupid"
-			# GET IT?!!??!!?@!
-			#Ehhh what'du know....
-			# <_<
-			
-
+	
 def more_help(command):
 	command = command.lower()
 	if command == 'help':
@@ -570,6 +577,7 @@ class download(threading.Thread):
 			upload(self.flname).start()
 		
 		
+#threaded upload class
 class upload(threading.Thread):
 	def __init__(self, torrentname):
 		self.torrentname = torrentname
@@ -619,7 +627,52 @@ class upload(threading.Thread):
 		else:
 			print color["red"]+"There is a problem with your ftp details, please double check scc.ini and make sure you have entered them properly. Temporarily disabling FTP uploading, you can reenable it by using /sccwatcher ftpon"
 			option["ftpenable"] = 'off'
+
+#Threaded upload class. Thanks to backdraft for providing most of the code. Sure made my life easier. :)
+class webui_upload(threading.Thread):
+	def __init__(self, turl):
+		self.turl = turl
+		threading.Thread.__init__(self)	
 		
+	def run(self):
+		torrent_url = urllib.quote(self.turl) # Escape the url
+		http_url = 'http://' + option["utorrent_hostname"] +':'+ option["utorrent_port"] + '/gui/?action=add-url&s=' + torrent_url # Make the url
+		base64string = base64.encodestring('%s:%s' % (option["utorrent_username"], option["utorrent_password"]))[:-1] 
+		authheader =  "Basic %s" % base64string
+		# Basic Auth using base64
+		#start timer
+		start_time = time.time()
+		http_data = urllib2.Request(http_url)
+		http_data.add_header("Authorization", authheader)
+		http_data.add_header('User-Agent','Mozilla/4.0 (compatible; MSIE 5.5; Windows NT 5.0)') # Pretend we are Internet Explorer
+		opener_web = urllib2.build_opener()
+		good = 0
+		try:
+			text = opener_web.open(http_data).read() # get the data
+			good = 1
+		except:
+			error = "\007" +color["bpurple"]+"SCCwatcher encountered an HTTP error while connecting to the uTorrent WebUI at " + color["dgrey"] + option["utorrent_hostname"] + color["bpurple"] + ". Please double check the uTorrent WebUI settings in scc.ini are correct."
+			verbose(error)
+			good = 0
+		if good == 1:
+			#end timer
+			end_time = time.time()
+			duration = end_time - start_time
+			duration = str(float(round(duration, 3)))
+			# If only uTorrent uploading is active, update the recent using WEBUI as the disp_path
+			if option["utorrent_mode"] == "2":
+				webuiloc = "WEBUI-" + option["utorrent_hostname"]
+				update_recent(matchedtext.group(3), webuiloc, nicesize, duration)
+			verbtext = "\007"+color["bpurple"]+"SCCwatcher successfully added torrent for " + color["dgrey"] + matchedtext.group(3) + color["bpurple"] + " to the uTorrent WebUI at " + color["dgrey"] + option["utorrent_hostname"] + color["bpurple"] + " in " + color["dgrey"] + duration + color["bpurple"] + " seconds."
+			if option["verbose"] == 'on':
+				verbose(verbtext)
+			if option["logenabled"] == 'on':
+				verbtext3 = xchat.strip(verbtext)
+				logging(verbtext3, "END_UTOR_ADD")
+		if good == 0:
+			if option["logenabled"] == 'on':
+				verbtext3 = xchat.strip(error)
+				logging(verbtext3, "END_UTOR_ADD")
 # I had to split up the on_local and the ifs because using try on all of it was causing problems
 def on_local(word, word_eol, userdata):
 	global option
@@ -721,12 +774,14 @@ def help(trigger):
 	elif trigger[1] == 'status':
 		print color["bpurple"], "SCCwatcher version " +color["blue"] + __module_version__
 		print color["bpurple"], "Auto downloading is: " + color["blue"] + option["service"]
+		print color["bpurple"], "Dupechecking is: " + color["blue"] + option["dupecheck"]
 		print color["bpurple"], "Torrent size limit: " + color["blue"] + tmp_limit_text
 		print color["bpurple"], "Recent list size: " + color["blue"] + str(len(recent_list)) + color["bpurple"] + " items."
 		print color["bpurple"], "Start delay is set to:" + color["blue"],option["startdelay"]+ " seconds"
 		print color["bpurple"], "Verbose output is: " + color["blue"] + option["verbose"]
 		print color["bpurple"], "Logging to file is: " + color["blue"] + option["logenabled"]
 		print color["bpurple"], "Uploading to ftp is: " + color["blue"] + option["ftpenable"]
+		print color["bpurple"], "uTorrent WebUI Mode is: " + color["blue"] + option["utorrent_mode"]
 		print color["bpurple"], "Savepath is set to: " + color["blue"] + option["savepath"]
 		print color["bpurple"], "Logpath is set to: " + color["blue"] + option["logpath"]
 		print color["lblue"], "Current watchlist: " + color["dgreen"] + str(option["watchlist"])
@@ -774,4 +829,4 @@ if (__name__ == "__main__"):
 loadmsg = "\0034 "+__module_name__+" "+__module_version__+" has been loaded\003"
 print loadmsg
 #LICENSE GPL
-#Last modified 3-05-09
+#Last modified 3-27-09
