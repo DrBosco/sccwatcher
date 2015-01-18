@@ -21,7 +21,7 @@
 #    59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             #
 ############################################################################
 __module_name__ = "SCCwatcher"
-__module_version__ = "1.81"
+__module_version__ = "1.82"
 __module_description__ = "SCCwatcher"
 
 import xchat, os, re, string, urllib, ftplib, time, threading, base64, urllib2, smtplib, subprocess, platform, socket
@@ -343,7 +343,7 @@ def load_vars():
 def starttimer(userdata):
 	global sccnet, starttimerhook
 	#automatically detect the networkname
-	sccnet = xchat.find_context(channel='#scc-announce')
+	sccnet = xchat.find_context(channel='#announce')
 	if starttimerhook is not None:
 		xchat.unhook(starttimerhook)
 		starttimerhook = None
@@ -354,7 +354,7 @@ def starttimer(userdata):
 	else:
 		option["service"] = 'notdetected'
 		xchat.command('menu -t0 add "SCCwatcher/Enable Autograbbing" "sccwatcher on" "sccwatcher off"')
-		print color["red"], "\007Could not detect the correct network! Autodownloading has been disabled. Make sure you have joined #scc-announce channel and then do /sccwatcher detectnetwork"
+		print color["red"], "\007Could not detect the correct network! Autodownloading has been disabled. Make sure you have joined #announce channel and then do /sccwatcher detectnetwork"
 
 
 starttimerhook = None
@@ -874,7 +874,7 @@ def more_help(command):
 	elif command == 'cmdoff':
 		print color["bpurple"], "cmdoff: " + color["blue"] + "This will disable the execution of a specified external command."
 	elif command == 'manualadd':
-		print color["bpurple"], "manualadd: " + color["blue"] + "This command allows you to manually download a torrent by pasting its announcement text (the entire line, start to finish) from #scc-announce or by using a line from RLSdb's search results. SCCwatcher will then download and upload/save the torrent according to the way your configuration is set."
+		print color["bpurple"], "manualadd: " + color["blue"] + "This command allows you to manually download a torrent by pasting its announcement text (the entire line, start to finish) from #announce or by using a line from RLSdb's search results. SCCwatcher will then download and upload/save the torrent according to the way your configuration is set."
 	else:
 		print color["red"], "Unknown command, "+color["black"]+command
 
@@ -1677,7 +1677,7 @@ def help(trigger):
 	elif trigger[1] == 'on':
 		if option["service"] == 'notdetected':
 			xchat.command('menu -t0 add "SCCwatcher/Enable Autograbbing" "sccwatcher on" "sccwatcher off"')
-			print color["red"], " Didn't detected the correct network infos! Autodownloading is disabled. Make sure you have joined #scc-announce channel and reload the script!"      
+			print color["red"], " Didn't detected the correct network infos! Autodownloading is disabled. Make sure you have joined #announce channel and reload the script!"      
 		else:
 			option["service"] = 'on'
 			xchat.command('menu -t1 add "SCCwatcher/Enable Autograbbing" "sccwatcher on" "sccwatcher off"')
@@ -1811,7 +1811,7 @@ def manual_torrent_add(word, word_eol, userdata):
 		on_text(rlsdb_matchedtext, None, "BYPASS")
 		
 	else:
-		verbose("\00305The line you entered was incorrect somehow. Please double check that the line you copied was actually from #scc-announce or RLSdb's search results and was complete and try again\003")
+		verbose("\00305The line you entered was incorrect somehow. Please double check that the line you copied was actually from #announce or RLSdb's search results and was complete and try again\003")
 		verbose("\00305If you continue to have problems please post the problem in the SCCwatcher forum topic.\003")
 	
 	return xchat.EAT_ALL
@@ -1829,7 +1829,7 @@ def unload_cb(userdata):
 #The hooks go here
 xchat.hook_print('Channel Message', on_text)
 xchat.hook_command('SCCwatcher', on_local, help="Edit main setting in scc.ini. use \002/sccwatcher help\002 for usage information.")
-xchat.hook_command('manualadd', manual_torrent_add, help="Manually grab torrents by pasting lines from #scc-announce")
+xchat.hook_command('manualadd', manual_torrent_add, help="Manually grab torrents by pasting lines from #announce")
 xchat.hook_unload(unload_cb)
 
 #load scc.ini
@@ -1840,4 +1840,4 @@ if (__name__ == "__main__"):
 		main()
 
 #LICENSE GPL
-#Last modified 12-31-10 (MM/DD/YY)
+#Last modified 4-04-11 (MM/DD/YY)
