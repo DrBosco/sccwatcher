@@ -21,7 +21,7 @@
 #    59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             #
 ############################################################################
 __module_name__ = "SCCwatcher"
-__module_version__ = "1.76"
+__module_version__ = "1.77"
 __module_description__ = "SCCwatcher"
 
 import xchat, os, re, string, urllib, ftplib, time, threading, base64, urllib2, smtplib, subprocess, platform
@@ -968,19 +968,37 @@ class upload(threading.Thread):
 				thread_data.f = open(self.zxfpath + self.matchedtext.group(3) + ".torrent",'rb') # Open file to send
 			else:
 				thread_data.f = open(option["savepath"] + self.matchedtext.group(3) + ".torrent",'rb') # Open file to send
-			thread_data.s.storbinary('STOR ' + self.matchedtext.group(3) + ".torrent", thread_data.f) # Send the file
+			
+			thread_data.uc = 0
+			thread_data.uploaded = False
+			#  Eliminate errors while uploading by using try-except protection. Uses the max_dl_tries variable to know how many tries to 
+			while thread_data.uploaded is False:
+				if thread_data.uc < int(option["max_dl_tries"]):
+					try:
+						thread_data.s.storbinary('STOR ' + self.matchedtext.group(3) + ".torrent", thread_data.f) # Send the file
+						thread_data.uploaded = True
+						break
+					except:
+						thread_data.vtext1 = "\007" + color["bpurple"] + "SCCwatcher encountered an error while uploading " + color["dgrey"] + self.matchedtext.group(3) + ".torrent." + color["bpurple"] + " Retrying...."
+						if option["verbose"] == 'on':
+							verbose(thread_data.vtext1)
+						if option["logenabled"] == 'on':
+							logging(xchat.strip(thread_data.vtext1), "UPLOAD_FAIL-RETRYING")
+						thread_data.uc += 1
+						time.sleep(int(option["retry_wait"]))
+				else:
+					thread_data.vtext2 = "\007" + color["bpurple"] + "SCCwatcher cannot upload " + color["dgrey"] + self.matchedtext.group(3) + ".torrent" + color["bpurple"] + " to the specified FTP server. Please make sure the server is functioning properly."
+					if option["verbose"] == 'on':
+						verbose(thread_data.vtext2)
+					if option["logenabled"] == 'on':
+						logging(xchat.strip(thread_data.vtext2), "UPLOAD_FAIL_FINAL")
+					break
+				
 			thread_data.f.close() # Close file
 			thread_data.s.quit() # Close ftp
-			thread_data.end_time2 = time.time()
-			thread_data.duration2 = thread_data.end_time2 - thread_data.start_time2
-			#round off extra crap from duration to 3 digits
-			thread_data.duration2 = str(float(round(thread_data.duration2, 3)))
-			thread_data.verbtext4 = "\007" + color["bpurple"] + "SCCwatcher successfully uploaded file " + color["dgrey"] + self.matchedtext.group(3) + ".torrent" + color["bpurple"] + " to " + color["dgrey"] + "ftp://" + color["dgrey"] + thread_data.ftpdetails.group(3) + ":" + thread_data.ftpdetails.group(4) + "/" + thread_data.ftpdetails.group(5) + color["bpurple"]+" in " + color["dgrey"]+thread_data.duration2 + color["bpurple"]+" seconds."
-			if option["verbose"] == 'on':
-				verbose(thread_data.verbtext4)
-			if option["logenabled"] == 'on':
-				thread_data.verbtext4 = xchat.strip(thread_data.verbtext4)
-				logging(thread_data.verbtext4, "END_UPLOAD")
+			
+			if thread_data.uploaded == True:
+				self.upload_finish(thread_data.start_time2, thread_data.ftpdetails)
 			
 		else:
 			print color["red"]+"There is a problem with your ftp details, please double check scc.ini and make sure you have entered them properly. Temporarily disabling FTP uploading, you can reenable it by using /sccwatcher ftpon"
@@ -991,7 +1009,22 @@ class upload(threading.Thread):
 		else:
 			if option["use_external_command"] == "on":
 				do_cmd(self.matchedtext, self.disp_path, self.nicesize, self.nice_tag_extra).start()
-
+		
+	def upload_finish(self, stime, ftpdetails):
+		thread_data = threading.local()
+		thread_data.start_time2 = stime
+		thread_data.ftpdetails = ftpdetails
+		thread_data.end_time2 = time.time()
+		thread_data.duration2 = thread_data.end_time2 - thread_data.start_time2
+		#round off extra crap from duration to 3 digits
+		thread_data.duration2 = str(float(round(thread_data.duration2, 3)))
+		thread_data.verbtext4 = "\007" + color["bpurple"] + "SCCwatcher successfully uploaded file " + color["dgrey"] + self.matchedtext.group(3) + ".torrent" + color["bpurple"] + " to " + color["dgrey"] + "ftp://" + color["dgrey"] + thread_data.ftpdetails.group(3) + ":" + thread_data.ftpdetails.group(4) + "/" + thread_data.ftpdetails.group(5) + color["bpurple"]+" in " + color["dgrey"]+thread_data.duration2 + color["bpurple"]+" seconds."
+		if option["verbose"] == 'on':
+			verbose(thread_data.verbtext4)
+		if option["logenabled"] == 'on':
+			thread_data.verbtext4 = xchat.strip(thread_data.verbtext4)
+			logging(thread_data.verbtext4, "END_UPLOAD")
+		
 #Threaded upload class. Thanks to backdraft for providing most of the code. Sure made my life easier. :)
 class webui_upload(threading.Thread):
 	def __init__(self, turl, matchedtext, nicesize, nice_tag_extra):
@@ -1525,4 +1558,4 @@ if (__name__ == "__main__"):
 		main()
 
 #LICENSE GPL
-#Last modified 7-30-09
+#Last modified 12-31-09
