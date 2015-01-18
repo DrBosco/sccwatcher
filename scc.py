@@ -21,14 +21,12 @@
 #    59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             #
 ############################################################################
 __module_name__ = "SCCwatcher"
-__module_version__ = "1.65"
+__module_version__ = "1.66"
 __module_description__ = "SCCwatcher"
 
 import xchat, os, re, string, urllib, ftplib, time, math, threading, base64, urllib2
 
 #the globals go here
-dlduration = ""
-from_main2 = ""
 extra_paths = "no"
 recent_list = ""
 dupelist = ""
@@ -175,7 +173,7 @@ def logging(text, operation):
 
 
 def dir_check(xpath, cat):
-	global full_xpath, extra_paths
+	global extra_paths
 	extra_paths = "yes"
 	if xpath == "SCCDATE":
 		# Create a dir in the DDMM format
@@ -268,6 +266,8 @@ def dir_check(xpath, cat):
 			#disable extra paths
 			extra_paths = "no"
 		full_xpath = full_xpath2
+	# Return the var instead of globalizing it.
+	return full_xpath
 
 #This function also tracks individual release names for dupe protection since v1.63
 def update_recent(file, dldir, size, dduration):
@@ -296,6 +296,8 @@ def on_text(word, word_eol, userdata):
 	if option["service"] != 'on':
 		return
 	counter = 0
+	# Just temp setting incase the shit hits the fan it will still sorta be correct. Shouldn't go wrong tho :D
+	zxfpath = option["savepath"]
 	#get the context where a new message was written
 	destination = xchat.get_context()
 	#did the message where sent to the right net, chan and by the right bot?
@@ -405,13 +407,14 @@ def on_text(word, word_eol, userdata):
 					# If theres a specified directory, run through the directory checker to make sure the dir exists and is accessable
 					try:
 						download_dir[1]
-						dir_check(download_dir[1], matchedtext.group(2))
+						# Because full_xpath is no longer global, we assign zxfpath to dir_checks return value (full_xpath)
+						zxfpath = dir_check(download_dir[1], matchedtext.group(2))
 					except:
 						chicken = "lol" # Had to put something here :D
 		
 					if extra_paths == "yes":
-						disp_path = full_xpath
-						filename = full_xpath + matchedtext.group(3) + ".torrent"
+						disp_path = zxfpath
+						filename = zxfpath + matchedtext.group(3) + ".torrent"
 					else:
 						disp_path = option["savepath"]
 						filename = option["savepath"] + matchedtext.group(3) + ".torrent"
@@ -422,8 +425,8 @@ def on_text(word, word_eol, userdata):
 					if option["logenabled"] == 'on':
 						verbtext = xchat.strip(verbtext) +" - "+ os.path.normcase(disp_path)
 						logging(verbtext, "GRAB")
-						
-					download(downloadurl, filename).start()				
+					#The number of passed vars has gone up in an effort to alleviate var overwrites under high load.
+					download(downloadurl, filename, zxfpath, matchedtext, disp_path, nicesize, extra_paths).start()
 					# The upload will be cascaded from the download thread to prevent a train wreck.
 					
 				# If utorrent adding is enabled, perform those operations
@@ -434,7 +437,7 @@ def on_text(word, word_eol, userdata):
 					if option["logenabled"] == 'on':
 						verbtext3 = xchat.strip(verbtext)
 						logging(verbtext3, "START_UTOR_ADD")
-					webui_upload(downloadurl).start()
+					webui_upload(downloadurl, matchedtext, nicesize).start()
 				if option["utorrent_mode"] is not "0" and option["utorrent_mode"] is not "1" and option["utorrent_mode"] is not "2":
 					verbtext = "\007"+color["bpurple"]+"SCCwatcher cannot download because you have set utorrent_mode to an invalid number. Please check your scc.ini and fix this error. utorrent_mode is currently set to: " + color["dgrey"] + option["utorrent_mode"]
 					verbose(verbtext)
@@ -548,81 +551,94 @@ def remove_watch(delitem):
 
 #Threaded download class.
 class download(threading.Thread):
-	def __init__(self, dlurl, flname):
+	def __init__(self, dlurl, flname, zxfpath, matchedtext, disp_path, nicesize, extra_paths):
 		self.dlurl = dlurl
 		self.flname = flname
+		self.zxfpath = zxfpath
+		self.matchedtext = matchedtext
+		self.disp_path = disp_path
+		self.nicesize = nicesize
+		self.extra_paths = extra_paths
 		threading.Thread.__init__(self)
 	def run(self):
+		#create thread-local data to further prevent var overwrites under high load
+		thread_data = threading.local()
 		# I'm adding in some timer things just for the hell of it
-		start_time = time.time()
+		thread_data.start_time = time.time()
 		# And here we download, but instead of halting the main thread (and xchat), this is in its own thread.
 		urllib.urlretrieve(self.dlurl, self.flname)
 		# Calculating download duration
-		end_time = time.time()
-		duration = end_time - start_time
+		thread_data.end_time = time.time()
+		thread_data.duration = thread_data.end_time - thread_data.start_time
 		#round off extra crap from duration to 3 digits
-		duration = str(float(round(duration, 3)))
+		thread_data.duration = str(float(round(thread_data.duration, 3)))
 		#Update Recent list
-		update_recent(matchedtext.group(3), disp_path, nicesize, duration)
+		update_recent(self.matchedtext.group(3), self.disp_path, self.nicesize, thread_data.duration)
 		#Print/log the confirmation of download completed and duration
-		verbtext3 = "\007"+color["bpurple"]+"SCCwatcher successfully downloaded torrent for "+color["dgrey"] + matchedtext.group(3) + " in "+duration+" seconds."
+		thread_data.verbtext3 = "\007"+color["bpurple"]+"SCCwatcher successfully downloaded torrent for "+color["dgrey"] + self.matchedtext.group(3) + " in "+thread_data.duration+" seconds."
 		if option["verbose"] == 'on':
-			verbose(verbtext3)
+			verbose(thread_data.verbtext3)
 		if option["logenabled"] == 'on':
-			verbtext3 = xchat.strip(verbtext3) +" - "+ os.path.normcase(disp_path)
-			logging(verbtext3, "END_GRAB")
+			thread_data.verbtext3 = xchat.strip(thread_data.verbtext3) +" - "+ os.path.normcase(self.disp_path)
+			logging(thread_data.verbtext3, "END_GRAB")
 		
 		#Ok now that we have the file, we can do the upload if necessary:
 		if option["ftpenable"] == 'on':
-			upload(self.flname).start()
+			upload(self.flname, self.zxfpath, self.matchedtext, self.disp_path, self.extra_paths).start()
 		
 		
 #threaded upload class
 class upload(threading.Thread):
-	def __init__(self, torrentname):
+	def __init__(self, torrentname, zxfpath, matchedtext, disp_path, extra_paths):
 		self.torrentname = torrentname
+		self.zxfpath = zxfpath
+		self.matchedtext = matchedtext		
+		self.disp_path = disp_path
+		self.extra_paths = extra_paths
 		threading.Thread.__init__(self)	
 	#Uploading tiem nao!!!!
 	def run(self):
+		#create thread-local data to further prevent var overwrites under high load
+		thread_data = threading.local()
 		#try to see if the ftp details are available, if the are: upload
-		ftpdetails = re.match("ftp:\/\/(.*):(.*)@(.*):([^\/]*.)/(.*)", option["ftpdetails"])
-		if ftpdetails is not None:
-			verbtext2 = "\007"+color["bpurple"]+"SCCwatcher is uploading file "+color["dgrey"]+matchedtext.group(3)+".torrent"+color["bpurple"]+" to "+color["dgrey"]+"ftp://"+color["dgrey"]+ftpdetails.group(3)+":"+ftpdetails.group(4)+"/"+ftpdetails.group(5)
+		thread_data.ftpdetails = re.match("ftp:\/\/(.*):(.*)@(.*):([^\/]*.)/(.*)", option["ftpdetails"])
+		if thread_data.ftpdetails is not None:
+			thread_data.verbtext2 = "\007" + color["bpurple"] + "SCCwatcher is uploading file " + color["dgrey"] + self.matchedtext.group(3) + ".torrent" + color["bpurple"] + " to " + color["dgrey"] + "ftp://" + color["dgrey"] + thread_data.ftpdetails.group(3) + ":" + thread_data.ftpdetails.group(4) + "/" + thread_data.ftpdetails.group(5)
 			if option["verbose"] == 'on':
-				verbose(verbtext2)
+				verbose(thread_data.verbtext2)
 			if option["logenabled"] == 'on':
-				logging(xchat.strip(verbtext2), "UPLOAD")
+				logging(xchat.strip(thread_data.verbtext2), "UPLOAD")
 			# I'm adding in some timer things just for the hell of it
-			start_time2 = time.time()
+			thread_data.start_time2 = time.time()
 			# ftp://user:psw@host:port/directory/torrents/
-			#ftpdetails.group(1) # user
-			#ftpdetails.group(2) # psw
-			#ftpdetails.group(3) # host
-			#ftpdetails.group(4) # port
-			#ftpdetails.group(5) # directory/torrents/
-			s = ftplib.FTP() # Create the ftp object
-			s.connect(ftpdetails.group(3), ftpdetails.group(4)) # Connect
-			s.login(ftpdetails.group(1), ftpdetails.group(2)) # Login
+			#thread_data.ftpdetails.group(1) # user
+			#thread_data.ftpdetails.group(2) # psw
+			#thread_data.ftpdetails.group(3) # host
+			#thread_data.ftpdetails.group(4) # port
+			#thread_data.ftpdetails.group(5) # directory/torrents/
+			thread_data.s = ftplib.FTP() # Create the ftp object
+			thread_data.s.connect(thread_data.ftpdetails.group(3), thread_data.ftpdetails.group(4)) # Connect
+			thread_data.s.login(thread_data.ftpdetails.group(1), thread_data.ftpdetails.group(2)) # Login
 			if option["ftppassive"] == 'on':
-				s.set_pasv(True) # Set passive-mode 
-			s.cwd(ftpdetails.group(5)) # Change directory
-			if extra_paths == "yes":
-				f = open(full_xpath + matchedtext.group(3) + ".torrent",'rb') # Open file to send
+				thread_data.s.set_pasv(True) # Set passive-mode 
+			thread_data.s.cwd(thread_data.ftpdetails.group(5)) # Change directory
+			if self.extra_paths == "yes":
+				thread_data.f = open(self.zxfpath + self.matchedtext.group(3) + ".torrent",'rb') # Open file to send
 			else:
-				f = open(option["savepath"] + matchedtext.group(3) + ".torrent",'rb') # Open file to send
-			s.storbinary('STOR ' + matchedtext.group(3) + ".torrent", f) # Send the file
-			f.close() # Close file
-			s.quit() # Close ftp
-			end_time2 = time.time()
-			duration2 = end_time2 - start_time2
+				thread_data.f = open(option["savepath"] + self.matchedtext.group(3) + ".torrent",'rb') # Open file to send
+			thread_data.s.storbinary('STOR ' + self.matchedtext.group(3) + ".torrent", thread_data.f) # Send the file
+			thread_data.f.close() # Close file
+			thread_data.s.quit() # Close ftp
+			thread_data.end_time2 = time.time()
+			thread_data.duration2 = thread_data.end_time2 - thread_data.start_time2
 			#round off extra crap from duration to 3 digits
-			duration2 = str(float(round(duration2, 3)))
-			verbtext4 = "\007"+color["bpurple"]+"SCCwatcher successfully uploaded file "+color["dgrey"] + matchedtext.group(3) + ".torrent"+color["bpurple"]+" to "+color["dgrey"]+"ftp://"+color["dgrey"]+ftpdetails.group(3)+":"+ftpdetails.group(4)+"/"+ftpdetails.group(5)+" in "+duration2+" seconds."
+			thread_data.duration2 = str(float(round(thread_data.duration2, 3)))
+			thread_data.verbtext4 = "\007" + color["bpurple"] + "SCCwatcher successfully uploaded file " + color["dgrey"] + self.matchedtext.group(3) + ".torrent" + color["bpurple"] + " to " + color["dgrey"] + "ftp://" + color["dgrey"] + thread_data.ftpdetails.group(3) + ":" + thread_data.ftpdetails.group(4) + "/" + thread_data.ftpdetails.group(5) + " in " + thread_data.duration2 + " seconds."
 			if option["verbose"] == 'on':
-				verbose(verbtext4)
+				verbose(thread_data.verbtext4)
 			if option["logenabled"] == 'on':
-				verbtext3 = xchat.strip(verbtext4) +" - "+ os.path.normcase(disp_path)
-				logging(verbtext4, "END_UPLOAD")
+				thread_data.verbtext3 = xchat.strip(thread_data.verbtext4) +" - "+ os.path.normcase(self.disp_path)
+				logging(thread_data.verbtext4, "END_UPLOAD")
 			
 		else:
 			print color["red"]+"There is a problem with your ftp details, please double check scc.ini and make sure you have entered them properly. Temporarily disabling FTP uploading, you can reenable it by using /sccwatcher ftpon"
@@ -630,49 +646,53 @@ class upload(threading.Thread):
 
 #Threaded upload class. Thanks to backdraft for providing most of the code. Sure made my life easier. :)
 class webui_upload(threading.Thread):
-	def __init__(self, turl):
+	def __init__(self, turl, matchedtext, nicesize):
 		self.turl = turl
+		self.matchedtext = matchedtext
+		self.nicesize = nicesize
 		threading.Thread.__init__(self)	
 		
 	def run(self):
-		torrent_url = urllib.quote(self.turl) # Escape the url
-		http_url = 'http://' + option["utorrent_hostname"] +':'+ option["utorrent_port"] + '/gui/?action=add-url&s=' + torrent_url # Make the url
-		base64string = base64.encodestring('%s:%s' % (option["utorrent_username"], option["utorrent_password"]))[:-1] 
-		authheader =  "Basic %s" % base64string
+		#create thread-local data to further prevent var overwrites under high load
+		thread_data = threading.local()
+		thread_data.torrent_url = urllib.quote(self.turl) # Escape the url
+		thread_data.http_url = 'http://' + option["utorrent_hostname"] +':'+ option["utorrent_port"] + '/gui/?action=add-url&s=' + thread_data.torrent_url # Make the url
+		thread_data.base64string = base64.encodestring('%s:%s' % (option["utorrent_username"], option["utorrent_password"]))[:-1] 
+		thread_data.authheader =  "Basic %s" % thread_data.base64string
 		# Basic Auth using base64
 		#start timer
-		start_time = time.time()
-		http_data = urllib2.Request(http_url)
-		http_data.add_header("Authorization", authheader)
-		http_data.add_header('User-Agent','Mozilla/4.0 (compatible; MSIE 5.5; Windows NT 5.0)') # Pretend we are Internet Explorer
-		opener_web = urllib2.build_opener()
-		good = 0
+		thread_data.start_time = time.time()
+		thread_data.http_data = urllib2.Request(thread_data.http_url)
+		thread_data.http_data.add_header("Authorization", thread_data.authheader)
+		thread_data.http_data.add_header('User-Agent','Mozilla/4.0 (compatible; MSIE 5.5; Windows NT 5.0)') # Pretend we are Internet Explorer
+		thread_data.opener_web = urllib2.build_opener()
+		thread_data.good = 0
 		try:
-			text = opener_web.open(http_data).read() # get the data
-			good = 1
+			thread_data.text = thread_data.opener_web.open(thread_data.http_data).read() # get the data
+			thread_data.good = 1
 		except:
-			error = "\007" +color["bpurple"]+"SCCwatcher encountered an HTTP error while connecting to the uTorrent WebUI at " + color["dgrey"] + option["utorrent_hostname"] + color["bpurple"] + ". Please double check the uTorrent WebUI settings in scc.ini are correct."
-			verbose(error)
-			good = 0
-		if good == 1:
+			thread_data.error = "\007" +color["bpurple"]+"SCCwatcher encountered an HTTP error while connecting to the uTorrent WebUI at " + color["dgrey"] + option["utorrent_hostname"] + color["bpurple"] + ". Please double check the uTorrent WebUI settings in scc.ini are correct."
+			verbose(thread_data.error)
+			thread_data.good = 0
+		if thread_data.good == 1:
 			#end timer
-			end_time = time.time()
-			duration = end_time - start_time
-			duration = str(float(round(duration, 3)))
+			thread_data.end_time = time.time()
+			thread_data.duration = thread_data.end_time - thread_data.start_time
+			thread_data.duration = str(float(round(thread_data.duration, 3)))
 			# If only uTorrent uploading is active, update the recent using WEBUI as the disp_path
 			if option["utorrent_mode"] == "2":
-				webuiloc = "WEBUI-" + option["utorrent_hostname"]
-				update_recent(matchedtext.group(3), webuiloc, nicesize, duration)
-			verbtext = "\007"+color["bpurple"]+"SCCwatcher successfully added torrent for " + color["dgrey"] + matchedtext.group(3) + color["bpurple"] + " to the uTorrent WebUI at " + color["dgrey"] + option["utorrent_hostname"] + color["bpurple"] + " in " + color["dgrey"] + duration + color["bpurple"] + " seconds."
+				thread_data.webuiloc = "WEBUI-" + option["utorrent_hostname"]
+				update_recent(self.matchedtext.group(3), thread_data.webuiloc, self.nicesize, thread_data.duration)
+			thread_data.verbtext = "\007"+color["bpurple"]+"SCCwatcher successfully added torrent for " + color["dgrey"] + self.matchedtext.group(3) + color["bpurple"] + " to the uTorrent WebUI at " + color["dgrey"] + option["utorrent_hostname"] + color["bpurple"] + " in " + color["dgrey"] + thread_data.duration + color["bpurple"] + " seconds."
 			if option["verbose"] == 'on':
-				verbose(verbtext)
+				verbose(thread_data.verbtext)
 			if option["logenabled"] == 'on':
-				verbtext3 = xchat.strip(verbtext)
-				logging(verbtext3, "END_UTOR_ADD")
-		if good == 0:
+				thread_data.verbtext3 = xchat.strip(thread_data.verbtext)
+				logging(thread_data.verbtext3, "END_UTOR_ADD")
+		if thread_data.good == 0:
 			if option["logenabled"] == 'on':
-				verbtext3 = xchat.strip(error)
-				logging(verbtext3, "END_UTOR_ADD")
+				thread_data.verbtext3 = xchat.strip(thread_data.error)
+				logging(thread_data.verbtext3, "END_UTOR_ADD")
 # I had to split up the on_local and the ifs because using try on all of it was causing problems
 def on_local(word, word_eol, userdata):
 	global option
@@ -829,4 +849,4 @@ if (__name__ == "__main__"):
 loadmsg = "\0034 "+__module_name__+" "+__module_version__+" has been loaded\003"
 print loadmsg
 #LICENSE GPL
-#Last modified 3-27-09
+#Last modified 3-31-09
