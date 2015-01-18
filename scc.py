@@ -21,7 +21,7 @@
 #    59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             #
 ############################################################################
 __module_name__ = "SCCwatcher"
-__module_version__ = "1.78"
+__module_version__ = "1.79"
 __module_description__ = "SCCwatcher"
 
 import xchat, os, re, string, urllib, ftplib, time, threading, base64, urllib2, smtplib, subprocess, platform, socket
@@ -604,9 +604,6 @@ def on_text(word, word_eol, userdata):
 					if re.search(watchlist_splitted[1], matchedtext.group(2), re.I) and re.search(watchlist_splitted[0], matchedtext.group(3), re.I):
 						counter += 1
 						break
-			if counter == 0:
-				amsg = "Torrent not grabbed because it was not found in the watchlist: " + matchedtext.group(3)
-				logging(amsg, "NO_GRAB-NO_WATCH")
 				
 					
 			#check if it should be avoided
@@ -620,8 +617,6 @@ def on_text(word, word_eol, userdata):
 					#do the check only on the release name
 					if re.search(avoidlist, matchedtext.group(3), re.I):
 						counter = 0
-						amsg = "Torrent avoided: " + str(matchedtext.group(3)) + ". Avoidlist entry: " + str(avoidlist)
-						logging(amsg, "NO_GRAB-AVOIDED")
 						break
 			
 			#Size details
@@ -1421,7 +1416,7 @@ def help(trigger):
 			more_help(trigger[2])
 		except:
 			print color["blue"], "Current accepted commands are: "
-			print color["dgrey"], "Help, Loud, Quiet, Rehash, Addwatch, Addavoid, Remwatch, Remavoid, Status, Watchlist, Avoidlist, On, Off, ftpon, ftpoff, updateftp, ftpdetails, logon, logoff, recent, recentclear, detectnetwork, emailon, emailoff, anytab, thistab, sccab, sslon, ssloff, cmdon, cmdoff" 
+			print color["dgrey"], "Help, Loud, Quiet, Rehash, Addwatch, Addavoid, Remwatch, Remavoid, Status, Watchlist, Avoidlist, On, Off, ftpon, ftpoff, updateftp, ftpdetails, logon, logoff, recent, recentclear, detectnetwork, emailon, emailoff, anytab, thistab, sccab, sslon, ssloff, cmdon, cmdoff, manualadd" 
 			print color["blue"], "Too see info on individual commands use: "+color["bpurple"]+"/sccwatcher help <command>"
 			
 	elif trigger[1] == 'ftpon':
@@ -1700,4 +1695,4 @@ if (__name__ == "__main__"):
 		main()
 
 #LICENSE GPL
-#Last modified 10-10-10 (MM/DD/YY)
+#Last modified 10-16-10 (MM/DD/YY)
