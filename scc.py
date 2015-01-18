@@ -21,7 +21,7 @@
 #    59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             #
 ############################################################################
 __module_name__ = "SCCwatcher"
-__module_version__ = "1.681"
+__module_version__ = "1.69"
 __module_description__ = "SCCwatcher"
 
 import xchat, os, re, string, urllib, ftplib, time, math, threading, base64, urllib2, smtplib
@@ -78,7 +78,8 @@ def reload_vars():
 			option["sizelimit2"] = int(sizebytes)
 		else:
 			print "\007"+color["dgrey"]+option["sizelimit"]+color["red"]+" is not a valid entry for sizelimit. Valid examples: 150K, 150M, 150G"
-	
+	option["_extra_context_"] = "off"
+
 def load_vars():
 	global option, p, sccnet
 	try:
@@ -139,10 +140,12 @@ def load_vars():
 		if option["logenabled"] == "on":
 			loadmsg = "\0034 "+__module_name__+" "+__module_version__+" has been loaded\003"
 			logging(xchat.strip(loadmsg), "LOAD")
-			
+		
+		option["_extra_context_"] = "off"
+		
 	except EnvironmentError:
 		print color["red"], "\007Could not open scc.ini! Put it in "+xchatdir+" !"
-
+	
 #detectet the network only 30seconds after the start
 def starttimer(userdata):
 	global sccnet, starttimerhook
@@ -164,8 +167,22 @@ def main():
 	starttimerhook = xchat.hook_timer(sdelay, starttimer)
 
 def verbose(text):
-	currloc = xchat.find_context()
-	currloc.prnt(text)
+	if option["_extra_context_"] == "on":
+		if option["_current_context_"] is not None:
+			try:
+				option["_current_context_"].prnt(text)
+			except:
+				errortext = "\007\00304There was an error using your set output tab, please redefine the output tab with /sccwatcher setoutput. Reseting output to normal."
+				currloc = xchat.find_context()
+				currloc.prnt(errortext)
+				option["_extra_context_"] = "off"
+		else:
+			option["_extra_context_"] = "off"
+			currloc = xchat.find_context()
+			currloc.prnt(text)
+	else:
+		currloc = xchat.find_context()
+		currloc.prnt(text)
 	
 def logging(text, operation):
 	#Make sure logpath exists first, if not create it.
@@ -281,8 +298,10 @@ def dir_check(xpath, cat):
 #This function also tracks individual release names for dupe protection since v1.63
 def update_recent(file, dldir, size, dduration):
 	global recent_list
+	entry_number = str(int(len(recent_list)) + 1)
 	time_now = time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())
-	formatted = color["dgrey"]+ time_now + color["black"] + " - " + color["bpurple"] + file + color["black"] + " - " + color["dgrey"] + size + color["black"] + " - " + color["dgrey"] + dduration+" Seconds" + color["black"] + " - " + color["dgrey"] + os.path.normcase(dldir)
+	
+	formatted = color["bpurple"] + entry_number + color["black"] + " - " + color["dgrey"] + time_now + color["black"] + " - " + color["bpurple"] + file + color["black"] + " - " + color["dgrey"] + size + color["black"] + " - " + color["dgrey"] + dduration+" Seconds" + color["black"] + " - " + color["dgrey"] + os.path.normcase(dldir)
 	#recent list update or initial creation
 	if len(string.join(recent_list, ' ')) > 0:
 		recent_list.append(formatted)
@@ -409,7 +428,7 @@ def on_text(word, word_eol, userdata):
 				#Now that we're downloading for sure, add the release name to the dupecheck list.
 				update_dupe(matchedtext.group(3))
 				
-				downloadurl = "http://www.sceneaccess.org/download2.php/" + matchedtext.group(5) + "/" + option["passkey"] + "/" + matchedtext.group(3) + ".torrent"
+				downloadurl = "http://www.sceneaccess.org/downloadbig2.php/" + matchedtext.group(5) + "/" + option["passkey"] + "/" + matchedtext.group(3) + ".torrent"
 				
 				#Utorrent is either disabled or is working in tandom with normal download.
 				if option["utorrent_mode"] == "0" or option["utorrent_mode"] == "1":
@@ -502,6 +521,10 @@ def more_help(command):
 		print color["bpurple"], "emailon: " + color["blue"] + "Turns the emailing function on. Use 'emailoff' to turn it off"
 	elif command == 'emailoff':
 		print color["bpurple"], "emailoff: " + color["blue"] + "Turns the emailing function off. Use 'emailon' to turn it on"
+	elif command == 'setoutput':
+		print color["bpurple"], "setoutput: " + color["blue"] + "Sets the currently active tab as the place for all verbose output. You can reset back to the default output by using /sccwatcher deloutput"
+	elif command == 'deloutput':
+		print color["bpurple"], "deloutput: " + color["blue"] + "Returns the verbose output to default (Currently active tab at the time of output). You can set a tab for output by using /sccwatcher setoutput"
 	else:
 		print color["red"], "Unknown command, "+color["black"]+command
 
@@ -578,34 +601,80 @@ class download(threading.Thread):
 		thread_data = threading.local()
 		# I'm adding in some timer things just for the hell of it
 		thread_data.start_time = time.time()
-		# And here we download, but instead of halting the main thread (and xchat), this is in its own thread.
-		urllib.urlretrieve(self.dlurl, self.flname)
-		# Calculating download duration
-		thread_data.end_time = time.time()
-		thread_data.duration = thread_data.end_time - thread_data.start_time
-		#round off extra crap from duration to 3 digits
-		thread_data.duration = str(float(round(thread_data.duration, 3)))
-		#Update Recent list
-		update_recent(self.matchedtext.group(3), self.disp_path, self.nicesize, thread_data.duration)
-		#Print/log the confirmation of download completed and duration
-		thread_data.verbtext3 = "\007"+color["bpurple"]+"SCCwatcher successfully downloaded torrent for "+color["dgrey"] + self.matchedtext.group(3) + " in "+thread_data.duration+" seconds."
-		if option["verbose"] == 'on':
-			verbose(thread_data.verbtext3)
-		if option["logenabled"] == 'on':
-			thread_data.verbtext3 = xchat.strip(thread_data.verbtext3) +" - "+ os.path.normcase(self.disp_path)
-			logging(thread_data.verbtext3, "END_GRAB")
+		self.count = 0
+		# Goto the download function
+		self.download(thread_data.start_time)
 		
-		#Ok now that we have the file, we can do the upload if necessary:
-		if option["ftpenable"] == 'on':
-			upload(self.flname, self.zxfpath, self.matchedtext, self.disp_path, self.extra_paths, self.nicesize).start()
-		else:
-			if option["smtp_emailer"] == "on":
-				email(self.matchedtext, self.disp_path, self.nicesize).start()
+	def check_size(self, file, stime):
+		self.count += 1
+		thread_data = threading.local()
+		thread_data.filesize = int(os.path.getsize(file))
+		#Check if the file is less than 50 bytes (shouldn't be)
+		if thread_data.filesize < 50:
+			#Delete the bad file
+			os.remove(file)
+			# Have we reached the retry limit?
+			if self.count < int(option["max_dl_tries"]):
+				#Sleep a second to give the server some breathing room.
+				time.sleep(int(option["retry_wait"]))
+				#Then download again
+				self.download(stime)
+			#We have reached the limit, verbose/log event and discontinue download operations.
 			else:
-				if option["use_external_command"] == "on":
-					do_cmd(self.matchedtext, self.disp_path, self.nicesize).start()
+				self.final_output(False, stime)
+		# Yay we downloaded a good file, verbose/log event.
+		else:
+			self.final_output(True, stime)
+	
+	def download(self, stime):
+		thread_data = threading.local()
+		# And here we download, but instead of halting the main thread (and xchat), this is in its own thread.
+		thread_data.dl = urllib.urlretrieve(self.dlurl, self.flname)
+		# See if it grabbed it correctly
+		self.check_size(self.flname, stime)
 		
-		
+	def final_output(self, status, stime):
+		thread_data = threading.local()
+		thread_data.start_time = stime
+		if status == True:
+			# Calculating download duration
+			thread_data.end_time = time.time()
+			thread_data.duration = thread_data.end_time - thread_data.start_time
+			#round off extra crap from duration to 3 digits
+			thread_data.duration = str(float(round(thread_data.duration, 3)))
+			#Update Recent list
+			update_recent(self.matchedtext.group(3), self.disp_path, self.nicesize, thread_data.duration)
+			#Print/log the confirmation of download completed and duration
+			# Its annoying to see the download try number after each grab, so only put the number of retry's if there was more than 1.
+			if self.count == 1:
+				thread_data.verbtext3 = "\007" + color["bpurple"] + "SCCwatcher successfully downloaded torrent for " + color["dgrey"] + self.matchedtext.group(3) + color["bpurple"] + " in " + color["dgrey"] + thread_data.duration + color["bpurple"] + " seconds."
+			else:
+				thread_data.verbtext3 = "\007" + color["bpurple"] + "SCCwatcher successfully downloaded torrent for " + color["dgrey"] + self.matchedtext.group(3) + color["bpurple"] + " in " + color["dgrey"] + thread_data.duration + color["bpurple"] + " seconds. Total retry's: " + color["dgrey"] + str(self.count)
+			if option["verbose"] == 'on':
+				verbose(thread_data.verbtext3)
+			if option["logenabled"] == 'on':
+				thread_data.verbtext3 = xchat.strip(thread_data.verbtext3) +" - "+ os.path.normcase(self.disp_path)
+				logging(thread_data.verbtext3, "END_GRAB")
+			
+			#Ok now that we have the file, we can do the upload if necessary:
+			#If we're doing an upload, then dont do an email or external command, as that will be handled by the upload class.
+			if option["ftpenable"] == 'on':
+				upload(self.flname, self.zxfpath, self.matchedtext, self.disp_path, self.extra_paths, self.nicesize).start()
+			else:
+				#If emailing is enabled, dont do external command as that will be handled by the email class.
+				if option["smtp_emailer"] == "on":
+					email(self.matchedtext, self.disp_path, self.nicesize).start()
+				else:
+					if option["use_external_command"] == "on":
+						do_cmd(self.matchedtext, self.disp_path, self.nicesize).start()
+		else:
+			thread_data.verbtext3 = "\007"+color["bpurple"]+"SCCwatcher failed to downloaded torrent for "+color["dgrey"] + self.matchedtext.group(3) + color["bpurple"]+" after " +color["dgrey"]+ option["max_dl_tries"] + color["bpurple"]+" tries. Manually download at: " +color["dgrey"]+ self.dlurl
+			if option["verbose"] == 'on':
+				verbose(thread_data.verbtext3)
+			if option["logenabled"] == 'on':
+				thread_data.verbtext3 = xchat.strip(thread_data.verbtext3) +" - "+ os.path.normcase(self.disp_path)
+				logging(thread_data.verbtext3, "END_GRAB")
+	
 #threaded upload class
 class upload(threading.Thread):
 	def __init__(self, torrentname, zxfpath, matchedtext, disp_path, extra_paths, nicesize):
@@ -653,7 +722,7 @@ class upload(threading.Thread):
 			thread_data.duration2 = thread_data.end_time2 - thread_data.start_time2
 			#round off extra crap from duration to 3 digits
 			thread_data.duration2 = str(float(round(thread_data.duration2, 3)))
-			thread_data.verbtext4 = "\007" + color["bpurple"] + "SCCwatcher successfully uploaded file " + color["dgrey"] + self.matchedtext.group(3) + ".torrent" + color["bpurple"] + " to " + color["dgrey"] + "ftp://" + color["dgrey"] + thread_data.ftpdetails.group(3) + ":" + thread_data.ftpdetails.group(4) + "/" + thread_data.ftpdetails.group(5) + " in " + thread_data.duration2 + " seconds."
+			thread_data.verbtext4 = "\007" + color["bpurple"] + "SCCwatcher successfully uploaded file " + color["dgrey"] + self.matchedtext.group(3) + ".torrent" + color["bpurple"] + " to " + color["dgrey"] + "ftp://" + color["dgrey"] + thread_data.ftpdetails.group(3) + ":" + thread_data.ftpdetails.group(4) + "/" + thread_data.ftpdetails.group(5) + color["bpurple"]+" in " + color["dgrey"]+thread_data.duration2 + color["bpurple"]+" seconds."
 			if option["verbose"] == 'on':
 				verbose(thread_data.verbtext4)
 			if option["logenabled"] == 'on':
@@ -752,13 +821,13 @@ class email(threading.Thread):
 				thread_data.verbtext = xchat.strip(thread_data.verbtext)
 				logging(xchat.strip(thread_data.verbtext), "SMTP_FAIL")
 			thread_data.is_connected = False
-		#Should we start a tls session?
-		if option["smtp_tls"] == "on":
-			thread_data.smtpconn.starttls()
-			thread_data.smtpconn.ehlo()
 		#If we've gotten this far, then we should have some type of connection to the server. Now we can send our message
 		#Still using try incase something else fails
 		if thread_data.is_connected == True:
+			#Should we start a tls session?
+			if option["smtp_tls"] == "on":
+				thread_data.smtpconn.starttls()
+				thread_data.smtpconn.ehlo()
 			#If the user gave a username/password, log in with it.
 			if len(option["smtp_username"]) > 0:
 				try:
@@ -820,6 +889,14 @@ class email(threading.Thread):
 		thread_data.email_body = thread_data.email_body.replace('%ulpath%', thread_data.ftpstring)
 		thread_data.email_body = thread_data.email_body.replace('%utserver%', thread_data.utstring)
 		
+		thread_data.email_subject = option["smtp_subject"].replace('%torrent%', self.matchedtext.group(3))
+		thread_data.email_subject = thread_data.email_subject.replace('%category%', self.matchedtext.group(2))
+		thread_data.email_subject = thread_data.email_subject.replace('%size%', self.nicesize)
+		thread_data.email_subject = thread_data.email_subject.replace('%time%', thread_data.current_time)
+		thread_data.email_subject = thread_data.email_subject.replace('%dlpath%', self.disp_path)
+		thread_data.email_subject = thread_data.email_subject.replace('%ulpath%', thread_data.ftpstring)
+		thread_data.email_subject = thread_data.email_subject.replace('%utserver%', thread_data.utstring)
+		
 		thread_data.message = """
 Subject: %s
 Content-Type: text/html; charset=ISO-8859-1
@@ -831,7 +908,7 @@ Content-Type: text/html; charset=ISO-8859-1
 %s
 </body>
 </html>		
-		""" % (option["smtp_subject"], thread_data.email_body)
+		""" % (thread_data.email_subject, thread_data.email_body)
 		thread_data.message = thread_data.message.strip()
 		return thread_data.message
 
@@ -855,9 +932,9 @@ class do_cmd(threading.Thread):
 		else:
 			thread_data.ftpstring = "BAD_FTP_DETAILS"
 		thread_data.utstring = option["utorrent_hostname"] + ":" + option["utorrent_port"]
-		
+		thread_data.nice_cat = self.matchedtext.group(2).replace('/','-')
 		thread_data.command_string = option["external_command"].replace('%torrent%', self.matchedtext.group(3))
-		thread_data.command_string = thread_data.command_string.replace('%category%', self.matchedtext.group(2))
+		thread_data.command_string = thread_data.command_string.replace('%category%', thread_data.nice_cat)
 		thread_data.command_string = thread_data.command_string.replace('%size%', self.nicesize)
 		thread_data.command_string = thread_data.command_string.replace('%time%', thread_data.current_time)
 		thread_data.command_string = thread_data.command_string.replace('%dlpath%', self.disp_path)
@@ -866,14 +943,14 @@ class do_cmd(threading.Thread):
 		
 		try:
 			os.system(thread_data.command_string)
-			thread_data.verbtext="\007"+color["bpurple"]+"SCCwatcher successfully ran the external command " + color["dgrey"] + option["external_command"]
+			thread_data.verbtext="\007"+color["bpurple"]+"SCCwatcher successfully ran the external command " + color["dgrey"] + thread_data.command_string
 			if option["verbose"] == 'on':
 				verbose(thread_data.verbtext)
 			if option["logenabled"] == 'on':
 				thread_data.verbtext = xchat.strip(thread_data.verbtext)
 				logging(xchat.strip(thread_data.verbtext), "EXT_CMD_SUCCESS")
 		except:
-			thread_data.verbtext="\007"+color["bpurple"]+"SCCwatcher encountered an error running: " + color["dgrey"] + option["external_command"]
+			thread_data.verbtext="\007"+color["bpurple"]+"SCCwatcher encountered an error running: " + color["dgrey"] + thread_data.command_string
 			if option["verbose"] == 'on':
 				verbose(thread_data.verbtext)
 			if option["logenabled"] == 'on':
@@ -911,7 +988,7 @@ def help(trigger):
 			more_help(trigger[2])
 		except:
 			print color["blue"], "Current accepted commands are: "
-			print color["dgrey"], "Help, Loud, Quiet, Rehash, Addwatch, Addavoid, Remwatch, Remavoid, Status, Watchlist, Avoidlist, On, Off, ftpon, ftpoff, updateftp, ftpdetails, logon, logoff, recent, recentclear, detectnetwork, emailon, emailoff" 
+			print color["dgrey"], "Help, Loud, Quiet, Rehash, Addwatch, Addavoid, Remwatch, Remavoid, Status, Watchlist, Avoidlist, On, Off, ftpon, ftpoff, updateftp, ftpdetails, logon, logoff, recent, recentclear, detectnetwork, emailon, emailoff, setoutput, deloutput" 
 			print color["blue"], "Too see info on individual commands use: "+color["bpurple"]+"/sccwatcher help <command>"
 			
 	elif trigger[1] == 'ftpon':
@@ -981,11 +1058,14 @@ def help(trigger):
 	elif trigger[1] == 'status':
 		print color["bpurple"], "SCCwatcher version " +color["blue"] + __module_version__
 		print color["bpurple"], "Auto downloading is: " + color["blue"] + option["service"]
+		print color["bpurple"], "Maximum redownload tries is : " + color["blue"] + option["max_dl_tries"]
+		print color["bpurple"], "Delay (in seconds) between download retry is: " + color["blue"] + option["retry_wait"]
 		print color["bpurple"], "Dupechecking is: " + color["blue"] + option["dupecheck"]
 		print color["bpurple"], "Torrent size limit: " + color["blue"] + tmp_limit_text
 		print color["bpurple"], "Recent list size: " + color["blue"] + str(len(recent_list)) + color["bpurple"] + " items."
 		print color["bpurple"], "Start delay is set to:" + color["blue"],option["startdelay"]+ " seconds"
 		print color["bpurple"], "Verbose output is: " + color["blue"] + option["verbose"]
+		print color["bpurple"], "Using custom tab for verbose output is: " + color["blue"] + option["_extra_context_"]
 		print color["bpurple"], "Logging to file is: " + color["blue"] + option["logenabled"]
 		print color["bpurple"], "Uploading to ftp is: " + color["blue"] + option["ftpenable"]
 		print color["bpurple"], "uTorrent WebUI Mode is: " + color["blue"] + option["utorrent_mode"]
@@ -1028,6 +1108,16 @@ def help(trigger):
 	elif trigger[1] == 'emailon':
 		option["smtp_emailer"] = 'on'
 		print color["red"], "Emailing has been turned on, use 'emailoff' to turn it back off"
+	
+	elif trigger[1] == 'setoutput':
+		option["_extra_context_"] = "on"
+		option["_current_context_"] = xchat.find_context()
+		print color["red"] + "SCCwatcher will now use this tab for all verbose output. To change the tab, use /sccwatcher setout again in a different tab, or use /sccwatcher deloutput to go back to the original way sccwatcher outputs."
+		
+	elif trigger[1] == 'deloutput':
+		option["_extra_context_"] = "off"
+		option["_current_context_"] = None
+		print color["red"], "SCCwatcher will now output to whichever tab is currently active. Use /sccwatcher setoutput to change this."
 		
 	else:
 		print color["red"], "Unknown command, " + color["black"] + trigger[1]
@@ -1040,13 +1130,15 @@ def unload_cb(userdata):
 	if option["logenabled"] == "on":
 		logging(xchat.strip(quitmsg), "UNLOAD")
 
-xchat.hook_unload(unload_cb)
 
-load_vars()
 
 #The hooks go here
 xchat.hook_print('Channel Message', on_text)
 xchat.hook_command('SCCwatcher', on_local, help="adjust the scc.ini as you wish ")
+xchat.hook_unload(unload_cb)
+
+#load scc.ini
+load_vars()
 
 # This gets the script movin
 if (__name__ == "__main__"):
@@ -1055,4 +1147,4 @@ if (__name__ == "__main__"):
 loadmsg = "\0034 "+__module_name__+" "+__module_version__+" has been loaded\003"
 print loadmsg
 #LICENSE GPL
-#Last modified 4-03-09
+#Last modified 4-11-09
