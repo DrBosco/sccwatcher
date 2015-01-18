@@ -21,7 +21,7 @@
 #    59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             #
 ############################################################################
 __module_name__ = "SCCwatcher"
-__module_version__ = "1.8"
+__module_version__ = "1.81"
 __module_description__ = "SCCwatcher"
 
 import xchat, os, re, string, urllib, ftplib, time, threading, base64, urllib2, smtplib, subprocess, platform, socket
@@ -55,7 +55,8 @@ def reload_vars():
 	except:
 		cc = None
 		ec = "off"
-	
+	#removing debug key from the options dict.
+	remove_debug = option.pop("DEBUG")
 	inifile = open(os.path.join(xchatdir,"scc.ini"))
 	line = inifile.readline()
 	while line != "":
@@ -78,6 +79,12 @@ def reload_vars():
 		option["external_command"]
 	except:
 		option["external_command"] = ""
+	
+	#Set up debug var. If it exists use it, if not set it to false
+	try:
+		option["DEBUG"]
+	except:
+		option["DEBUG"] = "off"
 	
 	#convert sizelimit to bytes
 	try:
@@ -140,6 +147,10 @@ def reload_vars():
 	else:
 		xchat.command('menu -t0 add "SCCwatcher/Logging to File" "sccwatcher logon" "sccwatcher logoff"')
 
+	if option["DEBUG"] == "on":
+		xchat.command('menu -p9 -t1 add "SCCwatcher/Debug output" "sccwatcher _guidebugon" "sccwatcher _guidebugoff"')
+	
+
 	if option["_extra_context_"] == "on":
 		xchat.command('menu -e0 -t1 add "SCCwatcher/Verbose Output Settings/Using Non-Default Output?" "echo"')
 	else:
@@ -192,6 +203,13 @@ def load_vars():
 			option["external_command"]
 		except:
 			option["external_command"] = ""
+		
+		#Set up debug var. If it exists use it, if not set it to false
+		try:
+			option["DEBUG"]
+		except:
+			option["DEBUG"] = "off"
+		
 		#convert sizelimit to bytes
 		try:
 			option["sizelimit"]
@@ -213,7 +231,7 @@ def load_vars():
 		
 		print color["dgreen"], "SCCwatcher scc.ini Load Success, detecting the network details, the script will be ready in", option["startdelay"], "seconds "
 		#compile the regexp, do this one time only
-		announce_regex = re.compile('(.*)NEW in (.*): -> ([^\s]*.) \((.*)\) - \(http:\/\/www.sceneaccess.org\/details(\.php)?\?id=(\d+)\)(.*)')
+		announce_regex = re.compile('(.*)NEW in (.*): -> ([^\s]*.) \((.*)\) - \(http:\/\/www.sceneaccess.org\/details(?:\.php)?\?id=(\d+)\)(.*)')
 		
 		#Create the menus
 		#lots of ifs because we have to make sure the default values reflect whats in scc.ini
@@ -259,6 +277,10 @@ def load_vars():
 			xchat.command('menu -t1 add "SCCwatcher/Logging to File" "sccwatcher logon" "sccwatcher logoff"')
 		else:
 			xchat.command('menu -t0 add "SCCwatcher/Logging to File" "sccwatcher logon" "sccwatcher logoff"')
+		
+		if option["DEBUG"] == "on":
+			xchat.command('menu -t1 add "SCCwatcher/Debug output" "sccwatcher _guidebugon" "sccwatcher _guidebugoff"')
+		
 			
 		xchat.command('menu add SCCwatcher/-')
 		xchat.command('menu add SCCwatcher/Help "sccwatcher help"')
@@ -550,6 +572,13 @@ def on_text(word, word_eol, userdata):
 			matchedtext = announce_regex.match(xchat.strip(word[1]))
 		#the bot wrote something we can understand, we can proceed with the parsing
 		if matchedtext is not None:
+			if option["DEBUG"] == "on":
+				DEBUG_MESSAGE = "\007"+color["bpurple"]+"DEBUG_OUTPUT: Got good announce line, starting download. LINE: " + color["dgrey"] + str(word[1])
+				if option["verbose"] == 'on':
+					verbose(DEBUG_MESSAGE)
+				if option["logenabled"] == 'on':
+					logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
+				
 			
 			#matchedtext.group(2) = MP3
 			#matchedtext.group(3) = VA-Stamina_Daddy_Riddim_Aka_Gold_Spoon_Riddim_(Promo_CD)-2006-VYM
@@ -558,12 +587,13 @@ def on_text(word, word_eol, userdata):
 			#check if it's in watchlist
 			#length checks to make sure theres something in the list first
 			wlistcheck = string.join(option["watchlist"], '')
+			
 			if len(wlistcheck) is not 0:	
 				for watchlist in option["watchlist"]:
 					#replace * with (.*) will see in the future if the users want the full power of regexp or if they prefer a simple * as jolly and nothing else is needed
+					watchlist = watchlist.replace('.','\.')
 					watchlist = watchlist.replace('*','(.*)')
 					watchlist = watchlist.replace('/','\/')
-					watchlist = watchlist.replace('.','\.')
 					watchlist_splitted = re.split(':', watchlist)
 					#Here we're going to search the watch for anything extra like a tag or a download dir
 					#Using a try incase someone entered a watch with no colon at all (no watchlist_splitted[1]
@@ -604,7 +634,21 @@ def on_text(word, word_eol, userdata):
 					#do the check for the section and the release name. re.I means the search is case insensitive
 					if re.search(watchlist_splitted[1], matchedtext.group(2), re.I) and re.search(watchlist_splitted[0], matchedtext.group(3), re.I):
 						counter += 1
+						if option["DEBUG"] == "on":
+							DEBUG_MESSAGE = "\007"+color["bpurple"]+"DEBUG_OUTPUT: Matched release to watch. Matched watchlist entry: " + color["dgrey"] + str(watchlist)
+							if option["verbose"] == 'on':
+								verbose(DEBUG_MESSAGE)
+							if option["logenabled"] == 'on':
+								logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
 						break
+					else:
+						#This 'else' is only really here for debug purposes.
+						if option["DEBUG"] == "on":
+							DEBUG_MESSAGE = "\007"+color["bpurple"]+"DEBUG_OUTPUT: Failed to match watchlist entry. Failed watchlist entry: " + color["dgrey"] + str(watchlist)
+							if option["verbose"] == 'on':
+								verbose(DEBUG_MESSAGE)
+							if option["logenabled"] == 'on':
+								logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
 				
 					
 			#check if it should be avoided
@@ -612,14 +656,27 @@ def on_text(word, word_eol, userdata):
 			alistcheck = string.join(option["avoidlist"], '')
 			if len(alistcheck) is not 0 and userdata != "BYPASS" and counter > 0:	
 				for avoidlist in option["avoidlist"]:
+					avoidlist = avoidlist.replace('.','\.')
 					avoidlist = avoidlist.replace('*','')
 					avoidlist = avoidlist.replace('/','\/')
-					avoidlist = avoidlist.replace('.','\.')
 					avoidlist = '^(.*)' + avoidlist + '(.*)$'
 					#do the check only on the release name
 					if re.search(avoidlist, matchedtext.group(3), re.I):
 						counter = 0
+						if option["DEBUG"] == "on":
+							DEBUG_MESSAGE = "\007"+color["bpurple"]+"DEBUG_OUTPUT: Matched rls to entry in avoidlist. Download operation stopped. Matched avoidlist entry: " + color["dgrey"] + str(avoidlist)
+							if option["verbose"] == 'on':
+								verbose(DEBUG_MESSAGE)
+							if option["logenabled"] == 'on':
+								logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
 						break
+					else:
+						if option["DEBUG"] == "on":
+							DEBUG_MESSAGE = "\007"+color["bpurple"]+"DEBUG_OUTPUT: Failed to match avoidlist entry with rls. Avoidlist entry: " + color["dgrey"] + str(avoidlist)
+							if option["verbose"] == 'on':
+								verbose(DEBUG_MESSAGE)
+							if option["logenabled"] == 'on':
+								logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
 			
 			#Size details
 			sizedetail = matchedtext.group(4).replace(')', '')
@@ -664,19 +721,47 @@ def on_text(word, word_eol, userdata):
 							logging(xchat.strip(dupeavoid), "DUPE")
 					#if its not a dupe, rabblerabblerabble do nothing.
 					except:
-						pass
+						if option["DEBUG"] == "on":
+							DEBUG_MESSAGE = "\007"+color["bpurple"]+"DEBUG_OUTPUT: Release was not found in dupe list."
+							if option["verbose"] == 'on':
+								verbose(DEBUG_MESSAGE)
+							if option["logenabled"] == 'on':
+								logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
 							
 			#got a match!! let's download
 			if counter > 0 or userdata == "BYPASS":
 				#Now that we're downloading for sure, add the release name to the dupecheck list.
 				update_dupe(matchedtext.group(3))
+				if option["DEBUG"] == "on":
+					DEBUG_MESSAGE = "\007"+color["bpurple"]+"DEBUG_OUTPUT: Added the following release to dupe list: " + color["dgrey"] + str(matchedtext.group(3))
+					if option["verbose"] == 'on':
+						verbose(DEBUG_MESSAGE)
+					if option["logenabled"] == 'on':
+						logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
+						
 				#And set the download url. If download_ssl is on, generate an ssl url instead.
 				if option["download_ssl"] == "on":
 					#downloadurl = "https://www.sceneaccess.org/downloadbig2.php/" + matchedtext.group(5) + "/" + option["passkey"] + "/" + matchedtext.group(3) + ".torrent"
 					downloadurl = "https://www.sceneaccess.org/download/" + matchedtext.group(5) + "/" + option["passkey"] + "/" + matchedtext.group(3) + ".torrent"
+					
+					if option["DEBUG"] == "on":
+						DEBUG_MESSAGE = "\007"+color["bpurple"]+"DEBUG_OUTPUT: Using the following SSL download url: " + color["dgrey"] + str(downloadurl)
+						if option["verbose"] == 'on':
+							verbose(DEBUG_MESSAGE)
+						if option["logenabled"] == 'on':
+							logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
+					
 				else:
 					#downloadurl = "http://www.sceneaccess.org/downloadbig2.php/" + matchedtext.group(5) + "/" + option["passkey"] + "/" + matchedtext.group(3) + ".torrent"
 					downloadurl = "http://www.sceneaccess.org/download/" + matchedtext.group(5) + "/" + option["passkey"] + "/" + matchedtext.group(3) + ".torrent"
+					
+					if option["DEBUG"] == "on":
+						DEBUG_MESSAGE = "\007"+color["bpurple"]+"DEBUG_OUTPUT: Using the following non-SSL download url: " + color["dgrey"] + str(downloadurl)
+						if option["verbose"] == 'on':
+							verbose(DEBUG_MESSAGE)
+						if option["logenabled"] == 'on':
+							logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
+					
 				#And make the nice_tag_extra a string, since later it will be needed in string format, and we wont be needing its boolean type anymore anyway.
 				nice_tag_extra = str(nice_tag_extra)
 				#Utorrent is either disabled or is working in tandom with normal download.
@@ -934,6 +1019,14 @@ class download(threading.Thread):
 		#This is only the first stage of corrupt download detection
 		if thread_data.filesize < 100:
 			thread_data.torrent_is_valid = False
+			
+			if option["DEBUG"] == "on":
+				DEBUG_MESSAGE = "\007"+color["bpurple"]+"DEBUG_OUTPUT: Downloaded torrent is smaller than 100 bytes. Actual file size: " + color["dgrey"] + str(thread_data.filesize)
+				if option["verbose"] == 'on':
+					verbose(DEBUG_MESSAGE)
+				if option["logenabled"] == 'on':
+					logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
+					
 		# Second stage in corruption detection, bencode check
 		else:
 			#To use the bencode checking class we have to read the torrent file into memory and send that variable through the checker.
@@ -944,7 +1037,13 @@ class download(threading.Thread):
 				thread_data.torrent_is_valid = True
 				
 			except:
-				thread_data.torrent_is_valid = False	
+				thread_data.torrent_is_valid = False
+				if option["DEBUG"] == "on":
+					DEBUG_MESSAGE = "\007"+color["bpurple"]+"DEBUG_OUTPUT: Torrent file failed bencode check."
+					if option["verbose"] == 'on':
+						verbose(DEBUG_MESSAGE)
+					if option["logenabled"] == 'on':
+						logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
 		
 		
 		if thread_data.torrent_is_valid == False:
@@ -964,6 +1063,14 @@ class download(threading.Thread):
 		
 	def download(self, stime):
 		thread_data = threading.local()
+		
+		if option["DEBUG"] == "on":
+			DEBUG_MESSAGE = "\007"+color["bpurple"]+"DEBUG_OUTPUT: Starting download process."
+			if option["verbose"] == 'on':
+				verbose(DEBUG_MESSAGE)
+			if option["logenabled"] == 'on':
+				logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
+				
 		# And here we download. This wont hold up the main thread because this class is in a subthread,
 		#Using a try-except here incase urlretrieve has problems
 		try:
@@ -1031,6 +1138,13 @@ class upload(threading.Thread):
 		threading.Thread.__init__(self)
 	#Uploading tiem nao!!!!
 	def run(self):
+		if option["DEBUG"] == "on":
+			DEBUG_MESSAGE = "\007"+color["bpurple"]+"DEBUG_OUTPUT: FTP Upload operation has started."
+			if option["verbose"] == 'on':
+				verbose(DEBUG_MESSAGE)
+			if option["logenabled"] == 'on':
+				logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
+				
 		#create thread-local data to further prevent var overwrites under high load
 		thread_data = threading.local()
 		#try to see if the ftp details are available, if the are: upload
@@ -1126,6 +1240,13 @@ class webui_upload(threading.Thread):
 		threading.Thread.__init__(self)	
 		
 	def run(self):
+		if option["DEBUG"] == "on":
+			DEBUG_MESSAGE = "\007"+color["bpurple"]+"DEBUG_OUTPUT: uTorrent WebUI upload operation has started."
+			if option["verbose"] == 'on':
+				verbose(DEBUG_MESSAGE)
+			if option["logenabled"] == 'on':
+				logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
+				
 		#create thread-local data to further prevent var overwrites under high load
 		thread_data = threading.local()
 		thread_data.torrent_url = urllib.quote(self.turl) # Escape the url
@@ -1182,6 +1303,12 @@ class email(threading.Thread):
 		threading.Thread.__init__(self)	
 	#Send tiem nao
 	def run(self):
+		if option["DEBUG"] == "on":
+			DEBUG_MESSAGE = "\007"+color["bpurple"]+"DEBUG_OUTPUT: Email operation has started."
+			if option["verbose"] == 'on':
+				verbose(DEBUG_MESSAGE)
+			if option["logenabled"] == 'on':
+				logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
 		#create thread-local data to further prevent var overwrites under high load
 		thread_data = threading.local()
 		#connect to the server
@@ -1320,6 +1447,12 @@ class do_cmd(threading.Thread):
 		threading.Thread.__init__(self)	
 	#Send tiem nao
 	def run(self):
+		if option["DEBUG"] == "on":
+			DEBUG_MESSAGE = "\007"+color["bpurple"]+"DEBUG_OUTPUT: External command operation has started."
+			if option["verbose"] == 'on':
+				verbose(DEBUG_MESSAGE)
+			if option["logenabled"] == 'on':
+				logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
 		thread_data = threading.local()
 		thread_data.current_time = time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())
 		#Here we replace all the special strings with actual data
@@ -1511,6 +1644,8 @@ def help(trigger):
 		print color["bpurple"], "Verbose output is: " + color["blue"] + option["verbose"]
 		print color["bpurple"], "Using custom tab for verbose output is: " + color["blue"] + option["_extra_context_"]
 		print color["bpurple"], "Logging to file is: " + color["blue"] + option["logenabled"]
+		if option["DEBUG"] == "on":
+			print color["bpurple"], "Debug output is: " + color["blue"] + option["DEBUG"]
 		print color["bpurple"], "Uploading to ftp is: " + color["blue"] + option["ftpenable"]
 		print color["bpurple"], "uTorrent WebUI Mode is: " + color["blue"] + option["utorrent_mode"]
 		print color["bpurple"], "Savepath is set to: " + color["blue"] + option["savepath"]
@@ -1611,6 +1746,14 @@ def help(trigger):
 	elif trigger[1] == "_guiaddavoid":
 		xchat.command('GETSTR word-to-avoid "sccwatcher addavoid" "Temporarily Add Watch"')
 	
+	elif trigger[1] == "_guidebugon":
+		pass
+		
+	elif trigger[1] == "_guidebugoff":
+		option["DEBUG"] = "off"
+		xchat.command('menu DEL "SCCwatcher/Debug output"')
+		
+		
 	elif trigger[1] == "cmdon":
 		option["use_external_command"] = "on"
 		print color["red"], "External Command Execution has been enabled, use cmdoff to turn it off."
@@ -1647,7 +1790,7 @@ def manual_torrent_add(word, word_eol, userdata):
 		# on_text(regex_object, blank, bypass_checks_flag)
 		on_text(manual_matchedtext, None, "BYPASS")
 	
-	elif re.match("^(.*)\((.*)\) - \((.*)\) - \((.*)\) - \((.*)\) - \(.*details(\.php)?\?id=([0-9]{1,12})\)", xchat.strip(word_eol[1])) is not None:
+	elif re.match("^(.*)\((.*)\) - \((.*)\) - \((.*)\) - \((.*)\) - \(.*details(?:\.php)?\?id=([0-9]{1,12})\)", xchat.strip(word_eol[1])) is not None:
 		matched_first = re.match("^(.*)\((.*)\) - \((.*)\) - \((.*)\) - \((.*)\) - \(.*details\?id=([0-9]{1,12})\)", xchat.strip(word_eol[1]))
 		for_regex = ("_" + matched_first.group(3) + "__" + matched_first.group(2) + "___" + matched_first.group(5) + ") - (" + matched_first.group(4) + "____" + matched_first.group(6) + "@@")
 		#matched_first.group(1) = Junk at the beginning we dont need
@@ -1697,4 +1840,4 @@ if (__name__ == "__main__"):
 		main()
 
 #LICENSE GPL
-#Last modified 12-23-10 (MM/DD/YY)
+#Last modified 12-31-10 (MM/DD/YY)
