@@ -21,7 +21,7 @@
 #    59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             #
 ############################################################################
 __module_name__ = "SCCwatcher"
-__module_version__ = "1.61"
+__module_version__ = "1.62"
 __module_description__ = "SCCwatcher"
 
 import xchat, os, re, string, urllib, ftplib, time, math,threading
@@ -518,7 +518,7 @@ class download(threading.Thread):
 		duration = end_time - start_time
 		#round off extra crap from duration to 3 digits
 		duration = str(float(round(duration, 3)))
-		#log/print download confirmation
+		#Update Recent list
 		update_recent(matchedtext.group(3), disp_path, nicesize, duration)
 		#Print/log the confirmation of download completed and duration
 		verbtext3 = "\007"+color["bpurple"]+"SCCwatcher successfully downloaded torrent for "+color["dgrey"] + matchedtext.group(3) + " in "+duration+" seconds."
@@ -547,6 +547,8 @@ class upload(threading.Thread):
 				verbose(verbtext2)
 			if option["logenabled"] == 'on':
 				logging(xchat.strip(verbtext2), "UPLOAD")
+			# I'm adding in some timer things just for the hell of it
+			start_time2 = time.time()
 			# ftp://user:psw@host:port/directory/torrents/
 			#ftpdetails.group(1) # user
 			#ftpdetails.group(2) # psw
@@ -566,6 +568,17 @@ class upload(threading.Thread):
 			s.storbinary('STOR ' + matchedtext.group(3) + ".torrent", f) # Send the file
 			f.close() # Close file
 			s.quit() # Close ftp
+			end_time2 = time.time()
+			duration2 = end_time2 - start_time2
+			#round off extra crap from duration to 3 digits
+			duration2 = str(float(round(duration2, 3)))
+			verbtext4 = "\007"+color["bpurple"]+"SCCwatcher successfully uploaded file "+color["dgrey"] + matchedtext.group(3) + ".torrent"+color["bpurple"]+" to "+color["dgrey"]+"ftp://"+color["dgrey"]+ftpdetails.group(3)+":"+ftpdetails.group(4)+"/"+ftpdetails.group(5)+" in "+duration2+" seconds."
+			if option["verbose"] == 'on':
+				verbose(verbtext4)
+			if option["logenabled"] == 'on':
+				verbtext3 = xchat.strip(verbtext4) +" - "+ os.path.normcase(disp_path)
+				logging(verbtext4, "END_UPLOAD")
+			
 		else:
 			print color["red"]+"There is a problem with your ftp details, please double check scc.ini and make sure you have entered them properly. Temporarily disabling FTP uploading, you can reenable it by using /sccwatcher ftpon"
 			option["ftpenable"] = 'off'
@@ -603,6 +616,7 @@ def help(trigger):
 			print color["blue"], "Current accepted commands are: "
 			print color["dgrey"], "Help, Loud, Quiet, Rehash, Addwatch, Addavoid, Remwatch, Remavoid, Status, Watchlist, Avoidlist, On, Off, ftpon, ftpoff, updateftp, ftpdetails, logon, logoff, recent, recentclear, detectnetwork" 
 			print color["blue"], "Too see info on individual commands use: "+color["bpurple"]+"/sccwatcher help <command>"
+			
 	elif trigger[1] == 'ftpon':
 		ftpdetails = re.match("ftp:\/\/(.*):(.*)@(.*):([^\/]*.)/(.*)", option["ftpdetails"])
 		if ftpdetails is not None:
@@ -723,4 +737,4 @@ if (__name__ == "__main__"):
 loadmsg = "\0034 "+__module_name__+" "+__module_version__+" has been loaded\003"
 print loadmsg
 #LICENSE GPL
-#Last modified 1-30-09
+#Last modified 2-01-09
