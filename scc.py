@@ -21,10 +21,14 @@
 #    59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             #
 ############################################################################
 __module_name__ = "SCCwatcher"
-__module_version__ = "1.77"
+__module_version__ = "1.78"
 __module_description__ = "SCCwatcher"
 
-import xchat, os, re, string, urllib, ftplib, time, threading, base64, urllib2, smtplib, subprocess, platform
+import xchat, os, re, string, urllib, ftplib, time, threading, base64, urllib2, smtplib, subprocess, platform, socket
+
+#Set the timeout for all network operations here. This value is in seconds. Default is 20 seconds.
+scctimeout = 20
+socket.setdefaulttimeout(scctimeout)
 
 loadmsg = "\0034 "+__module_name__+" "+__module_version__+" has been loaded\003"
 print loadmsg
@@ -155,7 +159,7 @@ def reload_vars():
 	
 	
 def load_vars():
-	global option, p, sccnet
+	global option, announce_regex, sccnet
 	try:
 		inifile = open(os.path.join(xchatdir,"scc.ini"))
 		line = inifile.readline()
@@ -209,7 +213,7 @@ def load_vars():
 		
 		print color["dgreen"], "SCCwatcher scc.ini Load Success, detecting the network details, the script will be ready in", option["startdelay"], "seconds "
 		#compile the regexp, do this one time only
-		p = re.compile('(.*)NEW in (.*): -> ([^\s]*.) \((.*)\) - \(http:\/\/www.sceneaccess.org\/details.php\?id=(\d+)\)(.*)')
+		announce_regex = re.compile('(.*)NEW in (.*): -> ([^\s]*.) \((.*)\) - \(http:\/\/www.sceneaccess.org\/details.php\?id=(\d+)\)(.*)')
 		
 		#Create the menus
 		#lots of ifs because we have to make sure the default values reflect whats in scc.ini
@@ -505,21 +509,48 @@ def update_dupe(file):
 	
 
 def on_text(word, word_eol, userdata):
-	# Removed globals in favor of var passing. More reliable under high load
+	# word[0] = The username of the person who sent the message
+	# word[1] = The text of the message
+	# word[2] = The channel rank of the user, i.e. + % @ & or ~
+	# word_eol[0] = Username + message text + user rank all on a single line.
+	# word_eol[1] = Message text + user rank all on a single line
+	# word_eol[2] = User rank
+	
+	can_continue = False
+	
 	if option["service"] != 'on':
 		return
 	counter = 0
 	# Just temp setting incase the shit hits the fan it will still sorta be correct. Shouldn't go wrong tho :D
 	zxfpath = option["savepath"]
 	#get the context where a new message was written
-	destination = xchat.get_context()
+	#If this is a manual add then we just bypass this
+	if userdata == "BYPASS":
+		pass
+	else:
+		destination = xchat.get_context()
 	#did the message where sent to the right net, chan and by the right bot?
 	#If your wondering what the hell xchat.strip does, it removes all color and extra trash from text. I wish the xchat python plugin devs would have documented this function, it sure would have made my job easier.
-	stnick = xchat.strip(word[0])
-	if destination.get_info('network') == sccnet.get_info('network') and destination.get_info('channel') == sccnet.get_info('channel') and stnick == "SCC":
-		matchedtext = p.match(xchat.strip(word_eol[1]))
+	#If this is a manual add then we just bypass this
+	if userdata == "BYPASS":
+		pass
+	else:
+		stnick = xchat.strip(word[0])
+	if userdata == "BYPASS":
+		can_continue = True
+	elif destination.get_info('network') == sccnet.get_info('network') and destination.get_info('channel') == sccnet.get_info('channel') and stnick == "SCC":
+		can_continue = True
+	
+	
+	if can_continue == True:
+		if userdata == "BYPASS":
+			#If we are manually adding then use word as the regex object.
+			matchedtext = word
+		else:
+			matchedtext = announce_regex.match(xchat.strip(word[1]))
 		#the bot wrote something we can understand, we can proceed with the parsing
 		if matchedtext is not None:
+			
 			#matchedtext.group(2) = MP3
 			#matchedtext.group(3) = VA-Stamina_Daddy_Riddim_Aka_Gold_Spoon_Riddim_(Promo_CD)-2006-VYM
 			#matchedtext.group(5) = 37518
@@ -573,11 +604,15 @@ def on_text(word, word_eol, userdata):
 					if re.search(watchlist_splitted[1], matchedtext.group(2), re.I) and re.search(watchlist_splitted[0], matchedtext.group(3), re.I):
 						counter += 1
 						break
+			if counter == 0:
+				amsg = "Torrent not grabbed because it was not found in the watchlist: " + matchedtext.group(3)
+				logging(amsg, "NO_GRAB-NO_WATCH")
+				
 					
 			#check if it should be avoided
 			#length checks to make sure theres something in the list first
 			alistcheck = string.join(option["avoidlist"], '')
-			if len(alistcheck) is not 0:	
+			if len(alistcheck) is not 0 and userdata != "BYPASS" and counter > 0:	
 				for avoidlist in option["avoidlist"]:
 					avoidlist = avoidlist.replace('*','')
 					avoidlist = avoidlist.replace('/','\/')
@@ -585,18 +620,19 @@ def on_text(word, word_eol, userdata):
 					#do the check only on the release name
 					if re.search(avoidlist, matchedtext.group(3), re.I):
 						counter = 0
+						amsg = "Torrent avoided: " + str(matchedtext.group(3)) + ". Avoidlist entry: " + str(avoidlist)
+						logging(amsg, "NO_GRAB-AVOIDED")
 						break
 			
 			#Size details
 			sizedetail = matchedtext.group(4).replace(')', '')
-			sizedetail = matchedtext.group(4).replace('(', '')
+			sizedetail = sizedetail.replace('(', '')
 			sizedetail = re.search("([0-9]{1,6}\.[0-9]{2})(.*)(M|m|K|k|G|g)(.*)", sizedetail)
 			#sizedetail.group(1) = 541.34
 			#sizedetail.group(3) = M
 			nicesize = sizedetail.group(1)+sizedetail.group(3)
-			
 			# Only if we're about to download should we check size
-			if counter > 0:
+			if counter > 0 and userdata != "BYPASS":
 				if len(option["sizelimit"]) > 0:
 					#Check if it's too big
 					if sizedetail.group(3) == "K" or sizedetail.group(3) == "k":
@@ -619,7 +655,7 @@ def on_text(word, word_eol, userdata):
 			#And here's the dupe check
 			#only if we're about to download should we do a dupe check
 			if counter > 0:
-				if option["dupecheck"] == "on":
+				if option["dupecheck"] == "on" and userdata != "BYPASS":
 					#Check for the release name in the dupe list
 					try:
 						dupelist.index(matchedtext.group(3))
@@ -634,14 +670,16 @@ def on_text(word, word_eol, userdata):
 						pass
 							
 			#got a match!! let's download
-			if counter > 0:
+			if counter > 0 or userdata == "BYPASS":
 				#Now that we're downloading for sure, add the release name to the dupecheck list.
 				update_dupe(matchedtext.group(3))
 				#And set the download url. If download_ssl is on, generate an ssl url instead.
 				if option["download_ssl"] == "on":
-					downloadurl = "https://www.sceneaccess.org/downloadbig2.php/" + matchedtext.group(5) + "/" + option["passkey"] + "/" + matchedtext.group(3) + ".torrent"
+					#downloadurl = "https://www.sceneaccess.org/downloadbig2.php/" + matchedtext.group(5) + "/" + option["passkey"] + "/" + matchedtext.group(3) + ".torrent"
+					downloadurl = "https://www.sceneaccess.org/download/" + matchedtext.group(5) + "/" + option["passkey"] + "/" + matchedtext.group(3) + ".torrent"
 				else:
-					downloadurl = "http://www.sceneaccess.org/downloadbig2.php/" + matchedtext.group(5) + "/" + option["passkey"] + "/" + matchedtext.group(3) + ".torrent"
+					#downloadurl = "http://www.sceneaccess.org/downloadbig2.php/" + matchedtext.group(5) + "/" + option["passkey"] + "/" + matchedtext.group(3) + ".torrent"
+					downloadurl = "http://www.sceneaccess.org/download/" + matchedtext.group(5) + "/" + option["passkey"] + "/" + matchedtext.group(3) + ".torrent"
 				#And make the nice_tag_extra a string, since later it will be needed in string format, and we wont be needing its boolean type anymore anyway.
 				nice_tag_extra = str(nice_tag_extra)
 				#Utorrent is either disabled or is working in tandom with normal download.
@@ -753,7 +791,8 @@ def more_help(command):
 		print color["bpurple"], "cmdon: " + color["blue"] + "This will enable the execution of a specified external command, as configured in scc.ini."
 	elif command == 'cmdoff':
 		print color["bpurple"], "cmdoff: " + color["blue"] + "This will disable the execution of a specified external command."
-	
+	elif command == 'manualadd':
+		print color["bpurple"], "manualadd: " + color["blue"] + "This command allows you to manually download a torrent by pasting its announcement text (the entire line, start to finish) from #scc-announce or by using a line from RLSdb's search results. SCCwatcher will then download and upload/save the torrent according to the way your configuration is set."
 	else:
 		print color["red"], "Unknown command, "+color["black"]+command
 
@@ -825,6 +864,44 @@ def remove_watch(delitem):
 			print color["bpurple"], delitem+color["red"], "was not found in the watchlist"
 	else:
 		print color["red"], "Invalid entry. Must be in the form of:"+color["dgrey"]+" name:category"
+#This decoder class was borrowed from:
+# http://buffis.com/2007/07/28/bittorrent-bencode-decoder-in-python-using-30-lines-of-code/
+#I take absolutely no credit for anything but copy and pasting that code here and adding the part in __init__ where it reads the provided file into self.data.
+
+class Decoder:
+	def __init__(self, file):
+		self.readme = open(file, 'rb')
+		self.data = self.readme.read()
+		self.readme.close()
+		self.ptr = 0
+	def _cur(self): return self.data[self.ptr]
+	def _get(self, x):
+		self.ptr += x
+		return self.data[self.ptr-x:self.ptr]
+	def _get_int_until(self, c):
+		num = int(self._get(self.data.index(c, self.ptr)-self.ptr))
+		self._get(1) # kill extra char
+		return num
+	def _get_str(self): return self._get(self._get_int_until(":"))
+	def _get_int(self): return self._get_int_until("e")
+	def decode(self):
+		i = self._get(1)
+		if i == "d":
+			r = {}
+			while self._cur() != "e":
+				key = self._get_str()
+				val = self.decode()
+				r[key] = val
+			self._get(1)
+		elif i == "l":
+			r = []
+			while self._cur() != "e": r.append(self.decode())
+			self._get(1)
+		elif i == "i": r = self._get_int()
+		elif i.isdigit():
+			self._get(-1) # reeeeewind
+			r = self._get_str()
+		return r
 
 #Threaded download class.
 class download(threading.Thread):
@@ -848,15 +925,33 @@ class download(threading.Thread):
 		# Goto the download function
 		self.download(thread_data.start_time)
 		
-	def check_size(self, file, stime):
+	def check_valid(self, file, stime):
+		#Set to false first as a precaution incase something fails.
+		#thread_data.torrent_is_valid = False
 		#Add to the count since we just tried to download.
 		self.count += 1
 		thread_data = threading.local()
 		thread_data.filesize = int(os.path.getsize(file))
 		#Check if the file is less than 100 bytes (shouldn't be).
-		#Used to be 50 bytes, but some false torrents with text inside still got through. This should fix that problem with this higher cutoff.
+		#Using 100 bytes as a size just to weed out empty files and other small-size type corruptions.
+		#This is only the first stage of corrupt download detection
 		if thread_data.filesize < 100:
-			#Delete the bad file
+			thread_data.torrent_is_valid = False
+		# Second stage in corruption detection, bencode check
+		else:
+			#To use the bencode checking class we have to read the torrent file into memory and send that variable through the checker.
+			thread_data.torrent_file_validation = Decoder(file)
+			#Now we decode it to test its validity
+			try:
+				thread_data.torrent_file_validation.decode()
+				thread_data.torrent_is_valid = True
+				
+			except:
+				thread_data.torrent_is_valid = False	
+		
+		
+		if thread_data.torrent_is_valid == False:
+		#Delete the bad file
 			os.remove(file)
 			# Have we reached the retry limit?
 			if self.count < int(option["max_dl_tries"]):
@@ -867,23 +962,22 @@ class download(threading.Thread):
 			#We have reached the limit, verbose/log event and discontinue download operations.
 			else:
 				self.final_output(False, stime)
-		# Yay we downloaded a good file, verbose/log event.
 		else:
 			self.final_output(True, stime)
-	
+		
 	def download(self, stime):
 		thread_data = threading.local()
 		# And here we download. This wont hold up the main thread because this class is in a subthread,
 		#Using a try-except here incase urlretrieve has problems
 		try:
 			thread_data.dl = urllib.urlretrieve(self.dlurl, self.flname)
-			# See if it grabbed it correctly
-			self.check_size(self.flname, stime)
 		#Problem with urllib, so we create a blank file and send it to the size check. It will fail the check and redownload
 		except:
 			blankfile = open(self.flname, 'w')
 			blankfile.write("")
 			blankfile.close()
+		#Now that we have either downloaded the torrent, or we have made a blank file because the download failed, we can continue to the checking routine:
+		self.check_valid(self.flname, stime)
 		
 	def final_output(self, status, stime):
 		thread_data = threading.local()
@@ -1308,7 +1402,7 @@ def on_local(word, word_eol, userdata):
 	return xchat.EAT_ALL
 
 def help(trigger):
-	global recent_list, option
+	global recent_list, option, last5recent_list
 	#For use with custom tabs.
 	sop_outtext = color["red"] + "SCCwatcher will now use this tab for all verbose output. Use /sccwatcher anytab to go back to the original way sccwatcher outputs."
 	
@@ -1534,7 +1628,54 @@ def help(trigger):
 		print color["red"], "Unknown command, " + color["black"] + trigger[1]
 		print color["red"], "For help type: /sccwatcher help"
 
-
+def manual_torrent_add(word, word_eol, userdata):
+	#All we are doing is sending the input data directly to on_text. The only thing we do first is make sure the entered data actually works, that way we can inform the user if it's incorrect.
+	#If it checks out, we send the data over to on_text with special userdata flag to bypass some of the checks that happen for channel messages.
+	
+	#This is just incase someone uses the command and doesnt enter anything
+	try:
+		word_eol[1]
+	except:
+		word_eol = ['Nothing', 'Nothing', 'Nothing']
+		
+	manual_matchedtext = announce_regex.match(xchat.strip(word_eol[1]))
+	if manual_matchedtext is not None:
+		#group(1) = Garbage at the beginning of the line
+		#group(2) = Torrent's section (TV/XviD, TV-X264, etc)
+		#group(3) = Release name
+		#group(4) = Pretime and size
+		#group(5) = Torrent's site ID
+		#group(6) = Garbage at the end of the line
+		# Sending the data like this:
+		# on_text(regex_object, blank, bypass_checks_flag)
+		on_text(manual_matchedtext, None, "BYPASS")
+	
+	elif re.match("^(.*)\((.*)\) - \((.*)\) - \((.*)\) - \((.*)\) - \(.*details.php\?id=([0-9]{1,12})\)", xchat.strip(word_eol[1])) is not None:
+		matched_first = re.match("^(.*)\((.*)\) - \((.*)\) - \((.*)\) - \((.*)\) - \(.*details.php\?id=([0-9]{1,12})\)", xchat.strip(word_eol[1]))
+		for_regex = ("_" + matched_first.group(3) + "__" + matched_first.group(2) + "___" + matched_first.group(5) + ") - (" + matched_first.group(4) + "____" + matched_first.group(6) + "@@")
+		#matched_first.group(1) = Junk at the beginning we dont need
+		#matched_first.group(2) = Release name
+		#matched_first.group(3) = Torrent's section (TV/XviD, TV-X264, etc)
+		#matched_first.group(4) = Torrent size
+		#matched_first.group(5) = How long ago was it uploaded
+		#matched_first.group(6) = Torrent's site ID
+		rlsdb_matchedtext = re.match("(_)(.*)__(.*)___(.*)____(.*)(@@)", for_regex)
+		#rlsdb_matchedtext.group(1) = Underscore (in place of normal junk)
+		#rlsdb_matchedtext.group(2) = Torrent's section (TV/XviD, TV-X264, etc)
+		#rlsdb_matchedtext.group(3) = Release name
+		#rlsdb_matchedtext.group(4) = How long ago torrent was uploaded and torrent's size.
+		#rlsdb_matchedtext.group(5) = Torrent's site ID
+		#rlsdb_matchedtext.group(6) = double 'at' (junk normally at the end)
+		# Sending the data like this:
+		# on_text(regex_object, blank, bypass_checks_flag)
+		on_text(rlsdb_matchedtext, None, "BYPASS")
+		
+	else:
+		verbose("\00305The line you entered was incorrect somehow. Please double check that the line you copied was actually from #scc-announce or RLSdb's search results and was complete and try again\003")
+		verbose("\00305If you continue to have problems please post the problem in the SCCwatcher forum topic.\003")
+	
+	return xchat.EAT_ALL
+	
 def unload_cb(userdata):
 	quitmsg = "\0034 "+__module_name__+" "+__module_version__+" has been unloaded\003"
 	print quitmsg
@@ -1547,7 +1688,8 @@ def unload_cb(userdata):
 
 #The hooks go here
 xchat.hook_print('Channel Message', on_text)
-xchat.hook_command('SCCwatcher', on_local, help="adjust the scc.ini as you wish ")
+xchat.hook_command('SCCwatcher', on_local, help="Edit main setting in scc.ini. use \002/sccwatcher help\002 for usage information.")
+xchat.hook_command('manualadd', manual_torrent_add, help="Manually grab torrents by pasting lines from #scc-announce")
 xchat.hook_unload(unload_cb)
 
 #load scc.ini
@@ -1558,4 +1700,4 @@ if (__name__ == "__main__"):
 		main()
 
 #LICENSE GPL
-#Last modified 12-31-09
+#Last modified 10-10-10 (MM/DD/YY)
