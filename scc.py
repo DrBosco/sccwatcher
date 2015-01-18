@@ -21,7 +21,7 @@
 #    59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             #
 ############################################################################
 __module_name__ = "SCCwatcher"
-__module_version__ = "1.79"
+__module_version__ = "1.8"
 __module_description__ = "SCCwatcher"
 
 import xchat, os, re, string, urllib, ftplib, time, threading, base64, urllib2, smtplib, subprocess, platform, socket
@@ -213,7 +213,7 @@ def load_vars():
 		
 		print color["dgreen"], "SCCwatcher scc.ini Load Success, detecting the network details, the script will be ready in", option["startdelay"], "seconds "
 		#compile the regexp, do this one time only
-		announce_regex = re.compile('(.*)NEW in (.*): -> ([^\s]*.) \((.*)\) - \(http:\/\/www.sceneaccess.org\/details.php\?id=(\d+)\)(.*)')
+		announce_regex = re.compile('(.*)NEW in (.*): -> ([^\s]*.) \((.*)\) - \(http:\/\/www.sceneaccess.org\/details(\.php)?\?id=(\d+)\)(.*)')
 		
 		#Create the menus
 		#lots of ifs because we have to make sure the default values reflect whats in scc.ini
@@ -563,6 +563,7 @@ def on_text(word, word_eol, userdata):
 					#replace * with (.*) will see in the future if the users want the full power of regexp or if they prefer a simple * as jolly and nothing else is needed
 					watchlist = watchlist.replace('*','(.*)')
 					watchlist = watchlist.replace('/','\/')
+					watchlist = watchlist.replace('.','\.')
 					watchlist_splitted = re.split(':', watchlist)
 					#Here we're going to search the watch for anything extra like a tag or a download dir
 					#Using a try incase someone entered a watch with no colon at all (no watchlist_splitted[1]
@@ -613,6 +614,7 @@ def on_text(word, word_eol, userdata):
 				for avoidlist in option["avoidlist"]:
 					avoidlist = avoidlist.replace('*','')
 					avoidlist = avoidlist.replace('/','\/')
+					avoidlist = avoidlist.replace('.','\.')
 					avoidlist = '^(.*)' + avoidlist + '(.*)$'
 					#do the check only on the release name
 					if re.search(avoidlist, matchedtext.group(3), re.I):
@@ -1645,8 +1647,8 @@ def manual_torrent_add(word, word_eol, userdata):
 		# on_text(regex_object, blank, bypass_checks_flag)
 		on_text(manual_matchedtext, None, "BYPASS")
 	
-	elif re.match("^(.*)\((.*)\) - \((.*)\) - \((.*)\) - \((.*)\) - \(.*details.php\?id=([0-9]{1,12})\)", xchat.strip(word_eol[1])) is not None:
-		matched_first = re.match("^(.*)\((.*)\) - \((.*)\) - \((.*)\) - \((.*)\) - \(.*details.php\?id=([0-9]{1,12})\)", xchat.strip(word_eol[1]))
+	elif re.match("^(.*)\((.*)\) - \((.*)\) - \((.*)\) - \((.*)\) - \(.*details(\.php)?\?id=([0-9]{1,12})\)", xchat.strip(word_eol[1])) is not None:
+		matched_first = re.match("^(.*)\((.*)\) - \((.*)\) - \((.*)\) - \((.*)\) - \(.*details\?id=([0-9]{1,12})\)", xchat.strip(word_eol[1]))
 		for_regex = ("_" + matched_first.group(3) + "__" + matched_first.group(2) + "___" + matched_first.group(5) + ") - (" + matched_first.group(4) + "____" + matched_first.group(6) + "@@")
 		#matched_first.group(1) = Junk at the beginning we dont need
 		#matched_first.group(2) = Release name
@@ -1695,4 +1697,4 @@ if (__name__ == "__main__"):
 		main()
 
 #LICENSE GPL
-#Last modified 10-16-10 (MM/DD/YY)
+#Last modified 12-23-10 (MM/DD/YY)
