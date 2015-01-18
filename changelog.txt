@@ -1,0 +1,477 @@
+Updated to 1.85
+Bugfixes:
+# Fixed the issue with normal downloading not working.
+# Changed the way the cloudflare bypass works. The script will now always try to download normally first and then use the cloudflare bypass if required.
+
+----------------------------------
+
+Updated to 1.84
+New Features:
+# Made the alert sound disabled by default. Now if you want SCCwatcher to make a sound when it downloads anything you have to add this to your scc.ini: printalert=on
+# Added in code to download when Cloudflare's "I'm Under Attack!" mode is enabled. This is the mode that checks your browser for compatibility. This requires some work on the user's part to get working. I will write a post on how to do this if anyone is interested in using the feature. For now I'm just leaving it in there.
+
+
+Bugfixes:
+# Changed certain var names that overwrote standard keywords. My bad.
+# Removed left over debug line on line 1706.
+# Removed outdated references to old search bot.
+# Fixed trailing slash detector. Should automatically place the trailing slash now on savepath and logpath.
+
+New INI Options:
+# printalert - on/off - This is by default set to off. Set this to on if you want SCCwatcher to make an alert noise when it downloads something.
+
+# cookiefile
+# useragent - Both of these are related to the cloudflare code. Will make a post in the future on how to use this.
+----------------------------------
+
+Updated to 1.83
+Updates:
+# Updated the download function for recent website changes, your downloads should all run smoothly now.
+# Minor bug fixes
+----------------------------------
+
+Updated to 1.82
+Updates:
+# Updated the script to work with the new IRCd. This new version will NOT work with the old '#scc-announce' channel, it is only for the new '#announce' channel. 
+
+----------------------------------
+
+Updated to 1.81
+Bugfixes:
+# Fixed the manualadd and autodownload regex. The new additions to it in 1.8 also had some problems with them. This bug completely stopped the script from working >.<. Again, my bad.
+# Fixed a bug where asterisks in the watchlist would be converted to the wrong regex wildcard. This but was introduced in 1.8.
+
+New features:
+# Added in debug functionality so that it will be easier to diagnose problems in the future. To use this feature you have to add the following line to scc.ini: DEBUG=on
+If you want to turn the debug mode off, then remove the line from your scc.ini and use the "reload scc.ini" button in SCCwatcher's menu. Or you can uncheck debug in
+the SCCwatcher menu, however if you do not remove the DEBUG line from scc.ini the feature will be enabled the next time you reload the script or the ini file.
+
+----------------------------------
+
+Updated to 1.8
+Bugfixes:
+# Fixed the manualadd command to work properly with RLSdb's search output.
+# Rectified a bug (that existed since v1.0) that would use periods in watch filters and avoid filters as a wildcard instead of a literal period. This has now been fixed and periods will be periods. Mah bad.
+
+Minor Changes:
+# Updated the main regex so that the script will continue to work properly if the announce bot gets updated to use the new torrent url (which lacks .php at the end). 
+
+----------------------------------
+
+Updated to 1.79
+Bugfixes:
+# Added manualadd to the list of commands in the initial help message.
+# Removed some extra debugging lines that got left in by accident.
+
+----------------------------------
+
+Updated to 1.78
+New Features:
+# You can now use the new command manualadd to manually download torrents with sccwatcher. To use this feature, you give a line from either #scc-announce or from RLSdb's output  to the manualadd command and it will download the torrent and save/upload depending on your configuration.
+# Added additional checks to prevent corrupt torrents from downloading. The major of these additions is the addition of bencode validation that allows sccwatcher to check if a torrent is valid with 100% confidence of the result. This should prevent any future invalid torrents from being saved. When SCCwatcher encounters a corrupt torrent, it will delete the file and try the download again.
+
+Bugfixes:
+# Fixed a problem where if a download failed in the middle of the actual downloading process it wouldn't proceed to try again.
+# Added additional checks to prevent corrupt torrents from being downloaded and saved by sccwatcher.
+
+New Commands:
+# manualadd - This command allows you to manually download a torrent by pasting its announcement text (the entire line, start to finish) from #scc-announce or by using a line from RLSdb's search results. SCCwatcher will then download and upload/save the torrent according to the way your configuration is set.
+
+----------------------------------
+
+Updated to 1.77
+Bugfixes:
+# Added extra error protection in the upload class.
+
+----------------------------------
+
+Updated to 1.76
+
+Changes:
+# Increased the reliability of downloading to prevent errors caused by urllib.
+# Changed the default text for adding avoids from the menu.
+
+----------------------------------
+
+Updated to 1.75
+
+Changes:
+# Removed a few debug lines left in on accident.
+# Corrected a few spelling errors. lol my bad.
+
+----------------------------------
+
+Updated to 1.74
+New Features:
+# New easy to use menu in X-Chat's main menubar, to the left of 'Help'. Through this menu, you can perform anything you could do from the command line.
+
+Changes:
+# SCCwatcher tab now changes to the color Blue when something is outputted to it.
+
+New Commands:
+# cmdon - This will enable the execution of a specified external command, as configured in scc.ini
+# cmdoff - This will disable the execution of a specified external command.
+
+----------------------------------
+
+Updated to 1.73
+New Features:
+# SSL downloading or .torrents
+this adds 2 new commands and an extra line to scc.ini and 2 new commands.
+# Added 3 more special words to the email and external command section. They are:
+%torrentpath% - Complete path to the .torrent file downloaded
+%sccgrptree% - mimics the functionality of SCCGRPTREE
+%sccgrp% - mimics the functionality of SCCGRP
+
+Bugfixes:
+# SCCwatcher now uses subprocess.Popen() to execute all external commands
+# Added changes to email class from 1.72f. This bug prevented smtp_port from being used under all circumstances.
+
+New Commands:
+# sslon - This command will enable SSL downloading, which will download all torrents over an encrypted HTTPS connection. This may increase the amount of time it takes to grab a torrent.
+# ssloff - This command disables the SSL downloading feature, forcing SCCwatcher to download all torrents using an unencrypted HTTP connection.
+
+Additions to scc.ini:
+# download_ssl= This can be set to either on or off. On will enable tell SCCwatcher to download via ssl, off will tell it to use normal connections. You can change this while the script is loaded with the sslon and ssloff commands.
+
+----------------------------------
+
+Updated to 1.72
+New Features:
+# You can stack as many extra dirs as you want. Example:
+Top.Gear*:TV/XviD;SCCDATE;SCCGRPTREE
+will download that watch into the dir:
+./0504/tv/xvid/
+
+# This version also changes the way setoutput works. The command setoutput has been removed, and the commands
+
+Bugfixes:
+# Changed the log operation to read "END_GRAB_FAILED" if sccwatcher couldnt successfully grab a torrent within the given amount of retries.
+# Updated various comments to better reflect the code. Some were just downright weird.
+
+New Commands:
+# anytab - Changes the verbose output to be any currently active tab at the time of printing.
+# thistab - Changes the verbose output to be the tab this command was used in. This will not change unless you use the anytab command.
+# scctab - Creates a tab named SCCwatcher and directs all verbose output to it. This will not change unless you use the anytab command, or close the SCCwatcher tab.
+----------------------------------
+
+Updated to 1.71
+Bugfixes
+# Fixed a bug that prevented the email function from working. The email classes' constructor (_init_) to include the tag variable being passed to it. All other classes were updated except that one.
+
+sorries.
+
+----------------------------------
+
+Updated to 1.7
+New Features:
+# Added the ability to tag certain watches with custom text. This text can then be used in the email or external command functions as %tag%.
+
+Bugfixes:
+# Updated minimum byte size for torrents to 100 in an effort to avoid the torrents containing error text from the webserver.
+
+----------------------------------
+
+Updated to 1.69
+New Features:
+# Download checking. SCCwatcher will verify that the downloaded file is greater than 50 bytes, if not it will redownload a specified number of times, with a specified delay (in seconds) between retries. This adds 2 new entries to scc.ini
+max_dl_tries - The maximum number of tries SCCwatcher will make in downloading a torrent file.
+retry_wait - This is the number of seconds SCCwatcher will wait between download retries.
+# Added the ability to set a tab to be used for verbose output. To use this feature, you type the following in the the desired tab: /sccwatcher setoutput . All further verbose output will appear in this tab. If you ever want to change that tab, just use that command in a different tab. To revert back to the normal way SCCwatcher outputs, use the command: /sccwatcher deloutput.
+
+Changes:
+# Added the ability to use special strings (%torrent%, %size%, etc.) in smtp_subject
+# Change the %category% output for the external command section so it replaces any slashes with hyphens. If you have a problem with using hyphens (-) to replace forward slashes (/) then let me know.
+
+Bugfixes:
+# Put the tls check inside of the thread_data.is_connected == True: if statement.
+# Replaced the verbose output for external command with the actual command string its going to run instead of whatever is in scc.ini.
+# Corrected a few missing colors when a download finishes.
+
+New Commands:
+setoutput - Sets the currently active tab as the place for all verbose output. You can reset back to the default output by using /sccwatcher deloutput
+deloutput - Returns the verbose output to default (Currently active tab at the time of output). You can set a tab for output by using /sccwatcher setoutput
+
+----------------------------------
+
+Updated to 1.681
+Bugfixes:
+# Fixed ONE misplaced tab char which wrecked the whole email class when you dont have logging enabled.
+
+scc.py: http://pastebin.ca/1381202
+
+While the previous release does work 100%, when it fails to work because of bad username/password it doesn't stop properly. I fail so much, its unbelievable. -.-
+
+I better get off the computer before I break something else.....
+
+----------------------------------
+
+Updated to 1.68
+Bugfixes:
+# Added increased error checking in the email class to prevent it from continuing on after a failed connection
+# Added missing ehlo command after server connection. Very picky servers would close the connection because of this.
+# Added support for more complex html tags (Ones with equal signs were causing problems during loading.
+
+Sorry about the double release today. As hard as I try to test every aspect I occasionally miss something. This one will work with gmail 100%.
+
+----------------------------------
+
+Updated to 1.67
+New Features:
+# Added a function for sending email via SMTP (with support for TLS sessions). This feature adds 10 new lines to scc.ini:
+smtp_emailer - Enables or disables the email function. Can be set to on or off.
+smtp_server - Specifies the hostname or ip of the email server to connect to.
+smtp_port - Specifies the port of the email server. Default for most SMTP servers is 25.
+smtp_tls - Enables or disables the use of TLS (Transport Layer Security). TLS is used to encrypt the traffic from and to your email server. Your email server must have this feature enabled to use this. Can be set to on or off.
+smtp_username - This is the username to authenticate with if authentication is required. (leave blank if no authentication is required)
+smtp_password - This is the password to authenticate with if authentication is required. (leave blank if no authentication is required)
+smtp_to - This is the email you are going to send to. I.e. joe@something.com
+smtp_from - This is your email (or whatever email you want in the from field). I.e. you@something.com
+smtp_subject - This will be the subject of the email
+smtp_message - This is the message. This has to be all on one line. It accepts html tags so if you can insert <br> tags to break it into multiple lines if needed. It also accepts 'special' words that will be replaced with info pertaining to the torrent just grabbed. They are:
+%torrent% - The name of the torrent.
+%category% - The category the torrent is in.
+%size% - The size of the torrent.
+%time% - The current time.
+%dlpath% - The path the torrent was saved to locally (if it wasnt saved locally, this is NONE)
+%ulpath% - The hostname/port/dir path of the ftp server set in scc.ini. I.e. ftp://ftp.myserver.com:21/torrents
+%utserver% - The hostname/port of the uTorrent WebUI server set in scc.ini. I.e. myserver.com:55124
+
+# Added a function to handle external commands. This feature adds 2 new lines to scc.ini:
+use_external_command - Determines whether or not to use external commands. This can be set to on or off.
+external_command - This is the command to run. This command also accepts those special words listed above.
+
+New Commands:
+# mailon - Enables emailing feature
+# mailoff - Disables emailing feature
+
+Bugfixes:
+# Corrected a bug for logging a successful upload. Now correctly removes color codes from text.
+
+
+scc.py: http://pastebin.ca/1380934
+scc.ini: http://pastebin.ca/1380935
+
+----------------------------------
+
+Updated to 1.66
+Bugfixes:
+# Localized release-specific global vars in favor of reliability when more than one release is grabbed at once.
+# Made all thread-specific vars threading.local() objects to further improve reliability under high grab load.
+
+This is just a quick release because I know this problem is annoying.
+Im still looking into double checking a grabbed torrent is valid.
+Creating a new query window crashes xchat every time for some reason, can't figure out why. Still working on it though.
+
+----------------------------------
+
+Updated to 1.65
+New Features:
+# Added backdraft's code for uTorrent WebUI adding.
+
+This update adds 5 new options to scc.ini:
+
+utorrent_mode - This controls the utorrent function. There are 3 modes of operation: 
+0 - uTorrent WebUI adding is completely disabled.
+1 - uTorrent WebUI adding is enabled, and normal downloading is also still enabled
+2 - uTorrent WebUI adding is enabled, and normal downloading is disabled
+
+utorrent_username - This is your uTorrent WebUI's username
+
+utorrent_password - This is your uTorrent WebUI's password
+
+utorrent_hostname - This is the hostname or IP address where your uTorrent WebUI is.
+
+utorrent_port - This is the port that your uTorrent WebUI is listening on.
+
+----------------------------------
+
+Updated to 1.64
+Bugfixes:
+# Changed dupecheck list update to before the download is initiated. Before, if a dupe was released before the original had finished downloading, the dupe would still go through because the list wouldn't have been updated yet.
+# Added additional checking to prevent the IndexError on line 321.
+
+----------------------------------
+
+Updated to 1.63
+New Features:
+# Added dupe checking (yay!). Basically checks to see if the autodownloader has recently downloaded a release. If it has, it ignores the new one and logs/prints the event if logging/verbose is enabled. This requires a new option in scc.ini: dupecheck=on
+
+Changes:
+# Changed all times to local time instead of GMT. I dunno why I had it at GMT in the first place tbh :/. 
+
+----------------------------------
+
+Whats new in 1.62
+New Features:
+# Added verbose/logging+duration stats for upload torrents to remote ftp, just like downloading has.
+
+----------------------------------
+
+Whats new in 1.61
+
+Bugfixes:
+# Corrected an error on my part, forgot that you can't upload a file if it doesn't exist on your computer (newbie mistake, I know). All's good now. FTP uploading works.
+
+----------------------------------
+
+Whats new in 1.6
+
+New Features:
+# Updated with multi-threaded downoading (yay!)
+# Now shows how long it took to download .torrent file
+
+Bugfixes:
+# Corrected a (possible) error in the way dir paths were displayed in the recent list.
+
+Notes:
+I swear to god I tried this exact same type of code the first time I tried for multithreaded downloading and it didn't work. Anywho, if there are any probs just fall back to 1.551.
+
+----------------------------------
+
+Whats new in 1.551
+
+Bugfixes:
+# Fixed a bug where SCCwatcher would log loads and unloads even if logging was disabled
+# Fixed a bug which prevented dir paths from being shows in the recent list if the download dir was just savepath
+
+----------------------------------
+
+Whats new in 1.55
+EDIT: AHHHHH CRAP! Found a small bug just after uploading. If a torrent was above the size limit it would tell you, even if the torrent was blacklisted with the avoid list. Fixed it though, regrab if u downloaded just after I posted.
+
+
+New Features:
+# SCCwatcher now keeps a list of the most recently grabbed torrents. Can be viewed with /sccwatcher recent, can be cleared with /sccwatcher recentclear. Displays: "Time Grabbed - Torrent Name - Size - Download Dir"
+# Added option for a maximum size limit. Any torrent over this size won't be grabbed.
+# Added option to download torrents into different directories. Options include: Normal Download DIR, Custom-named DIR, Dated DIR (MMDD), Release's group name (i.e. /home/TRB/downloads/TV.XviD), Releases group name in tree format (i.e. /home/TRB/downloads/TV/XviD)
+To use the extra dir feature, just append the option at the end of a watch like so:
+
+Custom DIR:
+Top.Gear*:TV*;Top_Gear
+That will download all top gear into a custom dir named Top_Gear. Notice that the char before the dir name is a semi-color, not a colon.
+Custom dir names CANNOT have spaces or any unacceptable chars (In windows this includes: \ / : * ? " < > | )
+
+Dated-format DIR:
+To Download into dated-format dir, append ;SCCDATE to a watch
+Top.Gear*:TV/XviD;SCCDATE
+Notice that the char before the dir name is a semi-color, not a colon.
+
+Release group name DIR:
+To Download into release group name dir, append ;SCCGRP to a watch
+Top.Gear*:TV/XviD;SCCGRP
+Notice that the char before the dir name is a semi-color, not a colon.
+
+Release group name tree DIRs
+To Download into release group name tree dirs, append ;SCCGRPTREE to a watch
+Top.Gear*:TV/XviD;SCCGRPTREE
+Notice that the char before the dir name is a semi-color, not a colon.
+
+
+All extra dirs will be created in savepath.
+If you don't want to use any extra paths, just leave your watches like they are:
+Top.Gear*:TV/XviD
+
+
+New Commands:
+# recent - Shows a list of recently grabbed torrents.
+# recentclear - Clears the list of recently grabbed torrents.
+
+New Items in scc.ini:
+# sizelimit - Maximum size of a torrent for SCCwatcher to grab. Examples of proper entries: 150K, 150M, 150G. If left blank or omitted, sccwatcher assumes there is no limit on size.
+
+Changes:
+# Added detection of missing end slashes on logpath and savepath
+# Added system beep on critical messages and verbose output.
+# Changed the log format to "TIME - TYPE: MESSAGE"
+# Script loads and unloads are now logged if logging is enabled.
+# You can now safely add items to the watchlist or avoidlist if its currently empty
+
+Bugfixes:
+# Fixed a problem where SCCwatcher wasn't properly closing scc.ini after reading.
+
+----------------------------------
+
+Whats new in 1.54
+
+Bugfixes:
+# Fixed a bug which prevented downloading if colored nicks were enabled
+# Fixed a bug which prevented downloading if timestamps were enabled
+
+----------------------------------
+
+Whats new in 1.53?
+
+New Features:
+# Logging to file (scc.ini updated to accomidate new feature)
+
+New Commands:
+# logon - Enables logging to file
+# logoff - Disables logging to file
+
+Bugfixes:
+# Corrected single digit color codes which would cause problems with titles that started with numbers.
+
+To use this version you will need to update your scc.ini file. Add these two lines to the end of it:
+
+logpath=
+logenabled=on
+
+logpath needs to point to an existing directory if you plan to use logging. Don't forget the trailing slash at the end to (i.e. C:\sccwatcher\log\ )
+
+----------------------------------
+
+Whats new in 1.52?
+
+New Commands:
+# ftpon - Enables FTP uploading
+# ftpoff - Disables FTP upload
+# updateftp - Allows you to update your ftpdetails, must be in the format of: ftp://username:password@server:port/directory
+# detectnetwork - Re-detects the network settings, incase when it first loaded SCCwatcher couldnt detect them.
+# ftpdetails - Displays your current FTPdetails
+
+Changes:
+# Removed a debug line that I left in there on accident.
+# Changed the verbose output to print into whatever tab you are currently viewing.
+# If ftpenable is on, SCCwatcher will double check the ftpdetails when it loads. If they are incorrectly entered it notify you of the error and will disable FTP uploading.
+# Various spelling fixes
+
+----------------------------------------------
+
+Whats new in 1.51?
+
+Bugfixes:
+# Corrected a bug that caused .torrent files to not download if the avoidlist was empty.
+
+----------------------------------------------
+
+Whats new in 1.5?
+# Under new management. TRB is now handling everything.
+
+New Settings in scc.ini:
+# verbose=(on|off)  - Controls whether or not sccwatcher uses verbose output or not. Verbose output just informs you when it finds a match and when it uploads to ftp server.
+# startdelay=<number> - Sets how long (in seconds) to wait after the script loads to test the network setting. A longer delay should be used if your xchat doesn't load all the chans right away. On the other hand if all your chans load pretty quick then this can be set rather low.
+# avoidlist=<words> - The much needed avoid list. If you want to avoid releases with particular words in them then add the word to this list. It doesn't need to be wildcarded or anything, just the word will do. Separate entries with a space.
+# ftpenable=(on|off) - Controls whether or not to sccwatcher will upload .torrent files to an ftp site. Previously, you had to leave ftpdetails blank to get this effect. Now you can leave your details there and just set this to off.
+
+New Commands:
+# help - Provides a list of commands and can also provide detailed information about each command when used like: /sccwatcher help <command>
+# loud - Turns verbose output on
+# quiet - turn verbose output off
+# rehash - Reloads all settings from scc.ini. All temporary adds/removes will be lost upon doing this.
+# addwatch <item> - Temporarily adds an item to the watchlist. Must be in the form of name:category
+# remwatch <item> - Temporarily removes an item from the watchlist. Must be in the form of name:category
+# addavoid <item> - Temporarily adds an item to the avoidlist. Item must be a single word, no spaces.
+# remavoid <item> - Temporarily removes an item from the avoidlist. Item must be a single word, no spaces.
+# status - Displays important settings and their current values.
+# listwatches - Lists current items in the watchlist
+# listavoids - Lists current items in the avoidlist
+
+----------------------------------------------
+
+Other Notes:
+# If you have any problems suggestions just post them and I'll work on them. I'm fairly new to python but I'm learning fast.
+# When SCCwatcher finds a match there might be a slight freeze in xchat while it downloads the torrent file. I know its annoying, and i'm currently searching for a way to stop it. This problem has been fixed since v1.56
+# Verbose output currently will only output to #scc-announce, I'm currently working towards a solution to this. Updated to output to your current tab in v1.52
+# As of now X-Chat Aqua for Mac isnt supported (I think). I have a mac, and I'm investigating. As of 1.51 it seems to be working on X-Chat Aqua for Mac OS X.
+# If you try to use either the addavoid or addwatch command when the current list is empty, it will cause alot of problems. If you need to add an item to an empty list, it is best to do it to scc.ini. Then after that you can use the commands. This problem has been fixed since v1.55
