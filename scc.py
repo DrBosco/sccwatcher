@@ -1,7 +1,7 @@
 #!/usr/bin/python
 ############################################################################
 #    Copyright (C) 2007 by realty                                          #
-#             Currently maintained/updated by TRB                          #
+#             Currently maintained/updated by TRB  since 1.5                        #
 #    exclusively written for scc                                           #
 #    some code from cancel's bot                                           #
 #                                                                          #
@@ -21,7 +21,7 @@
 #    59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             #
 ############################################################################
 __module_name__ = "SCCwatcher"
-__module_version__ = "1.53"
+__module_version__ = "1.54"
 __module_description__ = "SCCwatcher"
 
 import xchat, os, re, string, urllib, ftplib, time
@@ -73,7 +73,7 @@ def load_vars():
 		
 		print color["dgreen"], "SCCwatcher scc.ini Load Success, detecting the network details, the script will be ready in", option["startdelay"], "seconds "
 		#compile the regexp, do this one time only
-		p = re.compile(' NEW in (.*): -> ([^\s]*.) \((.*)\) - \(http:\/\/www.sceneaccess.org\/details.php\?id=(\d+)\)(.*)')
+		p = re.compile('(.*)NEW in (.*): -> ([^\s]*.) \((.*)\) - \(http:\/\/www.sceneaccess.org\/details.php\?id=(\d+)\)(.*)')
 
 	except EnvironmentError:
 		print color["red"], "Could not open scc.ini ! put it in your "+xchatdir+" !"
@@ -130,7 +130,10 @@ def on_text(word, word_eol, userdata):
 	#get the context where a new message was written
 	destination = xchat.get_context()
 	#did the message where sent to the right net, chan and by the right bot?
-	if destination.get_info('network') == sccnet.get_info('network') and destination.get_info('channel') == sccnet.get_info('channel') and word[0] == "SCC":
+	#MAKE WAY FOR COLORED NICK! YEY!
+	#If your wondering what the hell xchat.strip does, it removes all color and extra trash from text. I wish the python plugin devs would have documented this function, it sure would have made my job easier.
+	stnick = xchat.strip(word[0])
+	if destination.get_info('network') == sccnet.get_info('network') and destination.get_info('channel') == sccnet.get_info('channel') and stnick == "SCC":
 		matchedtext = p.match(xchat.strip(word_eol[1]))
 		#the bot wrote something we can understand, we can proceed with the parsing
 		if matchedtext is not None:
@@ -150,7 +153,7 @@ def on_text(word, word_eol, userdata):
 					watchlist_splitted[0] = '^' + watchlist_splitted[0] + '$'
 					watchlist_splitted[1] = '^' + watchlist_splitted[1] + '$'
 					#do the check for the section and the release name
-					if re.search(watchlist_splitted[1], matchedtext.group(1), re.I) and re.search(watchlist_splitted[0], matchedtext.group(2), re.I):
+					if re.search(watchlist_splitted[1], matchedtext.group(2), re.I) and re.search(watchlist_splitted[0], matchedtext.group(3), re.I):
 						counter += 1
 						break
 			
@@ -163,27 +166,27 @@ def on_text(word, word_eol, userdata):
 					avoidlist = avoidlist.replace('/','\/')
 					avoidlist = '^(.*)' + avoidlist + '(.*)$'
 					#do the check only on the release name
-					if re.search(avoidlist, matchedtext.group(2), re.I):
+					if re.search(avoidlist, matchedtext.group(3), re.I):
 						counter = 0
 						break
 			
 			#got a match!! let's download
 			if counter > 0:
-				downloadurl = "https://www.sceneaccess.org/download2.php/" + matchedtext.group(4) + "/" + option["passkey"] + "/" + matchedtext.group(2) + ".torrent"
-				urllib.urlretrieve(downloadurl,option["savepath"] + matchedtext.group(2) + ".torrent")
+				downloadurl = "https://www.sceneaccess.org/download2.php/" + matchedtext.group(5) + "/" + option["passkey"] + "/" + matchedtext.group(3) + ".torrent"
+				urllib.urlretrieve(downloadurl,option["savepath"] + matchedtext.group(3) + ".torrent")
 				if option["verbose"] == 'on':
-					verbose(1,matchedtext.group(2),'', '', '')
+					verbose(1,matchedtext.group(3),'', '', '')
 				if option["logenabled"] == 'on':
-					logging(1,matchedtext.group(2),'', '', '')
+					logging(1,matchedtext.group(3),'', '', '')
 				# Is ftp uploading enabled in scc.ini ?
 				if option["ftpenable"] == 'on':
 					#try to see if the ftp details are available, if the are: upload
 					ftpdetails = re.match("ftp:\/\/(.*):(.*)@(.*):([^\/]*.)/(.*)", option["ftpdetails"])
 					if ftpdetails is not None:
 						if option["verbose"] == 'on':
-							verbose(2,matchedtext.group(2),ftpdetails.group(3),ftpdetails.group(4),ftpdetails.group(5))
+							verbose(2,matchedtext.group(3),ftpdetails.group(3),ftpdetails.group(4),ftpdetails.group(5))
 						if option["logenabled"] == 'on':
-							logging(2,matchedtext.group(2),ftpdetails.group(3),ftpdetails.group(4),ftpdetails.group(5))
+							logging(2,matchedtext.group(3),ftpdetails.group(3),ftpdetails.group(4),ftpdetails.group(5))
 						# ftp://user:psw@host:port/directory/torrents/
 						#ftpdetails.group(1) # user
 						#ftpdetails.group(2) # psw
@@ -196,8 +199,8 @@ def on_text(word, word_eol, userdata):
 						if option["ftppassive"] == 'on':
 							s.set_pasv(True) # Set passive-mode
 						s.cwd(ftpdetails.group(5)) # Change directory
-						f = open(option["savepath"] + matchedtext.group(2) + ".torrent",'rb') # Open file to send
-						s.storbinary('STOR ' + matchedtext.group(2) + ".torrent", f) # Send the file
+						f = open(option["savepath"] + matchedtext.group(3) + ".torrent",'rb') # Open file to send
+						s.storbinary('STOR ' + matchedtext.group(3) + ".torrent", f) # Send the file
 						f.close() # Close file
 						s.quit() # Close ftp
 					else:
@@ -425,4 +428,4 @@ if (__name__ == "__main__"):
 		main()
 
 #LICENSE GPL
-#Last modified 12-24-08
+#Last modified 1-09-09
