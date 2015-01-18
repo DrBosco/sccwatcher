@@ -21,7 +21,7 @@
 #    59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             #
 ############################################################################
 __module_name__ = "SCCwatcher"
-__module_version__ = "1.55"
+__module_version__ = "1.551"
 __module_description__ = "SCCwatcher"
 
 import xchat, os, re, string, urllib, ftplib, time, math
@@ -125,6 +125,11 @@ def load_vars():
 		#compile the regexp, do this one time only
 		p = re.compile('(.*)NEW in (.*): -> ([^\s]*.) \((.*)\) - \(http:\/\/www.sceneaccess.org\/details.php\?id=(\d+)\)(.*)')
 
+		#Only log script load if logging is enabled
+		if option["logenabled"] == "on":
+			loadmsg = "\0034 "+__module_name__+" "+__module_version__+" has been loaded\003"
+			logging(xchat.strip(loadmsg), "LOAD")
+			
 	except EnvironmentError:
 		print color["red"], "\007Could not open scc.ini! Put it in "+xchatdir+" !"
 
@@ -365,7 +370,7 @@ def on_text(word, word_eol, userdata):
 				else:
 					disp_path = option["savepath"]
 					
-				update_recent(matchedtext.group(3), full_xpath, nicesize)
+				update_recent(matchedtext.group(3), disp_path, nicesize)
 				verbtext = "\007"+color["bpurple"]+"SCCwatcher is downloading torrent for: "+color["dgrey"]+matchedtext.group(3)
 				if option["verbose"] == 'on':
 					verbose(verbtext)
@@ -655,7 +660,9 @@ def help(trigger):
 def unload_cb(userdata):
 	quitmsg = "\0034 "+__module_name__+" "+__module_version__+" has been unloaded\003"
 	print quitmsg
-	logging(xchat.strip(quitmsg), "UNLOAD")
+	#Only log script unload if logging is enabled
+	if option["logenabled"] == "on":
+		logging(xchat.strip(quitmsg), "UNLOAD")
 
 xchat.hook_unload(unload_cb)
 
@@ -671,6 +678,5 @@ if (__name__ == "__main__"):
 
 loadmsg = "\0034 "+__module_name__+" "+__module_version__+" has been loaded\003"
 print loadmsg
-logging(xchat.strip(loadmsg), "LOAD")
 #LICENSE GPL
-#Last modified 1-19-09
+#Last modified 1-20-09
