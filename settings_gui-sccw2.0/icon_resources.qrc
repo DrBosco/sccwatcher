@@ -1,6 +1,7 @@
 <RCC>
   <qresource prefix="guiIcons">
     <file>icons/open-file-icon.png</file>
+    <file>icons/logo.png</file>
     <file>icons/plus-icon.png</file>
     <file>icons/Actions-document-save-all-icon.png</file>
     <file>icons/Actions-document-save-icon.png</file>
