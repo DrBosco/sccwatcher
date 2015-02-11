@@ -61,7 +61,7 @@
      </size>
     </property>
     <property name="currentIndex">
-     <number>1</number>
+     <number>0</number>
     </property>
     <widget class="QWidget" name="mainTab">
      <attribute name="title">
@@ -72,56 +72,313 @@
        <rect>
         <x>9</x>
         <y>9</y>
-        <width>296</width>
-        <height>446</height>
+        <width>411</width>
+        <height>241</height>
        </rect>
       </property>
       <property name="title">
        <string>General Settings</string>
       </property>
      </widget>
-     <widget class="QGroupBox" name="groupBox_4">
+     <widget class="QGroupBox" name="scriptStatusGroup">
       <property name="geometry">
        <rect>
-        <x>447</x>
+        <x>427</x>
         <y>10</y>
-        <width>326</width>
+        <width>346</width>
         <height>451</height>
        </rect>
       </property>
       <property name="title">
        <string>Script Status</string>
       </property>
-     </widget>
-     <widget class="QGroupBox" name="groupBox_2">
-      <property name="geometry">
-       <rect>
-        <x>315</x>
-        <y>15</y>
-        <width>121</width>
-        <height>446</height>
-       </rect>
-      </property>
-      <property name="title">
-       <string>SCCwatcher Controls</string>
-      </property>
-      <widget class="QPushButton" name="pushButton">
+      <widget class="QLabel" name="label">
        <property name="geometry">
         <rect>
          <x>20</x>
-         <y>35</y>
-         <width>75</width>
-         <height>23</height>
+         <y>30</y>
+         <width>106</width>
+         <height>16</height>
         </rect>
        </property>
        <property name="text">
-        <string>Reload scc.ini</string>
+        <string>SCCwatcher Version:</string>
+       </property>
+      </widget>
+      <widget class="QLabel" name="label_2">
+       <property name="geometry">
+        <rect>
+         <x>250</x>
+         <y>30</y>
+         <width>86</width>
+         <height>13</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-weight:600; color:#ff0000;&quot;&gt;_VERSION_&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+       </property>
+      </widget>
+      <widget class="QLabel" name="label_3">
+       <property name="geometry">
+        <rect>
+         <x>20</x>
+         <y>65</y>
+         <width>111</width>
+         <height>16</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Autodownload Status:</string>
+       </property>
+      </widget>
+      <widget class="QLabel" name="label_4">
+       <property name="geometry">
+        <rect>
+         <x>250</x>
+         <y>65</y>
+         <width>86</width>
+         <height>13</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-weight:600; color:#ff0000;&quot;&gt;_ONOFF_&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+       </property>
+      </widget>
+      <widget class="QLabel" name="label_5">
+       <property name="geometry">
+        <rect>
+         <x>20</x>
+         <y>100</y>
+         <width>91</width>
+         <height>16</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>SSL Downloading: </string>
+       </property>
+      </widget>
+      <widget class="QLabel" name="label_6">
+       <property name="geometry">
+        <rect>
+         <x>250</x>
+         <y>100</y>
+         <width>86</width>
+         <height>13</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-weight:600; color:#00c800;&quot;&gt;_ONOFF_&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+       </property>
+      </widget>
+      <widget class="QLabel" name="label_7">
+       <property name="geometry">
+        <rect>
+         <x>20</x>
+         <y>205</y>
+         <width>121</width>
+         <height>16</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Cloudflare Workaround: </string>
+       </property>
+      </widget>
+      <widget class="QLabel" name="label_8">
+       <property name="geometry">
+        <rect>
+         <x>250</x>
+         <y>205</y>
+         <width>86</width>
+         <height>13</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-weight:600; color:#ff0000;&quot;&gt;_ONOFF_&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+       </property>
+      </widget>
+      <widget class="QLabel" name="label_9">
+       <property name="geometry">
+        <rect>
+         <x>20</x>
+         <y>240</y>
+         <width>76</width>
+         <height>16</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Dupechecking:</string>
+       </property>
+      </widget>
+      <widget class="QLabel" name="label_10">
+       <property name="geometry">
+        <rect>
+         <x>250</x>
+         <y>240</y>
+         <width>86</width>
+         <height>13</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-weight:600; color:#ff0000;&quot;&gt;_ONOFF_&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+       </property>
+      </widget>
+      <widget class="QLabel" name="label_11">
+       <property name="geometry">
+        <rect>
+         <x>20</x>
+         <y>275</y>
+         <width>76</width>
+         <height>16</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Logging to File:</string>
+       </property>
+      </widget>
+      <widget class="QLabel" name="label_12">
+       <property name="geometry">
+        <rect>
+         <x>250</x>
+         <y>275</y>
+         <width>86</width>
+         <height>13</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-weight:600; color:#ff0000;&quot;&gt;_ONOFF_&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+       </property>
+      </widget>
+      <widget class="QLabel" name="label_13">
+       <property name="geometry">
+        <rect>
+         <x>20</x>
+         <y>345</y>
+         <width>111</width>
+         <height>16</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Recent Grab List Size:</string>
+       </property>
+      </widget>
+      <widget class="QLabel" name="label_14">
+       <property name="geometry">
+        <rect>
+         <x>250</x>
+         <y>345</y>
+         <width>86</width>
+         <height>13</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-weight:600; color:#ff0000;&quot;&gt;_LISTSIZE_&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+       </property>
+      </widget>
+      <widget class="QLabel" name="label_15">
+       <property name="geometry">
+        <rect>
+         <x>20</x>
+         <y>380</y>
+         <width>141</width>
+         <height>16</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Watchlist Size/Avoidlist Size:</string>
+       </property>
+      </widget>
+      <widget class="QLabel" name="label_16">
+       <property name="geometry">
+        <rect>
+         <x>250</x>
+         <y>380</y>
+         <width>86</width>
+         <height>16</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-weight:600; color:#ff0000;&quot;&gt;_WL/AL_&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+       </property>
+      </widget>
+      <widget class="QLabel" name="label_17">
+       <property name="geometry">
+        <rect>
+         <x>20</x>
+         <y>135</y>
+         <width>141</width>
+         <height>16</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Maximum Redownload Tries:</string>
+       </property>
+      </widget>
+      <widget class="QLabel" name="label_18">
+       <property name="geometry">
+        <rect>
+         <x>20</x>
+         <y>170</y>
+         <width>136</width>
+         <height>16</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Download Retry Delay:</string>
+       </property>
+      </widget>
+      <widget class="QLabel" name="label_19">
+       <property name="geometry">
+        <rect>
+         <x>250</x>
+         <y>135</y>
+         <width>86</width>
+         <height>16</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-weight:600; color:#ff0000;&quot;&gt;_MAXTRY_&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+       </property>
+      </widget>
+      <widget class="QLabel" name="label_20">
+       <property name="geometry">
+        <rect>
+         <x>250</x>
+         <y>170</y>
+         <width>86</width>
+         <height>16</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-weight:600; color:#ff0000;&quot;&gt;_TRYDELAY_&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+       </property>
+      </widget>
+      <widget class="QLabel" name="label_21">
+       <property name="geometry">
+        <rect>
+         <x>250</x>
+         <y>310</y>
+         <width>86</width>
+         <height>13</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-weight:600; color:#ff0000;&quot;&gt;_ONOFF_&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+       </property>
+      </widget>
+      <widget class="QLabel" name="label_22">
+       <property name="geometry">
+        <rect>
+         <x>20</x>
+         <y>310</y>
+         <width>111</width>
+         <height>16</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Verbose Output:</string>
        </property>
       </widget>
      </widget>
-     <zorder>groupBox_2</zorder>
-     <zorder>groupBox</zorder>
-     <zorder>groupBox_4</zorder>
     </widget>
     <widget class="QWidget" name="downloadUploadTab">
      <attribute name="title">
@@ -132,7 +389,7 @@
        <rect>
         <x>15</x>
         <y>15</y>
-        <width>301</width>
+        <width>346</width>
         <height>236</height>
        </rect>
       </property>
@@ -213,7 +470,7 @@
         <string>Size limit (upper):</string>
        </property>
        <property name="buddy">
-        <cstring>sizeLimitUpperTextbox</cstring>
+        <cstring>WLSGsizeLimitUpperTextbox</cstring>
        </property>
       </widget>
       <widget class="QComboBox" name="globalSizeLimitUpperSuffixSelector">
@@ -264,10 +521,10 @@
         <string>Size limit (lower):</string>
        </property>
        <property name="buddy">
-        <cstring>sizeLimitLowerTextbox</cstring>
+        <cstring>WLSGsizeLimitLowerTextbox</cstring>
        </property>
       </widget>
-      <widget class="QLabel" name="label">
+      <widget class="QLabel" name="globalCFBypassLabel">
        <property name="geometry">
         <rect>
          <x>10</x>
@@ -280,12 +537,12 @@
         <string>Cloudflare Bypass Options:</string>
        </property>
       </widget>
-      <widget class="Line" name="line">
+      <widget class="Line" name="globalHorizontalDivider">
        <property name="geometry">
         <rect>
          <x>22</x>
          <y>120</y>
-         <width>256</width>
+         <width>301</width>
          <height>16</height>
         </rect>
        </property>
@@ -293,7 +550,7 @@
         <enum>Qt::Horizontal</enum>
        </property>
       </widget>
-      <widget class="QLabel" name="label_2">
+      <widget class="QLabel" name="globalCFBypassCookiefileLabel">
        <property name="geometry">
         <rect>
          <x>10</x>
@@ -306,10 +563,10 @@
         <string>Cookie File:</string>
        </property>
       </widget>
-      <widget class="QPushButton" name="pushButton_2">
+      <widget class="QPushButton" name="globalCFBypassCookiefileBrowseButton">
        <property name="geometry">
         <rect>
-         <x>244</x>
+         <x>285</x>
          <y>160</y>
          <width>51</width>
          <height>23</height>
@@ -319,17 +576,17 @@
         <string>Browse</string>
        </property>
       </widget>
-      <widget class="QLineEdit" name="lineEdit">
+      <widget class="QLineEdit" name="globalCFBypassCookiefilePathTextbox">
        <property name="geometry">
         <rect>
          <x>72</x>
          <y>162</y>
-         <width>166</width>
+         <width>196</width>
          <height>20</height>
         </rect>
        </property>
       </widget>
-      <widget class="QLabel" name="label_3">
+      <widget class="QLabel" name="globalCFBypassUseragentLabel">
        <property name="geometry">
         <rect>
          <x>10</x>
@@ -342,7 +599,7 @@
         <string>Useragent String:</string>
        </property>
       </widget>
-      <widget class="QLineEdit" name="lineEdit_2">
+      <widget class="QLineEdit" name="globalCFBypassUseragentTextbox">
        <property name="geometry">
         <rect>
          <x>100</x>
@@ -666,7 +923,7 @@
        </property>
       </widget>
      </widget>
-     <widget class="QGroupBox" name="groupBox_3">
+     <widget class="QGroupBox" name="externalCommandGroup">
       <property name="geometry">
        <rect>
         <x>15</x>
@@ -714,7 +971,7 @@
         <string>Enable External Command</string>
        </property>
       </widget>
-      <widget class="QLabel" name="label_4">
+      <widget class="QLabel" name="extCmdSelectProgramLabel">
        <property name="geometry">
         <rect>
          <x>10</x>
@@ -727,7 +984,7 @@
         <string>Select Program:</string>
        </property>
       </widget>
-      <widget class="QLabel" name="label_5">
+      <widget class="QLabel" name="extCmdArguemtsLabel">
        <property name="geometry">
         <rect>
          <x>10</x>
@@ -740,7 +997,7 @@
         <string>Arguments:</string>
        </property>
       </widget>
-      <widget class="QLineEdit" name="extCmdExeLocation_2">
+      <widget class="QLineEdit" name="extCmdExeArguments">
        <property name="geometry">
         <rect>
          <x>90</x>
@@ -780,7 +1037,7 @@
         <property name="title">
          <string>Watchlist Items:</string>
         </property>
-        <widget class="QPushButton" name="addEntryButton">
+        <widget class="QPushButton" name="WLGaddEntryButton">
          <property name="geometry">
           <rect>
            <x>12</x>
@@ -809,7 +1066,7 @@
            <normaloff>:/guiIcons/icons/plus-icon.png</normaloff>:/guiIcons/icons/plus-icon.png</iconset>
          </property>
         </widget>
-        <widget class="QPushButton" name="removeEntryButton">
+        <widget class="QPushButton" name="WLGremoveEntryButton">
          <property name="geometry">
           <rect>
            <x>36</x>
@@ -833,7 +1090,7 @@
            <normaloff>:/guiIcons/icons/delete-icon.png</normaloff>:/guiIcons/icons/delete-icon.png</iconset>
          </property>
         </widget>
-        <widget class="QListWidget" name="watchlistItemsList">
+        <widget class="QListWidget" name="WLGwatchlistItemsList">
          <property name="geometry">
           <rect>
            <x>10</x>
@@ -848,10 +1105,6 @@
           </property>
          </item>
         </widget>
-        <zorder>addEntryButton</zorder>
-        <zorder>removeEntryButton</zorder>
-        <zorder>watchlistItemsList</zorder>
-        <zorder>watchlistSettingsGroup</zorder>
        </widget>
       </item>
       <item>
@@ -893,7 +1146,7 @@
         <property name="title">
          <string>Watch Settings:</string>
         </property>
-        <widget class="QLineEdit" name="watchNameTextbox">
+        <widget class="QLineEdit" name="WLSGwatchNameTextbox">
          <property name="geometry">
           <rect>
            <x>90</x>
@@ -903,7 +1156,7 @@
           </rect>
          </property>
         </widget>
-        <widget class="QLabel" name="watchNameLabel">
+        <widget class="QLabel" name="WLSGwatchNameLabel">
          <property name="geometry">
           <rect>
            <x>15</x>
@@ -916,10 +1169,10 @@
           <string>Watch Name: </string>
          </property>
          <property name="buddy">
-          <cstring>watchNameTextbox</cstring>
+          <cstring>WLSGwatchNameTextbox</cstring>
          </property>
         </widget>
-        <widget class="QLabel" name="watchFilterLabel">
+        <widget class="QLabel" name="WLSGwatchFilterLabel">
          <property name="geometry">
           <rect>
            <x>15</x>
@@ -932,10 +1185,10 @@
           <string>Watch Filter:</string>
          </property>
          <property name="buddy">
-          <cstring>watchFilterTextbox</cstring>
+          <cstring>WLSGwatchFilterTextbox</cstring>
          </property>
         </widget>
-        <widget class="QLineEdit" name="watchFilterTextbox">
+        <widget class="QLineEdit" name="WLSGwatchFilterTextbox">
          <property name="geometry">
           <rect>
            <x>90</x>
@@ -945,7 +1198,7 @@
           </rect>
          </property>
         </widget>
-        <widget class="QCheckBox" name="watchFilterRegexCheck">
+        <widget class="QCheckBox" name="WLSGwatchFilterRegexCheck">
          <property name="geometry">
           <rect>
            <x>395</x>
@@ -958,7 +1211,7 @@
           <string>Regex</string>
          </property>
         </widget>
-        <widget class="QLabel" name="avoidFilterListLabel">
+        <widget class="QLabel" name="WLSGavoidFilterListLabel">
          <property name="geometry">
           <rect>
            <x>15</x>
@@ -971,10 +1224,10 @@
           <string>Avoid Filter List: </string>
          </property>
          <property name="buddy">
-          <cstring>avoidFilterListTextbox</cstring>
+          <cstring>WLSGavoidFilterListTextbox</cstring>
          </property>
         </widget>
-        <widget class="QLineEdit" name="avoidFilterListTextbox">
+        <widget class="QLineEdit" name="WLSGavoidFilterListTextbox">
          <property name="geometry">
           <rect>
            <x>100</x>
@@ -984,7 +1237,7 @@
           </rect>
          </property>
         </widget>
-        <widget class="QCheckBox" name="avoidFilterListRegexCheck">
+        <widget class="QCheckBox" name="WLSGavoidFilterListRegexCheck">
          <property name="geometry">
           <rect>
            <x>395</x>
@@ -997,7 +1250,7 @@
           <string>Regex</string>
          </property>
         </widget>
-        <widget class="QLabel" name="watchCatListLabel">
+        <widget class="QLabel" name="WLSGwatchCatListLabel">
          <property name="geometry">
           <rect>
            <x>15</x>
@@ -1010,10 +1263,10 @@
           <string>Watch Category List: </string>
          </property>
          <property name="buddy">
-          <cstring>watchCatListTextbox</cstring>
+          <cstring>WLSGwatchCatListTextbox</cstring>
          </property>
         </widget>
-        <widget class="QLineEdit" name="watchCatListTextbox">
+        <widget class="QLineEdit" name="WLSGwatchCatListTextbox">
          <property name="geometry">
           <rect>
            <x>125</x>
@@ -1023,7 +1276,7 @@
           </rect>
          </property>
         </widget>
-        <widget class="QLabel" name="savepathLabel">
+        <widget class="QLabel" name="WLSGsavepathLabel">
          <property name="geometry">
           <rect>
            <x>15</x>
@@ -1036,10 +1289,10 @@
           <string>Savepath: </string>
          </property>
          <property name="buddy">
-          <cstring>savepathTextbox</cstring>
+          <cstring>WLSGsavepathTextbox</cstring>
          </property>
         </widget>
-        <widget class="QLineEdit" name="savepathTextbox">
+        <widget class="QLineEdit" name="WLSGsavepathTextbox">
          <property name="geometry">
           <rect>
            <x>70</x>
@@ -1049,7 +1302,7 @@
           </rect>
          </property>
         </widget>
-        <widget class="QPushButton" name="savepathBrowseButton">
+        <widget class="QPushButton" name="WLSGsavepathBrowseButton">
          <property name="geometry">
           <rect>
            <x>380</x>
@@ -1062,7 +1315,7 @@
           <string>Browse</string>
          </property>
         </widget>
-        <widget class="QLabel" name="externalCommandLabel">
+        <widget class="QLabel" name="WLSGexternalCommandLabel">
          <property name="geometry">
           <rect>
            <x>15</x>
@@ -1075,10 +1328,10 @@
           <string>External Command:</string>
          </property>
          <property name="buddy">
-          <cstring>externalCommandTextbox</cstring>
+          <cstring>WLSGexternalCommandTextbox</cstring>
          </property>
         </widget>
-        <widget class="QLineEdit" name="externalCommandTextbox">
+        <widget class="QLineEdit" name="WLSGexternalCommandTextbox">
          <property name="geometry">
           <rect>
            <x>115</x>
@@ -1091,7 +1344,7 @@
           <bool>true</bool>
          </property>
         </widget>
-        <widget class="QPushButton" name="externalCommandBrowseButton">
+        <widget class="QPushButton" name="WLSGexternalCommandBrowseButton">
          <property name="geometry">
           <rect>
            <x>380</x>
@@ -1104,7 +1357,7 @@
           <string>Browse</string>
          </property>
         </widget>
-        <widget class="QLabel" name="externalCommandArgsLabel">
+        <widget class="QLabel" name="WLSGexternalCommandArgsLabel">
          <property name="geometry">
           <rect>
            <x>15</x>
@@ -1117,10 +1370,10 @@
           <string>External Command Arguments: </string>
          </property>
          <property name="buddy">
-          <cstring>externalCommandArgsTextbox</cstring>
+          <cstring>WLSGexternalCommandArgsTextbox</cstring>
          </property>
         </widget>
-        <widget class="QLineEdit" name="externalCommandArgsTextbox">
+        <widget class="QLineEdit" name="WLSGexternalCommandArgsTextbox">
          <property name="geometry">
           <rect>
            <x>170</x>
@@ -1130,7 +1383,7 @@
           </rect>
          </property>
         </widget>
-        <widget class="QLabel" name="sizeLimitLowerLabel">
+        <widget class="QLabel" name="WLSGsizeLimitLowerLabel">
          <property name="geometry">
           <rect>
            <x>15</x>
@@ -1143,10 +1396,10 @@
           <string>Size limit (lower):</string>
          </property>
          <property name="buddy">
-          <cstring>sizeLimitLowerTextbox</cstring>
+          <cstring>WLSGsizeLimitLowerTextbox</cstring>
          </property>
         </widget>
-        <widget class="QLabel" name="sizeLimitUpperLabel">
+        <widget class="QLabel" name="WLSGsizeLimitUpperLabel">
          <property name="geometry">
           <rect>
            <x>15</x>
@@ -1159,10 +1412,10 @@
           <string>Size limit (upper):</string>
          </property>
          <property name="buddy">
-          <cstring>sizeLimitUpperTextbox</cstring>
+          <cstring>WLSGsizeLimitUpperTextbox</cstring>
          </property>
         </widget>
-        <widget class="QLineEdit" name="sizeLimitLowerTextbox">
+        <widget class="QLineEdit" name="WLSGsizeLimitLowerTextbox">
          <property name="geometry">
           <rect>
            <x>105</x>
@@ -1172,7 +1425,7 @@
           </rect>
          </property>
         </widget>
-        <widget class="QLineEdit" name="sizeLimitUpperTextbox">
+        <widget class="QLineEdit" name="WLSGsizeLimitUpperTextbox">
          <property name="geometry">
           <rect>
            <x>105</x>
@@ -1182,7 +1435,7 @@
           </rect>
          </property>
         </widget>
-        <widget class="QComboBox" name="sizeLimitLowerSuffixSelector">
+        <widget class="QComboBox" name="WLSGsizeLimitLowerSuffixSelector">
          <property name="geometry">
           <rect>
            <x>150</x>
@@ -1207,7 +1460,7 @@
           </property>
          </item>
         </widget>
-        <widget class="QComboBox" name="sizeLimitUpperSuffixSelector">
+        <widget class="QComboBox" name="WLSGsizeLimitUpperSuffixSelector">
          <property name="geometry">
           <rect>
            <x>150</x>
@@ -1232,7 +1485,7 @@
           </property>
          </item>
         </widget>
-        <widget class="QCheckBox" name="utWebUiCheckox">
+        <widget class="QCheckBox" name="WLSGutWebUiCheckox">
          <property name="geometry">
           <rect>
            <x>280</x>
@@ -1245,7 +1498,7 @@
           <string>Upload to uTorrent WebUI</string>
          </property>
         </widget>
-        <widget class="QCheckBox" name="ftpUploadCheckbox">
+        <widget class="QCheckBox" name="WLSGftpUploadCheckbox">
          <property name="geometry">
           <rect>
            <x>280</x>
@@ -1258,7 +1511,7 @@
           <string>Upload to FTP server</string>
          </property>
         </widget>
-        <widget class="QCheckBox" name="enableExternalCmdCheckbox">
+        <widget class="QCheckBox" name="WLSGenableExternalCmdCheckbox">
          <property name="geometry">
           <rect>
            <x>280</x>
@@ -1271,7 +1524,7 @@
           <string>Enable External Command</string>
          </property>
         </widget>
-        <widget class="QCheckBox" name="emailCheckbox">
+        <widget class="QCheckBox" name="WLSGemailCheckbox">
          <property name="geometry">
           <rect>
            <x>280</x>
@@ -1284,7 +1537,7 @@
           <string>Email on download</string>
          </property>
         </widget>
-        <widget class="QCheckBox" name="dupecheckingCheckbox">
+        <widget class="QCheckBox" name="WLSGdupecheckingCheckbox">
          <property name="geometry">
           <rect>
            <x>280</x>
@@ -1297,36 +1550,6 @@
           <string>Dupechecking</string>
          </property>
         </widget>
-        <zorder>watchlistGroup</zorder>
-        <zorder>watchNameTextbox</zorder>
-        <zorder>watchNameLabel</zorder>
-        <zorder>watchFilterLabel</zorder>
-        <zorder>watchFilterTextbox</zorder>
-        <zorder>watchFilterRegexCheck</zorder>
-        <zorder>avoidFilterListLabel</zorder>
-        <zorder>avoidFilterListTextbox</zorder>
-        <zorder>avoidFilterListRegexCheck</zorder>
-        <zorder>watchCatListLabel</zorder>
-        <zorder>watchCatListTextbox</zorder>
-        <zorder>savepathLabel</zorder>
-        <zorder>savepathTextbox</zorder>
-        <zorder>savepathBrowseButton</zorder>
-        <zorder>externalCommandLabel</zorder>
-        <zorder>externalCommandTextbox</zorder>
-        <zorder>externalCommandBrowseButton</zorder>
-        <zorder>externalCommandArgsLabel</zorder>
-        <zorder>externalCommandArgsTextbox</zorder>
-        <zorder>sizeLimitLowerLabel</zorder>
-        <zorder>sizeLimitUpperLabel</zorder>
-        <zorder>sizeLimitLowerTextbox</zorder>
-        <zorder>sizeLimitUpperTextbox</zorder>
-        <zorder>sizeLimitLowerSuffixSelector</zorder>
-        <zorder>sizeLimitUpperSuffixSelector</zorder>
-        <zorder>utWebUiCheckox</zorder>
-        <zorder>ftpUploadCheckbox</zorder>
-        <zorder>enableExternalCmdCheckbox</zorder>
-        <zorder>emailCheckbox</zorder>
-        <zorder>dupecheckingCheckbox</zorder>
        </widget>
       </item>
      </layout>
