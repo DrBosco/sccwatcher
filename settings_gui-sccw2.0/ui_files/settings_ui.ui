@@ -26,7 +26,7 @@
    <string>MainWindow</string>
   </property>
   <property name="windowIcon">
-   <iconset resource="icon_resources.qrc">
+   <iconset>
     <normaloff>:/guiIcons/icons/logo.png</normaloff>:/guiIcons/icons/logo.png</iconset>
   </property>
   <property name="toolButtonStyle">
@@ -67,7 +67,7 @@
      <attribute name="title">
       <string>General</string>
      </attribute>
-     <widget class="QGroupBox" name="groupBox">
+     <widget class="QGroupBox" name="generalGroup">
       <property name="geometry">
        <rect>
         <x>10</x>
@@ -97,7 +97,7 @@
       <property name="title">
        <string>General Settings</string>
       </property>
-      <widget class="QCheckBox" name="checkBox">
+      <widget class="QCheckBox" name="ggMasterAutodlCheck">
        <property name="geometry">
         <rect>
          <x>20</x>
@@ -110,7 +110,7 @@
         <string>Enable Autodl at Startup</string>
        </property>
       </widget>
-      <widget class="QSpinBox" name="spinBox">
+      <widget class="QSpinBox" name="ggNetworkDelaySpinbox">
        <property name="geometry">
         <rect>
          <x>195</x>
@@ -123,7 +123,7 @@
         <string> s</string>
        </property>
       </widget>
-      <widget class="QLabel" name="label_23">
+      <widget class="QLabel" name="ggNetworkDelayLabel">
        <property name="geometry">
         <rect>
          <x>15</x>
@@ -136,7 +136,7 @@
         <string>Startup Network Detection Delay:</string>
        </property>
       </widget>
-      <widget class="QLabel" name="label_24">
+      <widget class="QLabel" name="ggPasskeyLabel">
        <property name="geometry">
         <rect>
          <x>15</x>
@@ -149,7 +149,7 @@
         <string>Passkey:</string>
        </property>
       </widget>
-      <widget class="QLineEdit" name="lineEdit">
+      <widget class="QLineEdit" name="ggPasskeyTextbox">
        <property name="geometry">
         <rect>
          <x>70</x>
@@ -162,7 +162,7 @@
         <enum>QLineEdit::PasswordEchoOnEdit</enum>
        </property>
       </widget>
-      <widget class="QLabel" name="label_25">
+      <widget class="QLabel" name="ggSavepathLabel">
        <property name="geometry">
         <rect>
          <x>15</x>
@@ -175,7 +175,7 @@
         <string>Savepath:</string>
        </property>
       </widget>
-      <widget class="QLabel" name="label_26">
+      <widget class="QLabel" name="ggLogpathLabel">
        <property name="geometry">
         <rect>
          <x>15</x>
@@ -188,7 +188,7 @@
         <string>Logpath:</string>
        </property>
       </widget>
-      <widget class="QLineEdit" name="lineEdit_2">
+      <widget class="QLineEdit" name="ggSavepathTextbox">
        <property name="geometry">
         <rect>
          <x>70</x>
@@ -198,7 +198,7 @@
         </rect>
        </property>
       </widget>
-      <widget class="QLineEdit" name="lineEdit_3">
+      <widget class="QLineEdit" name="ggLogpathTextbox">
        <property name="geometry">
         <rect>
          <x>70</x>
@@ -208,7 +208,7 @@
         </rect>
        </property>
       </widget>
-      <widget class="QPushButton" name="pushButton">
+      <widget class="QPushButton" name="ggSavepathBrowseButton">
        <property name="geometry">
         <rect>
          <x>340</x>
@@ -221,7 +221,7 @@
         <string>Browse</string>
        </property>
       </widget>
-      <widget class="QPushButton" name="pushButton_2">
+      <widget class="QPushButton" name="ggLogpathBrowseButton">
        <property name="geometry">
         <rect>
          <x>340</x>
@@ -234,7 +234,7 @@
         <string>Browse</string>
        </property>
       </widget>
-      <widget class="QCheckBox" name="checkBox_2">
+      <widget class="QCheckBox" name="ggEnableLoggingCheck">
        <property name="geometry">
         <rect>
          <x>190</x>
@@ -247,7 +247,7 @@
         <string>Enable Logging to File</string>
        </property>
       </widget>
-      <widget class="QCheckBox" name="checkBox_3">
+      <widget class="QCheckBox" name="ggEnableVerboseCheck">
        <property name="geometry">
         <rect>
          <x>20</x>
@@ -260,7 +260,7 @@
         <string>Enable Verbose Output</string>
        </property>
       </widget>
-      <widget class="QCheckBox" name="checkBox_4">
+      <widget class="QCheckBox" name="ggBeepCheckbox">
        <property name="geometry">
         <rect>
          <x>20</x>
@@ -273,7 +273,7 @@
         <string>Beep on Download</string>
        </property>
       </widget>
-      <widget class="QLabel" name="label_27">
+      <widget class="QLabel" name="ggVerboseTabLabel">
        <property name="geometry">
         <rect>
          <x>190</x>
@@ -286,7 +286,7 @@
         <string>Verbose Tab Name:</string>
        </property>
       </widget>
-      <widget class="QLineEdit" name="lineEdit_4">
+      <widget class="QLineEdit" name="ggVerboseTabTextbox">
        <property name="geometry">
         <rect>
          <x>295</x>
@@ -296,7 +296,7 @@
         </rect>
        </property>
       </widget>
-      <widget class="QCheckBox" name="checkBox_5">
+      <widget class="QCheckBox" name="ggEnableDebugCheck">
        <property name="geometry">
         <rect>
          <x>190</x>
@@ -340,7 +340,7 @@
       <property name="title">
        <string>Script Status</string>
       </property>
-      <widget class="QLabel" name="label">
+      <widget class="QLabel" name="ssVersionLabel">
        <property name="geometry">
         <rect>
          <x>20</x>
@@ -353,7 +353,7 @@
         <string>SCCwatcher Version:</string>
        </property>
       </widget>
-      <widget class="QLabel" name="label_2">
+      <widget class="QLabel" name="ssVersionState">
        <property name="geometry">
         <rect>
          <x>250</x>
@@ -366,7 +366,7 @@
         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-weight:600; color:#ff0000;&quot;&gt;_VERSION_&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
        </property>
       </widget>
-      <widget class="QLabel" name="label_3">
+      <widget class="QLabel" name="ssStatusLabel">
        <property name="geometry">
         <rect>
          <x>20</x>
@@ -379,7 +379,7 @@
         <string>Autodownload Status:</string>
        </property>
       </widget>
-      <widget class="QLabel" name="label_4">
+      <widget class="QLabel" name="ssStatusState">
        <property name="geometry">
         <rect>
          <x>250</x>
@@ -392,7 +392,7 @@
         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-weight:600; color:#ff0000;&quot;&gt;_ONOFF_&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
        </property>
       </widget>
-      <widget class="QLabel" name="label_5">
+      <widget class="QLabel" name="ssSSLDownloadLabel">
        <property name="geometry">
         <rect>
          <x>20</x>
@@ -405,7 +405,7 @@
         <string>SSL Downloading: </string>
        </property>
       </widget>
-      <widget class="QLabel" name="label_6">
+      <widget class="QLabel" name="ssSSLDownloadState">
        <property name="geometry">
         <rect>
          <x>250</x>
@@ -418,7 +418,7 @@
         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-weight:600; color:#00c800;&quot;&gt;_ONOFF_&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
        </property>
       </widget>
-      <widget class="QLabel" name="label_7">
+      <widget class="QLabel" name="ssCloudflareLabel">
        <property name="geometry">
         <rect>
          <x>20</x>
@@ -431,7 +431,7 @@
         <string>Cloudflare Workaround: </string>
        </property>
       </widget>
-      <widget class="QLabel" name="label_8">
+      <widget class="QLabel" name="ssCloudflareState">
        <property name="geometry">
         <rect>
          <x>250</x>
@@ -444,7 +444,7 @@
         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-weight:600; color:#ff0000;&quot;&gt;_ONOFF_&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
        </property>
       </widget>
-      <widget class="QLabel" name="label_9">
+      <widget class="QLabel" name="ssDupecheckingLabel">
        <property name="geometry">
         <rect>
          <x>20</x>
@@ -457,7 +457,7 @@
         <string>Dupechecking:</string>
        </property>
       </widget>
-      <widget class="QLabel" name="label_10">
+      <widget class="QLabel" name="ssDupecheckingState">
        <property name="geometry">
         <rect>
          <x>250</x>
@@ -470,7 +470,7 @@
         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-weight:600; color:#ff0000;&quot;&gt;_ONOFF_&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
        </property>
       </widget>
-      <widget class="QLabel" name="label_11">
+      <widget class="QLabel" name="ssLoggingLabel">
        <property name="geometry">
         <rect>
          <x>20</x>
@@ -483,7 +483,7 @@
         <string>Logging to File:</string>
        </property>
       </widget>
-      <widget class="QLabel" name="label_12">
+      <widget class="QLabel" name="ssLoggingState">
        <property name="geometry">
         <rect>
          <x>250</x>
@@ -496,7 +496,7 @@
         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-weight:600; color:#ff0000;&quot;&gt;_ONOFF_&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
        </property>
       </widget>
-      <widget class="QLabel" name="label_13">
+      <widget class="QLabel" name="ssRecentLabel">
        <property name="geometry">
         <rect>
          <x>20</x>
@@ -509,7 +509,7 @@
         <string>Recent Grab List Size:</string>
        </property>
       </widget>
-      <widget class="QLabel" name="label_14">
+      <widget class="QLabel" name="ssRecentState">
        <property name="geometry">
         <rect>
          <x>250</x>
@@ -522,7 +522,7 @@
         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-weight:600; color:#ff0000;&quot;&gt;_LISTSIZE_&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
        </property>
       </widget>
-      <widget class="QLabel" name="label_15">
+      <widget class="QLabel" name="ssWatchAvoidLabel">
        <property name="geometry">
         <rect>
          <x>20</x>
@@ -535,7 +535,7 @@
         <string>Watchlist Size/Avoidlist Size:</string>
        </property>
       </widget>
-      <widget class="QLabel" name="label_16">
+      <widget class="QLabel" name="ssWatchAvoidState">
        <property name="geometry">
         <rect>
          <x>250</x>
@@ -548,7 +548,7 @@
         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-weight:600; color:#ff0000;&quot;&gt;_WL/AL_&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
        </property>
       </widget>
-      <widget class="QLabel" name="label_17">
+      <widget class="QLabel" name="ssMaxTriesLabel">
        <property name="geometry">
         <rect>
          <x>20</x>
@@ -561,7 +561,7 @@
         <string>Maximum Redownload Tries:</string>
        </property>
       </widget>
-      <widget class="QLabel" name="label_18">
+      <widget class="QLabel" name="ssRetryDelayLabel">
        <property name="geometry">
         <rect>
          <x>20</x>
@@ -574,7 +574,7 @@
         <string>Download Retry Delay:</string>
        </property>
       </widget>
-      <widget class="QLabel" name="label_19">
+      <widget class="QLabel" name="ssMaxTriesState">
        <property name="geometry">
         <rect>
          <x>250</x>
@@ -587,7 +587,7 @@
         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-weight:600; color:#ff0000;&quot;&gt;_MAXTRY_&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
        </property>
       </widget>
-      <widget class="QLabel" name="label_20">
+      <widget class="QLabel" name="ssRetryDelayState">
        <property name="geometry">
         <rect>
          <x>250</x>
@@ -600,7 +600,7 @@
         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-weight:600; color:#ff0000;&quot;&gt;_TRYDELAY_&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
        </property>
       </widget>
-      <widget class="QLabel" name="label_21">
+      <widget class="QLabel" name="ssVerboseState">
        <property name="geometry">
         <rect>
          <x>250</x>
@@ -613,7 +613,7 @@
         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-weight:600; color:#ff0000;&quot;&gt;_ONOFF_&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
        </property>
       </widget>
-      <widget class="QLabel" name="label_22">
+      <widget class="QLabel" name="ssVerboseLabel">
        <property name="geometry">
         <rect>
          <x>20</x>
@@ -627,7 +627,7 @@
        </property>
       </widget>
      </widget>
-     <widget class="QGroupBox" name="groupBox_2">
+     <widget class="QGroupBox" name="aboutGroup">
       <property name="geometry">
        <rect>
         <x>10</x>
@@ -639,9 +639,9 @@
       <property name="title">
        <string>About</string>
       </property>
-      <layout class="QGridLayout" name="gridLayout">
+      <layout class="QGridLayout" name="aboutBoxGridLayout">
        <item row="0" column="0">
-        <widget class="QTextEdit" name="textEdit">
+        <widget class="QTextEdit" name="agAboutTextbox">
          <property name="verticalScrollBarPolicy">
           <enum>Qt::ScrollBarAlwaysOff</enum>
          </property>
@@ -1348,7 +1348,7 @@ p, li { white-space: pre-wrap; }
           <string/>
          </property>
          <property name="icon">
-          <iconset resource="icon_resources.qrc">
+          <iconset>
            <normaloff>:/guiIcons/icons/plus-icon.png</normaloff>:/guiIcons/icons/plus-icon.png</iconset>
          </property>
         </widget>
@@ -1372,7 +1372,7 @@ p, li { white-space: pre-wrap; }
           <string/>
          </property>
          <property name="icon">
-          <iconset resource="icon_resources.qrc">
+          <iconset>
            <normaloff>:/guiIcons/icons/delete-icon.png</normaloff>:/guiIcons/icons/delete-icon.png</iconset>
          </property>
         </widget>
@@ -1893,7 +1893,7 @@ p, li { white-space: pre-wrap; }
           <string/>
          </property>
          <property name="icon">
-          <iconset resource="icon_resources.qrc">
+          <iconset>
            <normaloff>:/guiIcons/icons/plus-icon.png</normaloff>:/guiIcons/icons/plus-icon.png</iconset>
          </property>
         </widget>
@@ -1917,7 +1917,7 @@ p, li { white-space: pre-wrap; }
           <string/>
          </property>
          <property name="icon">
-          <iconset resource="icon_resources.qrc">
+          <iconset>
            <normaloff>:/guiIcons/icons/delete-icon.png</normaloff>:/guiIcons/icons/delete-icon.png</iconset>
          </property>
         </widget>
@@ -2401,7 +2401,7 @@ p, li { white-space: pre-wrap; }
   </widget>
   <action name="action_New">
    <property name="icon">
-    <iconset resource="icon_resources.qrc">
+    <iconset>
      <normaloff>:/guiIcons/icons/Document-new-icon.png</normaloff>:/guiIcons/icons/Document-new-icon.png</iconset>
    </property>
    <property name="text">
@@ -2410,7 +2410,7 @@ p, li { white-space: pre-wrap; }
   </action>
   <action name="actionOpen">
    <property name="icon">
-    <iconset resource="icon_resources.qrc">
+    <iconset>
      <normaloff>:/guiIcons/icons/open-file-icon.png</normaloff>:/guiIcons/icons/open-file-icon.png</iconset>
    </property>
    <property name="text">
@@ -2419,7 +2419,7 @@ p, li { white-space: pre-wrap; }
   </action>
   <action name="actionSave">
    <property name="icon">
-    <iconset resource="icon_resources.qrc">
+    <iconset>
      <normaloff>:/guiIcons/icons/Actions-document-save-icon.png</normaloff>:/guiIcons/icons/Actions-document-save-icon.png</iconset>
    </property>
    <property name="text">
@@ -2428,7 +2428,7 @@ p, li { white-space: pre-wrap; }
   </action>
   <action name="actionSave_As">
    <property name="icon">
-    <iconset resource="icon_resources.qrc">
+    <iconset>
      <normaloff>:/guiIcons/icons/Actions-document-save-all-icon.png</normaloff>:/guiIcons/icons/Actions-document-save-all-icon.png</iconset>
    </property>
    <property name="text">
@@ -2437,7 +2437,7 @@ p, li { white-space: pre-wrap; }
   </action>
   <action name="action_Quit">
    <property name="icon">
-    <iconset resource="icon_resources.qrc">
+    <iconset>
      <normaloff>:/guiIcons/icons/delete-icon.png</normaloff>:/guiIcons/icons/delete-icon.png</iconset>
    </property>
    <property name="text">
