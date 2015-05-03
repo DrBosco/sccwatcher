@@ -71,7 +71,7 @@
       <property name="geometry">
        <rect>
         <x>10</x>
-        <y>9</y>
+        <y>10</y>
         <width>411</width>
         <height>241</height>
        </rect>
@@ -627,44 +627,44 @@
        </property>
       </widget>
      </widget>
-     <widget class="QGroupBox" name="aboutGroup">
+     <widget class="QGroupBox" name="scriptControlGroup">
+      <property name="enabled">
+       <bool>false</bool>
+      </property>
       <property name="geometry">
        <rect>
         <x>10</x>
-        <y>250</y>
+        <y>255</y>
         <width>411</width>
-        <height>211</height>
+        <height>206</height>
        </rect>
       </property>
       <property name="title">
-       <string>About</string>
+       <string/>
       </property>
-      <layout class="QGridLayout" name="aboutBoxGridLayout">
-       <item row="0" column="0">
-        <widget class="QTextEdit" name="agAboutTextbox">
-         <property name="verticalScrollBarPolicy">
-          <enum>Qt::ScrollBarAlwaysOff</enum>
-         </property>
-         <property name="horizontalScrollBarPolicy">
-          <enum>Qt::ScrollBarAlwaysOff</enum>
-         </property>
-         <property name="html">
-          <string>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
-&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
-p, li { white-space: pre-wrap; }
-&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'MS Shell Dlg 2'; font-size:8.25pt; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p align=&quot;center&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-size:18pt; font-weight:600; color:#b037b0;&quot;&gt;SCCwatcher&lt;/span&gt;&lt;/p&gt;
-&lt;p align=&quot;center&quot; style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-size:8pt; font-weight:600; color:#000000;&quot;&gt;version: _SCCWVER_&lt;/span&gt;&lt;/p&gt;
-&lt;p style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-size:8pt; color:#000000;&quot;&gt;Main script written in Python using only standard libraries. This GUI was written in Python using the PyQt framework. This script was written by TRB for the fine people of SCC. If you encounter any bugs, have any issues getting things working, or have any ideas or feature requests please contact TRB on the forums or on IRC.&lt;/span&gt;&lt;/p&gt;
-&lt;p style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-size:8pt;&quot;&gt;&lt;br /&gt;&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-         </property>
-         <property name="textInteractionFlags">
-          <set>Qt::TextSelectableByKeyboard|Qt::TextSelectableByMouse</set>
-         </property>
-        </widget>
-       </item>
-      </layout>
+      <widget class="QLabel" name="wipLabel">
+       <property name="geometry">
+        <rect>
+         <x>95</x>
+         <y>85</y>
+         <width>201</width>
+         <height>16</height>
+        </rect>
+       </property>
+       <property name="font">
+        <font>
+         <pointsize>10</pointsize>
+        </font>
+       </property>
+       <property name="text">
+        <string>Reserved for future awesomeness</string>
+       </property>
+      </widget>
      </widget>
+     <zorder>generalGroup</zorder>
+     <zorder>scriptStatusGroup</zorder>
+     <zorder>scriptControlGroup</zorder>
+     <zorder>wipLabel</zorder>
     </widget>
     <widget class="QWidget" name="downloadUploadTab">
      <attribute name="title">
@@ -2354,6 +2354,133 @@ p, li { white-space: pre-wrap; }
        </property>
        <property name="textInteractionFlags">
         <set>Qt::TextSelectableByKeyboard|Qt::TextSelectableByMouse</set>
+       </property>
+      </widget>
+     </widget>
+    </widget>
+    <widget class="QWidget" name="aboutTab">
+     <attribute name="title">
+      <string>About</string>
+     </attribute>
+     <widget class="QGroupBox" name="aboutGroup">
+      <property name="geometry">
+       <rect>
+        <x>180</x>
+        <y>45</y>
+        <width>411</width>
+        <height>211</height>
+       </rect>
+      </property>
+      <property name="title">
+       <string>About</string>
+      </property>
+      <layout class="QGridLayout" name="aboutBoxGridLayout">
+       <item row="0" column="0">
+        <widget class="QTextEdit" name="agAboutTextbox">
+         <property name="verticalScrollBarPolicy">
+          <enum>Qt::ScrollBarAlwaysOff</enum>
+         </property>
+         <property name="horizontalScrollBarPolicy">
+          <enum>Qt::ScrollBarAlwaysOff</enum>
+         </property>
+         <property name="html">
+          <string>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'MS Shell Dlg 2'; font-size:8.25pt; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p align=&quot;center&quot; style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-size:18pt; font-weight:600; color:#b037b0;&quot;&gt;SCCwatcher&lt;/span&gt;&lt;/p&gt;
+&lt;p align=&quot;center&quot; style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-size:8pt; font-weight:600; color:#000000;&quot;&gt;version: _SCCWVER_&lt;/span&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-size:8pt; color:#000000;&quot;&gt;Main script written in Python using only standard libraries. This GUI was written in Python using the PyQt framework. This script was written by TRB for the fine people of SCC. If you encounter any bugs, have any issues getting things working, or have any ideas or feature requests please contact TRB on the forums or on IRC.&lt;/span&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-size:8pt;&quot;&gt;&lt;br /&gt;&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         </property>
+         <property name="textInteractionFlags">
+          <set>Qt::TextSelectableByKeyboard|Qt::TextSelectableByMouse</set>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QGroupBox" name="aboutTabUpdateGroup">
+      <property name="geometry">
+       <rect>
+        <x>180</x>
+        <y>285</y>
+        <width>411</width>
+        <height>76</height>
+       </rect>
+      </property>
+      <property name="title">
+       <string>Update</string>
+      </property>
+      <widget class="QLabel" name="ugCliVerLabel">
+       <property name="geometry">
+        <rect>
+         <x>45</x>
+         <y>19</y>
+         <width>66</width>
+         <height>16</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Your Version: </string>
+       </property>
+      </widget>
+      <widget class="QLabel" name="ugServVerLabel">
+       <property name="geometry">
+        <rect>
+         <x>45</x>
+         <y>44</y>
+         <width>76</width>
+         <height>16</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Latest Version: </string>
+       </property>
+      </widget>
+      <widget class="QLabel" name="ugCliVerActual">
+       <property name="geometry">
+        <rect>
+         <x>145</x>
+         <y>20</y>
+         <width>51</width>
+         <height>13</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600; color:#55ff00;&quot;&gt;_SCCWVER_&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+       </property>
+       <property name="textFormat">
+        <enum>Qt::RichText</enum>
+       </property>
+      </widget>
+      <widget class="QLabel" name="ugServVerActual">
+       <property name="geometry">
+        <rect>
+         <x>145</x>
+         <y>45</y>
+         <width>51</width>
+         <height>13</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600; color:#ff0000;&quot;&gt;_SCCWLATESTVER_&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+       </property>
+       <property name="textFormat">
+        <enum>Qt::RichText</enum>
+       </property>
+      </widget>
+      <widget class="QPushButton" name="ugCheckUpdateButton">
+       <property name="geometry">
+        <rect>
+         <x>250</x>
+         <y>28</y>
+         <width>111</width>
+         <height>23</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Check for Updates</string>
        </property>
       </widget>
      </widget>
