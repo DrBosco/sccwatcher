@@ -9,8 +9,7 @@ class sccwSettingsManager:
 		
 	def saveSettings(self, data):
 		#data{} is similar in structure to loadSettings()'s data
-		#Each key is the subgroup name and we keep naming subgroups as long as we see dictionaries.
-		#As soon as we see a value thats not a dictionary we save it.
+		#Each key is the subgroup name, below that is another dictionary containing a list of keys and values for that group.
 		#You can feed back the data from loadSettings to saveSettings to give you an idea of the structure.
 		for group in data:
 			#Each key is our group name
