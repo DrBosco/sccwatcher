@@ -14,7 +14,7 @@ class sccwSettingsManager:
 		for group in data:
 			#Each key is our group name
 			self.appSettings.beginGroup(group)
-			for key, value in data[group]:
+			for key, value in data[group].iteritems():
 				#Save eack value to respective key
 				self.appSettings.setValue(key, value)
 			#close the group and move on to the next one
