@@ -881,6 +881,108 @@ class Ui_sccw_SettingsUI(object):
         sccw_SettingsUI.setTabOrder(self.emailShortcutsList, self.agAboutTextbox)
         sccw_SettingsUI.setTabOrder(self.agAboutTextbox, self.ugCheckUpdateButton)
         sccw_SettingsUI.setTabOrder(self.ugCheckUpdateButton, self.buttonBox)
+        
+        #And here we set up our UI elements database. This will simplify the way we store and retrieve settings.
+        self.uiElements = {}
+        #Format for the database is this:
+        #self.uiElements[tab][element] = access_method
+        #The access method is just whatever function is required to retrieve the current value of that element.
+        
+        #Set up the pages
+        self.uiElements["mainTab"] = {}
+        self.uiElements["downloadUploadTab"] = {}
+        self.uiElements["watchlistTab"] = {}
+        self.uiElements["globalAvoidlistTab"] = {}
+        self.uiElements["emailSettingsTab"] = {}
+        
+        #And now we list all the UI elements and their access methods. There is probably a better way to do this. There might be a function somewhere
+        #in qt that enumerates the elements in your UI based on what type they are but I don't know of such a function. This will have to do for now.
+        
+        #Main Tab
+        self.uiElements["mainTab"]["ggPasskeyTextbox"] = "text()" 
+        self.uiElements["mainTab"]["ggSavepathTextbox"] = "text()"
+        self.uiElements["mainTab"]["ggLogpathTextbox"] = "text()"
+        self.uiElements["mainTab"]["ggNetworkDelaySpinbox"] = "cleanText()"
+        self.uiElements["mainTab"]["ggMasterAutodlCheck"] = "isChecked()"
+        self.uiElements["mainTab"]["ggEnableLoggingCheck"] = "isChecked()"
+        self.uiElements["mainTab"]["ggEnableVerboseCheck"] = "isChecked()"
+        self.uiElements["mainTab"]["ggVerboseTabTextbox"] = "text()"
+        self.uiElements["mainTab"]["ggBeepCheckbox"] = "isChecked()"
+        self.uiElements["mainTab"]["ggEnableDebugCheck"] = "isChecked()"
+        
+        
+        #Download/Upload Tab
+        self.uiElements["downloadUploadTab"]["globalSSLDownloadCheck"] = "isChecked()"
+        self.uiElements["downloadUploadTab"]["globalDupecheckCheck"] = "isChecked()"
+        self.uiElements["downloadUploadTab"]["globalSizeLimitLowerTextbox"] = "text()"
+        self.uiElements["downloadUploadTab"]["globalSizeLimitLowerSuffixSelector"] = "currentText()"
+        self.uiElements["downloadUploadTab"]["globalSizeLimitUpperTextbox"] = "text()"
+        self.uiElements["downloadUploadTab"]["globalSizeLimitUpperSuffixSelector"] = "currentText()"
+        self.uiElements["downloadUploadTab"]["globalCFBypassCookiefilePathTextbox"] = "text()"
+        self.uiElements["downloadUploadTab"]["globalCFBypassUseragentTextbox"] = "text()"
+        self.uiElements["downloadUploadTab"]["extCmdMasterEnableCheck"] = "isChecked()"
+        self.uiElements["downloadUploadTab"]["extCmdExeLocation"] = "text()"
+        self.uiElements["downloadUploadTab"]["extCmdExeArguments"] = "text()"
+        self.uiElements["downloadUploadTab"]["ftpMasterEnableCheck"] = "isChecked()"
+        self.uiElements["downloadUploadTab"]["ftpHostnameTextbox"] = "text()"
+        self.uiElements["downloadUploadTab"]["ftpPortTextbox"] = "text()"
+        self.uiElements["downloadUploadTab"]["ftpUsernameTextbox"] = "text()"
+        self.uiElements["downloadUploadTab"]["ftpPasswordTextbox"] = "text()"
+        self.uiElements["downloadUploadTab"]["ftpRemoteFolderTextbox"] = "text()"
+        self.uiElements["downloadUploadTab"]["ftpPasvModeCheck"] = "isChecked()"
+        self.uiElements["downloadUploadTab"]["ftpTLSModeCheck"] = "isChecked()"
+        self.uiElements["downloadUploadTab"]["utwuiMasterEnableTriCheck"] = "checkState()"
+        self.uiElements["downloadUploadTab"]["utwuiHostnameTextbox"] = "text()"
+        self.uiElements["downloadUploadTab"]["utwuiPortTextbox"] = "text()"
+        self.uiElements["downloadUploadTab"]["utwuiUsernameTextbox"] = "text()"
+        self.uiElements["downloadUploadTab"]["utwuiPasswordTextbox"] = "text()"
+        
+        
+        #Watchlist Tab
+        self.uiElements["watchlistTab"]["WLGwatchlistItemsList"] = ["currentItem()", "text()"] # Special case, have to do currentItem(), then call text() on the object returned.
+        self.uiElements["watchlistTab"]["WLSGwatchNameTextbox"] = "text()"
+        self.uiElements["watchlistTab"]["WLSGwatchFilterTextbox"] = "text()"
+        self.uiElements["watchlistTab"]["WLSGwatchFilterRegexCheck"] = "isChecked()"
+        self.uiElements["watchlistTab"]["WLSGavoidFilterListTextbox"] = "text()"
+        self.uiElements["watchlistTab"]["WLSGavoidFilterListRegexCheck"] = "isChecked()"
+        self.uiElements["watchlistTab"]["WLSGwatchCatListTextbox"] = "text()"
+        self.uiElements["watchlistTab"]["WLSGsavepathTextbox"] = "text()"
+        self.uiElements["watchlistTab"]["WLSGexternalCommandTextbox"] = "text()"
+        self.uiElements["watchlistTab"]["WLSGexternalCommandArgsTextbox"] = "text()"
+        self.uiElements["watchlistTab"]["WLSGsizeLimitLowerTextbox"] = "text()"
+        self.uiElements["watchlistTab"]["WLSGsizeLimitLowerSuffixSelector"] = "currentText()"
+        self.uiElements["watchlistTab"]["WLSGsizeLimitUpperTextbox"] = "text()"
+        self.uiElements["watchlistTab"]["WLSGsizeLimitUpperSuffixSelector"] = "currentText()"
+        self.uiElements["watchlistTab"]["WLSGenableExternalCmdCheckbox"] = "isChecked()"
+        self.uiElements["watchlistTab"]["WLSGdupecheckingCheckbox"] = "isChecked()"
+        self.uiElements["watchlistTab"]["WLSGutWebUiCheckox"] = "isChecked()"
+        self.uiElements["watchlistTab"]["WLSGftpUploadCheckbox"] = "isChecked()"
+        self.uiElements["watchlistTab"]["WLSGemailCheckbox"] = "isChecked()"
+        
+        
+        
+        
+        #Global Avoid Tab
+        self.uiElements["globalAvoidlistTab"]["avoidlistItemsList"] = ["currentItem()", "text()"] # Special case, have to do currentItem(), then call text() on the object returned.
+        self.uiElements["globalAvoidlistTab"]["avoidNameTextbox"] = "text()"
+        self.uiElements["globalAvoidlistTab"]["avoidFilterTextbox"] = "text()"
+        self.uiElements["globalAvoidlistTab"]["avoidFilterRegexCheck"] = "isChecked()" 
+        
+        
+        
+        #Emailer Settings Tab
+        self.uiElements["emailSettingsTab"]["emailMasterEnableCheck"] = "isChecked()"
+        self.uiElements["emailSettingsTab"]["hostnameIPTextbox"] = "text()"
+        self.uiElements["emailSettingsTab"]["portTextbox"] = "text()"
+        self.uiElements["emailSettingsTab"]["usernameTextbox"] = "text()"
+        self.uiElements["emailSettingsTab"]["passwordTextbox"] = "text()"
+        self.uiElements["emailSettingsTab"]["emailUseTLSCheck"] = "isChecked()"
+        self.uiElements["emailSettingsTab"]["emailFromTextbox"] = "text()"
+        self.uiElements["emailSettingsTab"]["emailToTextbox"] = "text()"
+        self.uiElements["emailSettingsTab"]["emailSubjectTextbox"] = "text()"
+        self.uiElements["emailSettingsTab"]["emailMessageTextbox"] =  "text()"
+        
+        
 
     def retranslateUi(self, sccw_SettingsUI):
         sccw_SettingsUI.setWindowTitle(_translate("sccw_SettingsUI", "MainWindow", None))
@@ -1055,5 +1157,20 @@ class Ui_sccw_SettingsUI(object):
         self.actionSave.setText(_translate("sccw_SettingsUI", "&Save", None))
         self.actionSave_As.setText(_translate("sccw_SettingsUI", "Save &As...", None))
         self.action_Quit.setText(_translate("sccw_SettingsUI", "&Quit", None))
+
+
+    def updateUi(self, data):
+        #Takes in the data format of loadSettings() and updates the UI with the data received
+        pass
+    
+    def saveUiState(self):
+        #Takes the current state of the UI and sends it to the saveSettings() function. 
+        pass
+
+
+
+
+
+
 
 import icon_resources_rc
