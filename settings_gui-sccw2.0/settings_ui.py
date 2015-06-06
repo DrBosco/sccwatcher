@@ -8,6 +8,8 @@
 # WARNING! All changes made in this file will be lost!
 
 from PyQt4 import QtCore, QtGui
+from settings_manager import sccwSettingsManager as sccwSettingsManager
+from collections import OrderedDict as OD
 
 try:
     _fromUtf8 = QtCore.QString.fromUtf8
@@ -25,6 +27,12 @@ except AttributeError:
 
 class Ui_sccw_SettingsUI(object):
     def setupUi(self, sccw_SettingsUI):
+        #Instantiate our settings object and set it up with the settings file
+        #This is set up with a path for testings, this will change for release.
+        self.SettingsManager = sccwSettingsManager("C:\\sccw2test2.ini")
+        self.uiElements = self.SettingsManager.elementsToOptions
+        self.elementAccessMethods = self.SettingsManager.elementAccessMethods
+        
         #Setting up the main window
         sccw_SettingsUI.setObjectName(_fromUtf8("sccw_SettingsUI"))
         sccw_SettingsUI.resize(805, 600)
@@ -413,6 +421,7 @@ class Ui_sccw_SettingsUI(object):
         self.WLGremoveEntryButton.setIcon(icon2)
         self.WLGremoveEntryButton.setObjectName(_fromUtf8("WLGremoveEntryButton"))
         self.WLGwatchlistItemsList = QtGui.QListWidget(self.watchlistGroup)
+        self.WLGwatchlistItemsList.setSelectionMode(QtGui.QAbstractItemView.SingleSelection)
         self.WLGwatchlistItemsList.setGeometry(QtCore.QRect(10, 20, 281, 391))
         self.WLGwatchlistItemsList.setObjectName(_fromUtf8("WLGwatchlistItemsList"))
         item = QtGui.QListWidgetItem()
@@ -567,6 +576,7 @@ class Ui_sccw_SettingsUI(object):
         self.removeAvoidEntryButton.setIcon(icon2)
         self.removeAvoidEntryButton.setObjectName(_fromUtf8("removeAvoidEntryButton"))
         self.avoidlistItemsList = QtGui.QListWidget(self.avoidlistGroup)
+        self.avoidlistItemsList.setSelectionMode(QtGui.QAbstractItemView.SingleSelection)
         self.avoidlistItemsList.setGeometry(QtCore.QRect(10, 20, 281, 391))
         self.avoidlistItemsList.setObjectName(_fromUtf8("avoidlistItemsList"))
         item = QtGui.QListWidgetItem()
@@ -794,7 +804,7 @@ class Ui_sccw_SettingsUI(object):
         ## Slot connectors ##
         QtCore.QObject.connect(self.action_Quit, QtCore.SIGNAL(_fromUtf8("triggered()")), sccw_SettingsUI.close)
         QtCore.QObject.connect(self.actionOpen, QtCore.SIGNAL(_fromUtf8("triggered()")), sccw_SettingsUI.close)
-        QtCore.QObject.connect(self.actionSave, QtCore.SIGNAL(_fromUtf8("triggered()")), sccw_SettingsUI.close)
+        QtCore.QObject.connect(self.actionSave, QtCore.SIGNAL(_fromUtf8("triggered()")), self.saveUiState)
         QtCore.QObject.connect(self.actionSave_As, QtCore.SIGNAL(_fromUtf8("triggered()")), sccw_SettingsUI.close)
         QtCore.QObject.connect(self.action_New, QtCore.SIGNAL(_fromUtf8("triggered()")), sccw_SettingsUI.close)
         QtCore.QMetaObject.connectSlotsByName(sccw_SettingsUI)
@@ -882,107 +892,49 @@ class Ui_sccw_SettingsUI(object):
         sccw_SettingsUI.setTabOrder(self.agAboutTextbox, self.ugCheckUpdateButton)
         sccw_SettingsUI.setTabOrder(self.ugCheckUpdateButton, self.buttonBox)
         
-        #And here we set up our UI elements database. This will simplify the way we store and retrieve settings.
-        self.uiElements = {}
-        #Format for the database is this:
-        #self.uiElements[tab][element] = access_method
-        #The access method is just whatever function is required to retrieve the current value of that element.
-        
-        #Set up the pages
-        self.uiElements["mainTab"] = {}
-        self.uiElements["downloadUploadTab"] = {}
-        self.uiElements["watchlistTab"] = {}
-        self.uiElements["globalAvoidlistTab"] = {}
-        self.uiElements["emailSettingsTab"] = {}
-        
-        #And now we list all the UI elements and their access methods. There is probably a better way to do this. There might be a function somewhere
-        #in qt that enumerates the elements in your UI based on what type they are but I don't know of such a function. This will have to do for now.
-        
-        #Main Tab
-        self.uiElements["mainTab"]["ggPasskeyTextbox"] = "text()" 
-        self.uiElements["mainTab"]["ggSavepathTextbox"] = "text()"
-        self.uiElements["mainTab"]["ggLogpathTextbox"] = "text()"
-        self.uiElements["mainTab"]["ggNetworkDelaySpinbox"] = "cleanText()"
-        self.uiElements["mainTab"]["ggMasterAutodlCheck"] = "isChecked()"
-        self.uiElements["mainTab"]["ggEnableLoggingCheck"] = "isChecked()"
-        self.uiElements["mainTab"]["ggEnableVerboseCheck"] = "isChecked()"
-        self.uiElements["mainTab"]["ggVerboseTabTextbox"] = "text()"
-        self.uiElements["mainTab"]["ggBeepCheckbox"] = "isChecked()"
-        self.uiElements["mainTab"]["ggEnableDebugCheck"] = "isChecked()"
         
         
-        #Download/Upload Tab
-        self.uiElements["downloadUploadTab"]["globalSSLDownloadCheck"] = "isChecked()"
-        self.uiElements["downloadUploadTab"]["globalDupecheckCheck"] = "isChecked()"
-        self.uiElements["downloadUploadTab"]["globalSizeLimitLowerTextbox"] = "text()"
-        self.uiElements["downloadUploadTab"]["globalSizeLimitLowerSuffixSelector"] = "currentText()"
-        self.uiElements["downloadUploadTab"]["globalSizeLimitUpperTextbox"] = "text()"
-        self.uiElements["downloadUploadTab"]["globalSizeLimitUpperSuffixSelector"] = "currentText()"
-        self.uiElements["downloadUploadTab"]["globalCFBypassCookiefilePathTextbox"] = "text()"
-        self.uiElements["downloadUploadTab"]["globalCFBypassUseragentTextbox"] = "text()"
-        self.uiElements["downloadUploadTab"]["extCmdMasterEnableCheck"] = "isChecked()"
-        self.uiElements["downloadUploadTab"]["extCmdExeLocation"] = "text()"
-        self.uiElements["downloadUploadTab"]["extCmdExeArguments"] = "text()"
-        self.uiElements["downloadUploadTab"]["ftpMasterEnableCheck"] = "isChecked()"
-        self.uiElements["downloadUploadTab"]["ftpHostnameTextbox"] = "text()"
-        self.uiElements["downloadUploadTab"]["ftpPortTextbox"] = "text()"
-        self.uiElements["downloadUploadTab"]["ftpUsernameTextbox"] = "text()"
-        self.uiElements["downloadUploadTab"]["ftpPasswordTextbox"] = "text()"
-        self.uiElements["downloadUploadTab"]["ftpRemoteFolderTextbox"] = "text()"
-        self.uiElements["downloadUploadTab"]["ftpPasvModeCheck"] = "isChecked()"
-        self.uiElements["downloadUploadTab"]["ftpTLSModeCheck"] = "isChecked()"
-        self.uiElements["downloadUploadTab"]["utwuiMasterEnableTriCheck"] = "checkState()"
-        self.uiElements["downloadUploadTab"]["utwuiHostnameTextbox"] = "text()"
-        self.uiElements["downloadUploadTab"]["utwuiPortTextbox"] = "text()"
-        self.uiElements["downloadUploadTab"]["utwuiUsernameTextbox"] = "text()"
-        self.uiElements["downloadUploadTab"]["utwuiPasswordTextbox"] = "text()"
+    def updateUi(self, data):
+        #Takes in the data format of loadSettings() and updates the UI with the data received
+        #We will go through data{} and use the access method detailed in the uiElements dictionary.
+        #The two's structure are identical and so make this task extremely simple.
+        pass
+    
+    def saveUiState(self):
+        #Takes the current state of the UI and sends it to the saveSettings() function.
+        #Our return database
+        save_data = OD()
         
+        #Similar to updateUi(), we are going to loop through the uiElements dict and use its access methods to save the Ui state.
+        for tab in self.uiElements:
+            save_data[tab] = OD() #Set up the sub-dictionary for this tab
+            #Now we loop through each element and eval it into life. Then we send each element through a type checking function that will access its data depending on its type.
+            for element, data_list in self.uiElements[tab].iteritems():
+                #Here we make up a string with our element, eval it into life, then give it to the type checker
+                access_string = "self." + str(element)
+                live_access_string = eval(access_string)
+                #And now we send it to the type checker and set our save_data to its output
+                read_function = self.typeMatcher(live_access_string, "READ")
+                print type(read_function)
+                save_data[tab][element] = read_function()
         
-        #Watchlist Tab
-        self.uiElements["watchlistTab"]["WLGwatchlistItemsList"] = ["currentItem()", "text()"] # Special case, have to do currentItem(), then call text() on the object returned.
-        self.uiElements["watchlistTab"]["WLSGwatchNameTextbox"] = "text()"
-        self.uiElements["watchlistTab"]["WLSGwatchFilterTextbox"] = "text()"
-        self.uiElements["watchlistTab"]["WLSGwatchFilterRegexCheck"] = "isChecked()"
-        self.uiElements["watchlistTab"]["WLSGavoidFilterListTextbox"] = "text()"
-        self.uiElements["watchlistTab"]["WLSGavoidFilterListRegexCheck"] = "isChecked()"
-        self.uiElements["watchlistTab"]["WLSGwatchCatListTextbox"] = "text()"
-        self.uiElements["watchlistTab"]["WLSGsavepathTextbox"] = "text()"
-        self.uiElements["watchlistTab"]["WLSGexternalCommandTextbox"] = "text()"
-        self.uiElements["watchlistTab"]["WLSGexternalCommandArgsTextbox"] = "text()"
-        self.uiElements["watchlistTab"]["WLSGsizeLimitLowerTextbox"] = "text()"
-        self.uiElements["watchlistTab"]["WLSGsizeLimitLowerSuffixSelector"] = "currentText()"
-        self.uiElements["watchlistTab"]["WLSGsizeLimitUpperTextbox"] = "text()"
-        self.uiElements["watchlistTab"]["WLSGsizeLimitUpperSuffixSelector"] = "currentText()"
-        self.uiElements["watchlistTab"]["WLSGenableExternalCmdCheckbox"] = "isChecked()"
-        self.uiElements["watchlistTab"]["WLSGdupecheckingCheckbox"] = "isChecked()"
-        self.uiElements["watchlistTab"]["WLSGutWebUiCheckox"] = "isChecked()"
-        self.uiElements["watchlistTab"]["WLSGftpUploadCheckbox"] = "isChecked()"
-        self.uiElements["watchlistTab"]["WLSGemailCheckbox"] = "isChecked()"
+        #We should now have a nice dictionary filled with the current state of our app. Lets send it to our save function and let it handle the rest
+        self.SettingsManager.saveSettings(save_data)
+            
+    def typeMatcher(self, access_object, operation):
+        #This function will match the type of the access_object provided to a dictionary and return the data requested in operation.
+        #operation can be either READ or WRITE.
+        #Convert operation into numbers to make index easier. Read is default.
+        op = 0
+        if operation == "WRITE": op = 1
         
-        
-        
-        
-        #Global Avoid Tab
-        self.uiElements["globalAvoidlistTab"]["avoidlistItemsList"] = ["currentItem()", "text()"] # Special case, have to do currentItem(), then call text() on the object returned.
-        self.uiElements["globalAvoidlistTab"]["avoidNameTextbox"] = "text()"
-        self.uiElements["globalAvoidlistTab"]["avoidFilterTextbox"] = "text()"
-        self.uiElements["globalAvoidlistTab"]["avoidFilterRegexCheck"] = "isChecked()" 
-        
-        
-        
-        #Emailer Settings Tab
-        self.uiElements["emailSettingsTab"]["emailMasterEnableCheck"] = "isChecked()"
-        self.uiElements["emailSettingsTab"]["hostnameIPTextbox"] = "text()"
-        self.uiElements["emailSettingsTab"]["portTextbox"] = "text()"
-        self.uiElements["emailSettingsTab"]["usernameTextbox"] = "text()"
-        self.uiElements["emailSettingsTab"]["passwordTextbox"] = "text()"
-        self.uiElements["emailSettingsTab"]["emailUseTLSCheck"] = "isChecked()"
-        self.uiElements["emailSettingsTab"]["emailFromTextbox"] = "text()"
-        self.uiElements["emailSettingsTab"]["emailToTextbox"] = "text()"
-        self.uiElements["emailSettingsTab"]["emailSubjectTextbox"] = "text()"
-        self.uiElements["emailSettingsTab"]["emailMessageTextbox"] =  "text()"
-        
-        
+        for type_name in self.elementAccessMethods.keys():
+            if type_name in str(type(access_object)):
+                access_function = self.elementAccessMethods[type_name][op]
+                break
+        #Now we have our access function, we use getattr to return the live function to the caller
+        return getattr(access_object, access_function)
+            
 
     def retranslateUi(self, sccw_SettingsUI):
         sccw_SettingsUI.setWindowTitle(_translate("sccw_SettingsUI", "MainWindow", None))
@@ -1159,13 +1111,8 @@ class Ui_sccw_SettingsUI(object):
         self.action_Quit.setText(_translate("sccw_SettingsUI", "&Quit", None))
 
 
-    def updateUi(self, data):
-        #Takes in the data format of loadSettings() and updates the UI with the data received
-        pass
-    
-    def saveUiState(self):
-        #Takes the current state of the UI and sends it to the saveSettings() function. 
-        pass
+            
+            
 
 
 
