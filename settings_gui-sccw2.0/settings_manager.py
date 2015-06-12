@@ -2,103 +2,99 @@ from PyQt4 import QtCore
 from collections import OrderedDict as OD
 
 #Get ready for tons of lame code
+#The use of OD(), OrderedDict, means that the dictionary we create will be in the exact order as its created.
+#This is useful because we also don't wan't the options in our ini file being saved in any old way, we want an order.
+#The order of options is therefore extremely important. All of the global options must come first before all others.
 
-#And here we set up our UI elements database. This will simplify the way we store and retrieve settings.
-#I thought about simplifying this and just going by the element's type. This cut the dictionary down to only 7 entries but I found
-#that writing back to the elements became significantly more difficult when I didn't have the exact name of the element. So either
-#way I was going to end up listing out the elements name by name, I figured Id just do it in one place rather than multiple (possibly)
-uiElements = {}
 #Format for the database is this:
-#uiElements[element_type] = [read_access_method, write_acecss_method]
-#The access methods are just whatever function is required to retrieve/modify the current value of that element.
+#uiElements[element_name] = [ini_file_section_name, ini_file_option_name]
+#The access methods are provided by running a type comparison on an eval of the element_name. Eval'ing turns that name into a proper object which can be type()'d.
+#The type database is kept in elementAccessMethods below elementsToOptions.
 
 #This dictionary defines the translation between UI Elements and ini options. Without this, things would get much more complicated.
 #The structure is the same as all the other elements databases. The main keys are the tab names, and each subkey of the tab is the UI element. Each value is the Group and the INI option name in a list.
 elementsToOptions = OD()
-elementsToOptions["downloadUploadTab"] = OD()
-elementsToOptions["watchlistTab"] = OD()
-elementsToOptions["mainTab"] = OD()
-elementsToOptions["emailSettingsTab"] = OD()
-elementsToOptions["globalAvoidlistTab"] = OD()
-
-elementsToOptions["mainTab"]["ggEnableVerboseCheck"] = ["GlobalSettings", "verbose"]
-elementsToOptions["mainTab"]["ggEnableDebugCheck"] = ["GlobalSettings", "DEBUG"]
-elementsToOptions["mainTab"]["ggLogpathTextbox"] = ["GlobalSettings", "logpath"]
-elementsToOptions["mainTab"]["ggSavepathTextbox"] = ["GlobalSettings", "savepath"]
-elementsToOptions["mainTab"]["ggMasterAutodlCheck"] = ["GlobalSettings", "service"]
-elementsToOptions["mainTab"]["ggNetworkDelaySpinbox"] = ["GlobalSettings", "startdelay"]
-elementsToOptions["mainTab"]["ggBeepCheckbox"] = ["GlobalSettings", "printalert"]
-elementsToOptions["mainTab"]["ggEnableLoggingCheck"] = ["GlobalSettings", "logenabled"]
-elementsToOptions["mainTab"]["ggVerboseTabTextbox"] = ["GlobalSettings", "verbose_tab"]
-elementsToOptions["mainTab"]["ggPasskeyTextbox"] = ["GlobalSettings", "passkey"]
-
-elementsToOptions["downloadUploadTab"]["globalDupecheckCheck"] = ["GlobalSettings", "dupecheck"]
-elementsToOptions["downloadUploadTab"]["globalSSLDownloadCheck"] = ["GlobalSettings", "download_ssl"]
-elementsToOptions["downloadUploadTab"]["utwuiMasterEnableTriCheck"] = ["GlobalSettings", "utorrent_mode"]
-elementsToOptions["downloadUploadTab"]["utwuiUsernameTextbox"] = ["GlobalSettings", "utorrent_username"]
-elementsToOptions["downloadUploadTab"]["utwuiPasswordTextbox"] = ["GlobalSettings", "utorrent_password"]
-elementsToOptions["downloadUploadTab"]["utwuiHostnameTextbox"] = ["GlobalSettings", "utorrent_hostname"]
-elementsToOptions["downloadUploadTab"]["utwuiPortTextbox"] = ["GlobalSettings", "utorrent_port"]
+#basic download and operational options first
+elementsToOptions["ggMasterAutodlCheck"] = ["GlobalSettings", "service"]
+elementsToOptions["ggEnableVerboseCheck"] = ["GlobalSettings", "verbose"]
+elementsToOptions["ggVerboseTabTextbox"] = ["GlobalSettings", "verbose_tab"]
+elementsToOptions["ggBeepCheckbox"] = ["GlobalSettings", "printalert"]
+elementsToOptions["ggEnableLoggingCheck"] = ["GlobalSettings", "logenabled"]
+elementsToOptions["ggLogpathTextbox"] = ["GlobalSettings", "logpath"]
+elementsToOptions["ggNetworkDelaySpinbox"] = ["GlobalSettings", "startdelay"]
+elementsToOptions["ggPasskeyTextbox"] = ["GlobalSettings", "passkey"]
+elementsToOptions["globalDupecheckCheck"] = ["GlobalSettings", "dupecheck"]
+elementsToOptions["globalSSLDownloadCheck"] = ["GlobalSettings", "download_ssl"]
+elementsToOptions["ggSavepathTextbox"] = ["GlobalSettings", "savepath"]
 #These Size Limit UI elements need some special treatment. Both when loading and saving.
-#These hold a function in index 3 that will return data instead of getting it straight from the element's access function.
-#This function takes one argument, the element name that holds the suffix data.
-elementsToOptions["downloadUploadTab"]["globalSizeLimitLowerTextbox"] = ["GlobalSettings", "sizelimit_lower", "SLcombiner('globalSizeLimitLowerSuffixSelector')"]
-elementsToOptions["downloadUploadTab"]["globalSizeLimitUpperTextbox"] = ["GlobalSettings", "sizelimit_upper", "SLcombiner('globalSizeLimitUpperSuffixSelector')"]
-elementsToOptions["downloadUploadTab"]["ftpHostnameTextbox"] = ["GlobalSettings", "ftpServerHostname"]
-elementsToOptions["downloadUploadTab"]["ftpPortTextbox"] = ["GlobalSettings", "ftpPort"]
-elementsToOptions["downloadUploadTab"]["ftpPasvModeCheck"] = ["GlobalSettings", "ftpPassive"]
-elementsToOptions["downloadUploadTab"]["ftpUsernameTextbox"] = ["GlobalSettings", "ftpUsername"]
-elementsToOptions["downloadUploadTab"]["ftpPasswordTextbox"] = ["GlobalSettings", "ftpPassword"]
-elementsToOptions["downloadUploadTab"]["ftpMasterEnableCheck"] = ["GlobalSettings", "ftpEnable"]
-elementsToOptions["downloadUploadTab"]["ftpTLSModeCheck"] = ["GlobalSettings", "ftpSecureMode"]
-elementsToOptions["downloadUploadTab"]["ftpRemoteFolderTextbox"] = ["GlobalSettings", "ftpRemoteFolder"]
-elementsToOptions["downloadUploadTab"]["globalCFBypassUseragentTextbox"] = ["GlobalSettings", "cfbypass_useragent"]
-elementsToOptions["downloadUploadTab"]["globalCFBypassCookiefilePathTextbox"] = ["GlobalSettings", "cfbypass_cookiefile"]
-elementsToOptions["downloadUploadTab"]["extCmdMasterEnableCheck"] = ["GlobalSettings", "use_external_command"]
-elementsToOptions["downloadUploadTab"]["extCmdExeArguments"] = ["GlobalSettings", "external_command_args"]
-elementsToOptions["downloadUploadTab"]["extCmdExeLocation"] = ["GlobalSettings", "external_command"]
+#These hold another object name in index 3 that will signal the function to operate on the third data item, the element name that holds the suffix data.
+elementsToOptions["globalSizeLimitLowerTextbox"] = ["GlobalSettings", "sizelimit_lower", "globalSizeLimitLowerSuffixSelector"]
+elementsToOptions["globalSizeLimitUpperTextbox"] = ["GlobalSettings", "sizelimit_upper", "globalSizeLimitUpperSuffixSelector"]
+elementsToOptions["globalCFBypassUseragentTextbox"] = ["GlobalSettings", "cfbypass_useragent"]
+elementsToOptions["globalCFBypassCookiefilePathTextbox"] = ["GlobalSettings", "cfbypass_cookiefile"]
+#ftp settings
+elementsToOptions["ftpMasterEnableCheck"] = ["GlobalSettings", "ftpEnable"]
+elementsToOptions["ftpHostnameTextbox"] = ["GlobalSettings", "ftpServerHostname"]
+elementsToOptions["ftpPortTextbox"] = ["GlobalSettings", "ftpPort"]
+elementsToOptions["ftpRemoteFolderTextbox"] = ["GlobalSettings", "ftpRemoteFolder"]
+elementsToOptions["ftpUsernameTextbox"] = ["GlobalSettings", "ftpUsername"]
+elementsToOptions["ftpPasswordTextbox"] = ["GlobalSettings", "ftpPassword"]
+elementsToOptions["ftpPasvModeCheck"] = ["GlobalSettings", "ftpPassive"]
+elementsToOptions["ftpTLSModeCheck"] = ["GlobalSettings", "ftpSecureMode"]
+#ut web ui options
+elementsToOptions["utwuiMasterEnableTriCheck"] = ["GlobalSettings", "utorrent_mode"]
+elementsToOptions["utwuiUsernameTextbox"] = ["GlobalSettings", "utorrent_username"]
+elementsToOptions["utwuiPasswordTextbox"] = ["GlobalSettings", "utorrent_password"]
+elementsToOptions["utwuiHostnameTextbox"] = ["GlobalSettings", "utorrent_hostname"]
+elementsToOptions["utwuiPortTextbox"] = ["GlobalSettings", "utorrent_port"]
+#Email options
+elementsToOptions["emailMasterEnableCheck"] = ["GlobalSettings", "smtp_emailer"]
+elementsToOptions["hostnameIPTextbox"] = ["GlobalSettings", "smtp_server"]
+elementsToOptions["portTextbox"] = ["GlobalSettings", "smtp_port"]
+elementsToOptions["emailUseTLSCheck"] = ["GlobalSettings", "smtp_tls"]
+elementsToOptions["usernameTextbox"] = ["GlobalSettings", "smtp_username"]
+elementsToOptions["passwordTextbox"] = ["GlobalSettings", "smtp_password"]
+elementsToOptions["emailFromTextbox"] = ["GlobalSettings", "smtp_from"]
+elementsToOptions["emailToTextbox"] = ["GlobalSettings", "smtp_to"]
+elementsToOptions["emailSubjectTextbox"] = ["GlobalSettings", "smtp_subject"]
+elementsToOptions["emailMessageTextbox"] = ["GlobalSettings", "smtp_message"]
+#External command
+elementsToOptions["extCmdMasterEnableCheck"] = ["GlobalSettings", "use_external_command"]
+elementsToOptions["extCmdExeLocation"] = ["GlobalSettings", "external_command"]
+elementsToOptions["extCmdExeArguments"] = ["GlobalSettings", "external_command_args"]
+#Debug is always last
+elementsToOptions["ggEnableDebugCheck"] = ["GlobalSettings", "DEBUG"] 
 
+#These special options get processed for each entry in WLGwatchlistItemsList
+elementsToOptions["WLSGwatchNameTextbox"] = ["WSPECIAL", "W_TITLE"]
+elementsToOptions["WLSGwatchFilterTextbox"] = ["WSPECIAL", "watch_filter"]
+elementsToOptions["WLSGwatchFilterRegexCheck"] = ["WSPECIAL", "watch_regex"]
+elementsToOptions["WLSGavoidFilterListTextbox"] = ["WSPECIAL", "avoid_filter"]
+elementsToOptions["WLSGavoidFilterListRegexCheck"] = ["WSPECIAL", "avoid_regex"]
+elementsToOptions["WLSGwatchCatListTextbox"] = ["WSPECIAL", "watch_categories"]
+elementsToOptions["WLSGsavepathTextbox"] = ["WSPECIAL", "savepath"]
+elementsToOptions["WLSGdupecheckingCheckbox"] = ["WSPECIAL", "dupecheck"]
+elementsToOptions["WLSGsizeLimitLowerTextbox"] = ["WSPECIAL", "lower_sizelimit", "WLSGsizeLimitLowerSuffixSelector"]
+elementsToOptions["WLSGsizeLimitUpperTextbox"] = ["WSPECIAL", "upper_sizelimit", "WLSGsizeLimitUpperSuffixSelector"]
+elementsToOptions["WLSGemailCheckbox"] = ["WSPECIAL", "use_emailer"]
+elementsToOptions["WLSGftpUploadCheckbox"] = ["WSPECIAL", "use_ftp_upload"]
+elementsToOptions["WLSGutWebUiCheckox"] = ["WSPECIAL", "use_utorrent_webui"]
+elementsToOptions["WLSGenableExternalCmdCheckbox"] = ["WSPECIAL", "use_external_command"]
+elementsToOptions["WLSGexternalCommandTextbox"] = ["WSPECIAL", "external_command"]
+elementsToOptions["WLSGexternalCommandArgsTextbox"] = ["WSPECIAL", "external_command_args"]
 
-elementsToOptions["emailSettingsTab"]["emailMasterEnableCheck"] = ["GlobalSettings", "smtp_emailer"]
-elementsToOptions["emailSettingsTab"]["hostnameIPTextbox"] = ["GlobalSettings", "smtp_server"]
-elementsToOptions["emailSettingsTab"]["portTextbox"] = ["GlobalSettings", "smtp_port"]
-elementsToOptions["emailSettingsTab"]["emailUseTLSCheck"] = ["GlobalSettings", "smtp_tls"]
-elementsToOptions["emailSettingsTab"]["usernameTextbox"] = ["GlobalSettings", "smtp_username"]
-elementsToOptions["emailSettingsTab"]["passwordTextbox"] = ["GlobalSettings", "smtp_password"]
-elementsToOptions["emailSettingsTab"]["emailToTextbox"] = ["GlobalSettings", "smtp_to"]
-elementsToOptions["emailSettingsTab"]["emailFromTextbox"] = ["GlobalSettings", "smtp_from"]
-elementsToOptions["emailSettingsTab"]["emailSubjectTextbox"] = ["GlobalSettings", "smtp_subject"]
-elementsToOptions["emailSettingsTab"]["emailMessageTextbox"] = ["GlobalSettings", "smtp_message"]
-
-
-elementsToOptions["watchlistTab"]["WLSGwatchNameTextbox"] = ["WSPECIAL", "W_TITLE"]
-elementsToOptions["watchlistTab"]["WLSGwatchFilterTextbox"] = ["WSPECIAL", "watch_filter"]
-elementsToOptions["watchlistTab"]["WLSGwatchFilterRegexCheck"] = ["WSPECIAL", "watch_regex"]
-elementsToOptions["watchlistTab"]["WLSGavoidFilterListTextbox"] = ["WSPECIAL", "avoid_filter"]
-elementsToOptions["watchlistTab"]["WLSGavoidFilterListRegexCheck"] = ["WSPECIAL", "avoid_regex"]
-elementsToOptions["watchlistTab"]["WLSGwatchCatListTextbox"] = ["WSPECIAL", "watch_categories"]
-elementsToOptions["watchlistTab"]["WLSGsavepathTextbox"] = ["WSPECIAL", "savepath"]
-elementsToOptions["watchlistTab"]["WLSGdupecheckingCheckbox"] = ["WSPECIAL", "dupecheck"]
-elementsToOptions["watchlistTab"]["WLSGsizeLimitLowerTextbox"] = ["WSPECIAL", "lower_sizelimit", "SLcombiner('WLSGsizeLimitLowerSuffixSelector')"]
-elementsToOptions["watchlistTab"]["WLSGsizeLimitUpperTextbox"] = ["WSPECIAL", "upper_sizelimit", "SLcombiner('WLSGsizeLimitUpperSuffixSelector')"]
-elementsToOptions["watchlistTab"]["WLSGemailCheckbox"] = ["WSPECIAL", "use_emailer"]
-elementsToOptions["watchlistTab"]["WLSGftpUploadCheckbox"] = ["WSPECIAL", "use_ftp_upload"]
-elementsToOptions["watchlistTab"]["WLSGutWebUiCheckox"] = ["WSPECIAL", "use_utorrent_webui"]
-elementsToOptions["watchlistTab"]["WLSGenableExternalCmdCheckbox"] = ["WSPECIAL", "use_external_command"]
-elementsToOptions["watchlistTab"]["WLSGexternalCommandTextbox"] = ["WSPECIAL", "external_command"]
-elementsToOptions["watchlistTab"]["WLSGexternalCommandArgsTextbox"] = ["WSPECIAL", "external_command_args"]
-
-
-elementsToOptions["globalAvoidlistTab"]["avoidNameTextbox"] = ["ASPECIAL", "A_TITLE"]
-elementsToOptions["globalAvoidlistTab"]["avoidFilterTextbox"] = ["ASPECIAL", "avoid_filter"]
-elementsToOptions["globalAvoidlistTab"]["avoidFilterRegexCheck"] = ["ASPECIAL", "use_regex"]
+#Same special thing here, all items in avoidlistItemsList are processed and saved.
+#A_TITLE functions identically to W_TITLE, except the avoid name is prefixed by a minus sign, to mark it as an avoid.
+elementsToOptions["avoidNameTextbox"] = ["ASPECIAL", "A_TITLE"]
+elementsToOptions["avoidFilterTextbox"] = ["ASPECIAL", "avoid_filter"]
+elementsToOptions["avoidFilterRegexCheck"] = ["ASPECIAL", "use_regex"]
 
 
 #This small dict keeps track of the read and write methods of different Qt types
 elementAccessMethods = {}
 #                                    READ  ,    WRITE
 elementAccessMethods["QLineEdit"] = ["text", "setText"]
-elementAccessMethods["QTextEdit"] = ["toHtml", "setHtml"]
+elementAccessMethods["QTextEdit"] = ["toPlainText", "setPlainText"]
 elementAccessMethods["QSpinBox"] = ["value", "setValue"]
 elementAccessMethods["QCheckBox"] = ["checkState", "setCheckState"]
 elementAccessMethods["QComboBox"] = ["currentIndex", "setCurrentIndex"]
