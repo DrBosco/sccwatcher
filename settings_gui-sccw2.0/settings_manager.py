@@ -110,8 +110,12 @@ class sccwSettingsManager:
     
     
     def resetSettings(self):
-        self.appSettings.clear()
+        self.appSettings.clear()   
         
+    def syncData(self):
+        #Commit all settings to file
+        self.appSettings.sync()
+    
     def saveSettings(self, data):
         #data{} is similar in structure to loadSettings()'s data
         #Each key is the subgroup name, below that is another dictionary containing a list of keys and values for that group.
@@ -133,9 +137,6 @@ class sccwSettingsManager:
 #        self.appSettings.setValue("windowSize", data["MainWindow"].size())
 #        self.appSettings.setValue("windowPos", data["MainWindow"].pos())
 #        self.appSettings.endGroup()
-        
-        #Almost done, we sync the settings to the file
-        self.appSettings.sync()
         
         #Lastly we update the Ui
         #optionsdict = OD()

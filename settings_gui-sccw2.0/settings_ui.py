@@ -9,7 +9,7 @@
 
 from PyQt4 import QtCore, QtGui
 from settings_manager import sccwSettingsManager as sccwSettingsManager
-from settings_ui_actions import *
+from settings_ui_actions import guiActions as guiActions
 
 
 try:
@@ -839,6 +839,11 @@ class Ui_sccw_SettingsUI(object):
         QtCore.QObject.connect(self.actionSave, QtCore.SIGNAL(_fromUtf8("triggered()")), self.guiActions.saveUiState)
         QtCore.QObject.connect(self.actionSave_As, QtCore.SIGNAL(_fromUtf8("triggered()")), sccw_SettingsUI.close)
         QtCore.QObject.connect(self.action_New, QtCore.SIGNAL(_fromUtf8("triggered()")), sccw_SettingsUI.close)
+        QtCore.QObject.connect(self.WLGaddEntryButton, QtCore.SIGNAL(_fromUtf8("clicked()")), self.guiActions.addWatchListItem)
+        QtCore.QObject.connect(self.WLGremoveEntryButton, QtCore.SIGNAL(_fromUtf8("clicked()")), self.guiActions.removeWatchListItem)
+        QtCore.QObject.connect(self.addAvoidEntryButton, QtCore.SIGNAL(_fromUtf8("clicked()")), self.guiActions.addAvoidListItem)
+        QtCore.QObject.connect(self.removeAvoidEntryButton, QtCore.SIGNAL(_fromUtf8("clicked()")), self.guiActions.removeAvoidListItem)
+        
         QtCore.QMetaObject.connectSlotsByName(sccw_SettingsUI)
         
         ## Tab Order ##

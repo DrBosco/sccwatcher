@@ -15,8 +15,43 @@ class guiActions(object):
         #The two's structure are identical and so make this task extremely simple.
         pass
     
+    def removeWatchListItem(self):
+        #This function will remove the currently selected item in the watch list
+        self.removeListItem(self.context.WLGwatchlistItemsList)
+    
+    def removeAvoidListItem(self):
+        #This function will remove the currently selected item in the avoid list
+        self.removeListItem(self.context.avoidlistItemsList)
+    
+    #I really don't like repeating myself so I've made a third function here with all the actual code for removing items from watchlists.
+    def removeListItem(self, access_object):
+        #Get the currently selected item
+        current_selection = access_object.currentItem()
+        #Get the index of the current item
+        current_selection_index = access_object.row(current_selection)
+        #And now we remove our watch item from the QListWidget. This also removes any temporary data associated with this item at the same time.
+        removed_item = access_object.takeItem(current_selection_index)
+        del(removed_item) #Sometimes I don't trust the GC, and it can't hurt to be sure.
+        
+    def addWatchListItem(self):
+        #This function will add a new list item to the watch list
+        self.addListItem(self.context.WLGwatchlistItemsList)
+    
+    def addAviodListItem(self):
+        #This function will add a new list item to the avoid list
+        self.addListItem(self.context.avoidlistItemsList)
+    
+    def addListItem(self, access_object):
+        pass
+    
+    def updateCurrentListSelection(self, current_listwidget, previous_listwidget):
+        #This can also be used for both avoid and watch lists by tying their signals into this function. The function will then get the QListWidgetItem's 
+        #parent QListWidget using the function QListWidgetItem::listWidget(). It can then compare to find whether its from the avoid list or watch list. 
+        pass
+    
     def saveUiState(self):
         #Takes the current state of the UI in an OrderedDict and sends it to the saveSettings() function.
+        #This is only a temp save, to write the changes to disk you must call syncData() to really get it written.
         #Our return dictionary
         save_data = OD()
         #Our return dictionary will be in the form:
@@ -31,7 +66,9 @@ class guiActions(object):
             optionName = data_list[1]
             #If the subgroup name is WSPECIAL or ASPECIAL we need to iterate over the itemlist and save each item's settings one by one.
             if "SPECIAL" in subgroupName:
+                #current_selection_title = current_selection.text()
                 continue
+                
             
             
             
