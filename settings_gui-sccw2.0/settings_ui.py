@@ -33,6 +33,8 @@ class Ui_sccw_SettingsUI(object):
         self.SettingsManager = sccwSettingsManager("C:\\sccw2test4.ini")
         self.elementsToOptions = self.SettingsManager.elementsToOptions
         self.elementAccessMethods = self.SettingsManager.elementAccessMethods
+        self.watchListElements = self.SettingsManager.watchListElements
+        self.avoidListElements = self.SettingsManager.avoidListElements
         #Set up our actions class with the proper context info
         self.guiActions = guiActions(self)
         
@@ -843,6 +845,10 @@ class Ui_sccw_SettingsUI(object):
         QtCore.QObject.connect(self.WLGremoveEntryButton, QtCore.SIGNAL(_fromUtf8("clicked()")), self.guiActions.removeWatchListItem)
         QtCore.QObject.connect(self.addAvoidEntryButton, QtCore.SIGNAL(_fromUtf8("clicked()")), self.guiActions.addAvoidListItem)
         QtCore.QObject.connect(self.removeAvoidEntryButton, QtCore.SIGNAL(_fromUtf8("clicked()")), self.guiActions.removeAvoidListItem)
+        QtCore.QObject.connect(self.WLGwatchlistItemsList, QtCore.SIGNAL(_fromUtf8("currentItemChanged(QListWidgetItem*, QListWidgetItem*)")), self.guiActions.updateCurrentWatchListSelection)
+        QtCore.QObject.connect(self.avoidlistItemsList, QtCore.SIGNAL(_fromUtf8("currentItemChanged(QListWidgetItem*, QListWidgetItem*)")), self.guiActions.updateCurrentAvoidListSelection)
+        QtCore.QObject.connect(self.WLSGwatchNameTextbox, QtCore.SIGNAL(_fromUtf8("textEdited(QString)")), self.guiActions.updateCurrentWatchTitle)
+        QtCore.QObject.connect(self.avoidNameTextbox, QtCore.SIGNAL(_fromUtf8("textEdited(QString)")), self.guiActions.updateCurrentAvoidTitle)
         
         QtCore.QMetaObject.connectSlotsByName(sccw_SettingsUI)
         

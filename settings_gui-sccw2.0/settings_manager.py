@@ -65,29 +65,35 @@ elementsToOptions["extCmdExeArguments"] = ["GlobalSettings", "external_command_a
 #Debug is always last
 elementsToOptions["ggEnableDebugCheck"] = ["GlobalSettings", "DEBUG"] 
 
-#These special options get processed for each entry in WLGwatchlistItemsList
-elementsToOptions["WLSGwatchNameTextbox"] = ["WSPECIAL", "W_TITLE"]
-elementsToOptions["WLSGwatchFilterTextbox"] = ["WSPECIAL", "watch_filter"]
-elementsToOptions["WLSGwatchFilterRegexCheck"] = ["WSPECIAL", "watch_regex"]
-elementsToOptions["WLSGavoidFilterListTextbox"] = ["WSPECIAL", "avoid_filter"]
-elementsToOptions["WLSGavoidFilterListRegexCheck"] = ["WSPECIAL", "avoid_regex"]
-elementsToOptions["WLSGwatchCatListTextbox"] = ["WSPECIAL", "watch_categories"]
-elementsToOptions["WLSGsavepathTextbox"] = ["WSPECIAL", "savepath"]
-elementsToOptions["WLSGdupecheckingCheckbox"] = ["WSPECIAL", "dupecheck"]
-elementsToOptions["WLSGsizeLimitLowerTextbox"] = ["WSPECIAL", "lower_sizelimit", "WLSGsizeLimitLowerSuffixSelector"]
-elementsToOptions["WLSGsizeLimitUpperTextbox"] = ["WSPECIAL", "upper_sizelimit", "WLSGsizeLimitUpperSuffixSelector"]
-elementsToOptions["WLSGemailCheckbox"] = ["WSPECIAL", "use_emailer"]
-elementsToOptions["WLSGftpUploadCheckbox"] = ["WSPECIAL", "use_ftp_upload"]
-elementsToOptions["WLSGutWebUiCheckox"] = ["WSPECIAL", "use_utorrent_webui"]
-elementsToOptions["WLSGenableExternalCmdCheckbox"] = ["WSPECIAL", "use_external_command"]
-elementsToOptions["WLSGexternalCommandTextbox"] = ["WSPECIAL", "external_command"]
-elementsToOptions["WLSGexternalCommandArgsTextbox"] = ["WSPECIAL", "external_command_args"]
 
+#These two OrderedDict's are for the watch and avoid lists, respectively. 
+
+watchListElements = OD()
+#These special options get processed for each entry in WLGwatchlistItemsList
+watchListElements["WLSGwatchNameTextbox"] = ["WSPECIAL", "W_TITLE"]
+watchListElements["WLSGwatchFilterTextbox"] = ["WSPECIAL", "watch_filter"]
+watchListElements["WLSGwatchFilterRegexCheck"] = ["WSPECIAL", "watch_regex"]
+watchListElements["WLSGavoidFilterListTextbox"] = ["WSPECIAL", "avoid_filter"]
+watchListElements["WLSGavoidFilterListRegexCheck"] = ["WSPECIAL", "avoid_regex"]
+watchListElements["WLSGwatchCatListTextbox"] = ["WSPECIAL", "watch_categories"]
+watchListElements["WLSGsavepathTextbox"] = ["WSPECIAL", "savepath"]
+watchListElements["WLSGdupecheckingCheckbox"] = ["WSPECIAL", "dupecheck"]
+watchListElements["WLSGsizeLimitLowerTextbox"] = ["WSPECIAL", "lower_sizelimit", "WLSGsizeLimitLowerSuffixSelector"]
+watchListElements["WLSGsizeLimitUpperTextbox"] = ["WSPECIAL", "upper_sizelimit", "WLSGsizeLimitUpperSuffixSelector"]
+watchListElements["WLSGemailCheckbox"] = ["WSPECIAL", "use_emailer"]
+watchListElements["WLSGftpUploadCheckbox"] = ["WSPECIAL", "use_ftp_upload"]
+watchListElements["WLSGutWebUiCheckox"] = ["WSPECIAL", "use_utorrent_webui"]
+watchListElements["WLSGenableExternalCmdCheckbox"] = ["WSPECIAL", "use_external_command"]
+watchListElements["WLSGexternalCommandTextbox"] = ["WSPECIAL", "external_command"]
+watchListElements["WLSGexternalCommandArgsTextbox"] = ["WSPECIAL", "external_command_args"]
+
+
+avoidListElements = OD()
 #Same special thing here, all items in avoidlistItemsList are processed and saved.
 #A_TITLE functions identically to W_TITLE, except the avoid name is prefixed by a minus sign, to mark it as an avoid.
-elementsToOptions["avoidNameTextbox"] = ["ASPECIAL", "A_TITLE"]
-elementsToOptions["avoidFilterTextbox"] = ["ASPECIAL", "avoid_filter"]
-elementsToOptions["avoidFilterRegexCheck"] = ["ASPECIAL", "use_regex"]
+avoidListElements["avoidNameTextbox"] = ["ASPECIAL", "A_TITLE"]
+avoidListElements["avoidFilterTextbox"] = ["ASPECIAL", "avoid_filter"]
+avoidListElements["avoidFilterRegexCheck"] = ["ASPECIAL", "use_regex"]
 
 
 #This small dict keeps track of the read and write methods of different Qt types
@@ -107,6 +113,8 @@ class sccwSettingsManager:
         self.appSettings = QtCore.QSettings(settingsfile, QtCore.QSettings.IniFormat)
         self.elementsToOptions = elementsToOptions
         self.elementAccessMethods = elementAccessMethods
+        self.watchListElements = watchListElements
+        self.avoidListElements = avoidListElements
     
     
     def resetSettings(self):
