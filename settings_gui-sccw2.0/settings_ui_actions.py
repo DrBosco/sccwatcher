@@ -4,7 +4,7 @@
 from collections import OrderedDict as OD
 from PyQt4 import QtGui
 from PyQt4.QtCore import Qt
-import re
+
 
 try:
     _encoding = QtGui.QApplication.UnicodeUTF8
@@ -24,6 +24,8 @@ class guiActions(object):
         #Takes in the data format of loadSettings() and updates the UI with the data received
         #We will go through data{} and use the access method detailed in the uiElements dictionary.
         #The two's structure are identical and so make this task extremely simple.
+        #
+        #havent forgotten about this. Im waiting until the load function is complete
         pass
     
     def removeWatchListItem(self):
@@ -66,14 +68,14 @@ class guiActions(object):
         access_object.setSortingEnabled(__sortingEnabled)
     
     def updateCurrentAvoidListSelection(self, new_listwidget, previous_listwidget):
-        self.updateCurrentListSelection(new_listwidget, previous_listwidget, self.context.avoidListElements)
+        self.updateCurrentListSelection(new_listwidget, previous_listwidget, self.context.avoidListElements, self.context.SettingsManager.guiDefaults["avoidlistDefaults"])
     
     def updateCurrentWatchListSelection(self, new_listwidget, previous_listwidget):
-        self.updateCurrentListSelection(new_listwidget, previous_listwidget, self.context.watchListElements)
+        self.updateCurrentListSelection(new_listwidget, previous_listwidget, self.context.watchListElements, self.context.SettingsManager.guiDefaults["watchlistDefaults"])
     
-    def updateCurrentListSelection(self, new_listwidget, previous_listwidget, listToUse):
+    def updateCurrentListSelection(self, new_listwidget, previous_listwidget, listwidget_object, reset_data):
         #This function implements a save-on-switch approach to managing the itemlist and its associated data
-        #We will loop through each element and save the data for each one into a copy of the OorderedDict watchListElements,
+        #We will loop through each element and save the data for each one into a copy of the OrderedDict watchListElements,
         #but with the values replaced with actual data rather than locations to store data on file.
              
         ###########
@@ -83,24 +85,34 @@ class guiActions(object):
         #Create our OrderedDict to be stored inside the element. This will contain all the data
         item_save_data = OD()
         
-        #Loop through each item in listToUse
-        for element in listToUse:
+        #Loop through each item in listwidget_object
+        for element in listwidget_object:
             live_element = eval("self.context." + str(element))
-            if len(listToUse[element]) == 3:
+            if len(listwidget_object[element]) == 3:
                 #Special case for size-limit selectors. We have to save the index of the dropdown list.
                 #Get data for both elements.
-                prefix, suffix = self.typeMatcher(live_element, "SLC_READ", listToUse[element][2], sc=True)
+                prefix, suffix = self.typeMatcher(live_element, "SLC_READ", listwidget_object[element][2], sc=True)
                 item_save_data[element] = prefix
-                item_save_data[listToUse[element][2]] = suffix
+                item_save_data[listwidget_object[element][2]] = suffix
             else:
                 #Get our access function to read the data from the live element into our save dict
                 item_save_data[element] = self.typeMatcher(live_element, "READ")()
                 #We may want to now get the write function to "zero out" the form. This may be better put in its own function however.
              
         #Now we have an OrderedDict with our data to save in it, we store it inside the element using the setData() function.
-        #We will be saving the data in the Qt.UserRole role to the previous listwidget we were in.
-        previous_listwidget.setData(Qt.UserRole, item_save_data)
+        #We will be saving the data in the Qt.UserRole role to the previous qlistwidgetitem we just had selected.
+        if hasattr(previous_listwidget, "setData"): previous_listwidget.setData(Qt.UserRole, item_save_data)
         
+        
+        ############
+        #CLEAR DATA#
+        ############
+        
+        for element, data in reset_data.iteritems():
+            live_element = eval("self.context." + str(element))
+            write_function = self.typeMatcher(live_element, "WRITE")
+            write_function(data)
+            
         
         ###########
         #LOAD DATA#
@@ -175,7 +187,7 @@ class guiActions(object):
                 else: return str(prefix) + suffix
                 
                 
-        #Convert operation into numbers to make index easier. Read is default.
+        #Convert operation into numbers to make matching to index easier. Read is default.
         op = 0
         if operation == "WRITE": op = 1
         
@@ -186,3 +198,51 @@ class guiActions(object):
         #Now we have our access function, we use getattr to return the live function
         live_function = getattr(access_object, access_function)
         return live_function
+    
+    
+    
+    #Here are the 6 browse buttons. I would have to mess around with the QPushButton class, changing the way it emits, if I wanted to cut these down.
+    
+    def browse_button_mainSavepath(self):
+        caption = "Choose location to save .torrent files..."
+        self.browse_button_master(self.context.ggSavepathTextbox, QtGui.QFileDialog.AcceptSave, QtGui.QFileDialog.Directory, caption)
+    
+    def browse_button_mainLogpath(self):
+        caption = "Choose location to save logs..."
+        self.browse_button_master(self.context.ggLogpathTextbox, QtGui.QFileDialog.AcceptSave, QtGui.QFileDialog.Directory, caption)
+        
+    
+    def browse_button_cookieFile(self):
+        caption = "Location of cookie file..."
+        self.browse_button_master(self.context.globalCFBypassCookiefilePathTextbox, QtGui.QFileDialog.AcceptOpen, QtGui.QFileDialog.ExistingFile, caption)
+        
+        
+    def browse_button_mainExtProgram(self):
+        caption = "Choose Program..."
+        self.browse_button_master(self.context.extCmdExeLocation, QtGui.QFileDialog.AcceptOpen, QtGui.QFileDialog.ExistingFile, caption)
+        
+        
+    def browse_button_WLsavepath(self):
+        caption = "Choose location to save .torrent files to..."
+        self.browse_button_master(self.context.WLSGsavepathTextbox, QtGui.QFileDialog.AcceptSave, QtGui.QFileDialog.Directory, caption)
+        
+        
+    def browse_button_WLextProgram(self):
+        caption = "Choose Program..."
+        self.browse_button_master(self.context.WLSGexternalCommandTextbox, QtGui.QFileDialog.AcceptOpen, QtGui.QFileDialog.ExistingFile, caption)
+        
+        
+    
+    
+    
+    def browse_button_master(self, access_object, main_mode, file_mode, caption):
+        #Infos has extra data, like the caption
+        fileDialog = QtGui.QFileDialog()
+        fileDialog.AcceptMode = main_mode
+        fileDialog.setFileMode(file_mode)
+        if file_mode == QtGui.QFileDialog.Directory:
+            chosenFile = fileDialog.getExistingDirectory(caption=caption)
+        elif file_mode == QtGui.QFileDialog.ExistingFile:
+            chosenFile = fileDialog.getOpenFileName(caption=caption)
+        
+        access_object.setText(_translate("OptionsDialog", chosenFile, None))

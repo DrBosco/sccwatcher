@@ -849,6 +849,14 @@ class Ui_sccw_SettingsUI(object):
         QtCore.QObject.connect(self.avoidlistItemsList, QtCore.SIGNAL(_fromUtf8("currentItemChanged(QListWidgetItem*, QListWidgetItem*)")), self.guiActions.updateCurrentAvoidListSelection)
         QtCore.QObject.connect(self.WLSGwatchNameTextbox, QtCore.SIGNAL(_fromUtf8("textEdited(QString)")), self.guiActions.updateCurrentWatchTitle)
         QtCore.QObject.connect(self.avoidNameTextbox, QtCore.SIGNAL(_fromUtf8("textEdited(QString)")), self.guiActions.updateCurrentAvoidTitle)
+        #Buttons
+        QtCore.QObject.connect(self.ggSavepathBrowseButton, QtCore.SIGNAL(_fromUtf8("clicked()")), self.guiActions.browse_button_mainSavepath)
+        QtCore.QObject.connect(self.ggLogpathBrowseButton, QtCore.SIGNAL(_fromUtf8("clicked()")), self.guiActions.browse_button_mainLogpath)
+        QtCore.QObject.connect(self.globalCFBypassCookiefileBrowseButton, QtCore.SIGNAL(_fromUtf8("clicked()")), self.guiActions.browse_button_cookieFile)
+        QtCore.QObject.connect(self.extCmdBrowseButton, QtCore.SIGNAL(_fromUtf8("clicked()")), self.guiActions.browse_button_mainExtProgram)
+        QtCore.QObject.connect(self.WLSGsavepathBrowseButton, QtCore.SIGNAL(_fromUtf8("clicked()")), self.guiActions.browse_button_WLsavepath)
+        QtCore.QObject.connect(self.WLSGexternalCommandBrowseButton, QtCore.SIGNAL(_fromUtf8("clicked()")), self.guiActions.browse_button_WLextProgram)
+        
         
         QtCore.QMetaObject.connectSlotsByName(sccw_SettingsUI)
         
