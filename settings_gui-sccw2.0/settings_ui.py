@@ -30,7 +30,7 @@ class Ui_sccw_SettingsUI(object):
     def setupUi(self, sccw_SettingsUI):
         #Instantiate our settings object and set it up with the settings file
         #This is set up with a path for testings, this will change for release.
-        self.SettingsManager = sccwSettingsManager("C:\\sccw2test4.ini")
+        self.SettingsManager = sccwSettingsManager("C:\\sccw2test4.ini", [sccw_SettingsUI.pos, sccw_SettingsUI.size])
         self.elementsToOptions = self.SettingsManager.elementsToOptions
         self.elementAccessMethods = self.SettingsManager.elementAccessMethods
         self.watchListElements = self.SettingsManager.watchListElements
@@ -856,8 +856,36 @@ class Ui_sccw_SettingsUI(object):
         QtCore.QObject.connect(self.extCmdBrowseButton, QtCore.SIGNAL(_fromUtf8("clicked()")), self.guiActions.browse_button_mainExtProgram)
         QtCore.QObject.connect(self.WLSGsavepathBrowseButton, QtCore.SIGNAL(_fromUtf8("clicked()")), self.guiActions.browse_button_WLsavepath)
         QtCore.QObject.connect(self.WLSGexternalCommandBrowseButton, QtCore.SIGNAL(_fromUtf8("clicked()")), self.guiActions.browse_button_WLextProgram)
+        #Data update triggers
+        ##Watchlist##
+        #textboxes
+        QtCore.QObject.connect(self.WLSGwatchNameTextbox, QtCore.SIGNAL(_fromUtf8("editingFinished()")), self.guiActions.saveAllWatchlistItems)
+        QtCore.QObject.connect(self.WLSGwatchFilterTextbox, QtCore.SIGNAL(_fromUtf8("editingFinished()")), self.guiActions.saveAllWatchlistItems)
+        QtCore.QObject.connect(self.WLSGavoidFilterListTextbox, QtCore.SIGNAL(_fromUtf8("editingFinished()")), self.guiActions.saveAllWatchlistItems)
+        QtCore.QObject.connect(self.WLSGwatchCatListTextbox, QtCore.SIGNAL(_fromUtf8("editingFinished()")), self.guiActions.saveAllWatchlistItems)
+        QtCore.QObject.connect(self.WLSGsavepathTextbox, QtCore.SIGNAL(_fromUtf8("editingFinished()")), self.guiActions.saveAllWatchlistItems)
+        QtCore.QObject.connect(self.WLSGexternalCommandTextbox, QtCore.SIGNAL(_fromUtf8("editingFinished()")), self.guiActions.saveAllWatchlistItems)
+        QtCore.QObject.connect(self.WLSGexternalCommandArgsTextbox, QtCore.SIGNAL(_fromUtf8("editingFinished()")), self.guiActions.saveAllWatchlistItems)
+        QtCore.QObject.connect(self.WLSGsizeLimitLowerTextbox, QtCore.SIGNAL(_fromUtf8("editingFinished()")), self.guiActions.saveAllWatchlistItems)
+        QtCore.QObject.connect(self.WLSGsizeLimitUpperTextbox, QtCore.SIGNAL(_fromUtf8("editingFinished()")), self.guiActions.saveAllWatchlistItems)
+        #Checkboxes
+        QtCore.QObject.connect(self.WLSGwatchFilterRegexCheck, QtCore.SIGNAL(_fromUtf8("clicked()")), self.guiActions.saveAllWatchlistItems)
+        QtCore.QObject.connect(self.WLSGavoidFilterListRegexCheck, QtCore.SIGNAL(_fromUtf8("clicked()")), self.guiActions.saveAllWatchlistItems)
+        QtCore.QObject.connect(self.WLSGenableExternalCmdCheckbox, QtCore.SIGNAL(_fromUtf8("clicked()")), self.guiActions.saveAllWatchlistItems)
+        QtCore.QObject.connect(self.WLSGdupecheckingCheckbox, QtCore.SIGNAL(_fromUtf8("clicked()")), self.guiActions.saveAllWatchlistItems)
+        QtCore.QObject.connect(self.WLSGutWebUiCheckox, QtCore.SIGNAL(_fromUtf8("clicked()")), self.guiActions.saveAllWatchlistItems)
+        QtCore.QObject.connect(self.WLSGftpUploadCheckbox, QtCore.SIGNAL(_fromUtf8("clicked()")), self.guiActions.saveAllWatchlistItems)
+        QtCore.QObject.connect(self.WLSGemailCheckbox, QtCore.SIGNAL(_fromUtf8("clicked()")), self.guiActions.saveAllWatchlistItems)
+        #QComboBox
+        QtCore.QObject.connect(self.WLSGsizeLimitLowerSuffixSelector, QtCore.SIGNAL(_fromUtf8("currentIndexChanged(int)")), self.guiActions.saveAllWatchlistItems)
+        QtCore.QObject.connect(self.WLSGsizeLimitUpperSuffixSelector, QtCore.SIGNAL(_fromUtf8("currentIndexChanged(int)")), self.guiActions.saveAllWatchlistItems)
         
+        ##Avoidlist#
+        QtCore.QObject.connect(self.avoidNameTextbox, QtCore.SIGNAL(_fromUtf8("editingFinished()")), self.guiActions.saveAllAvoidlistItems)
+        QtCore.QObject.connect(self.avoidFilterTextbox, QtCore.SIGNAL(_fromUtf8("editingFinished()")), self.guiActions.saveAllAvoidlistItems)
+        QtCore.QObject.connect(self.avoidFilterRegexCheck, QtCore.SIGNAL(_fromUtf8("clicked()")), self.guiActions.saveAllAvoidlistItems)
         
+        #Finally connect our slots
         QtCore.QMetaObject.connectSlotsByName(sccw_SettingsUI)
         
         ## Tab Order ##

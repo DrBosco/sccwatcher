@@ -30,9 +30,6 @@ elementsToOptions["ggSavepathTextbox"] = ["GlobalSettings", "savepath"]
 #These hold another object name in index 3 that will signal the function to operate on the third data item, the element name that holds the suffix data.
 elementsToOptions["globalSizeLimitLowerTextbox"] = ["GlobalSettings", "sizelimit_lower", "globalSizeLimitLowerSuffixSelector"]
 elementsToOptions["globalSizeLimitUpperTextbox"] = ["GlobalSettings", "sizelimit_upper", "globalSizeLimitUpperSuffixSelector"]
-
-
-
 elementsToOptions["globalCFBypassUseragentTextbox"] = ["GlobalSettings", "cfbypass_useragent"]
 elementsToOptions["globalCFBypassCookiefilePathTextbox"] = ["GlobalSettings", "cfbypass_cookiefile"]
 #ftp settings
@@ -82,14 +79,7 @@ watchListElements["WLSGwatchCatListTextbox"] = ["WSPECIAL", "watch_categories"]
 watchListElements["WLSGsavepathTextbox"] = ["WSPECIAL", "savepath"]
 watchListElements["WLSGdupecheckingCheckbox"] = ["WSPECIAL", "dupecheck"]
 watchListElements["WLSGsizeLimitLowerTextbox"] = ["WSPECIAL", "lower_sizelimit", "WLSGsizeLimitLowerSuffixSelector"]
-
-
-
 watchListElements["WLSGsizeLimitUpperTextbox"] = ["WSPECIAL", "upper_sizelimit", "WLSGsizeLimitUpperSuffixSelector"]
-
-
-
-
 watchListElements["WLSGemailCheckbox"] = ["WSPECIAL", "use_emailer"]
 watchListElements["WLSGftpUploadCheckbox"] = ["WSPECIAL", "use_ftp_upload"]
 watchListElements["WLSGutWebUiCheckox"] = ["WSPECIAL", "use_utorrent_webui"]
@@ -127,15 +117,17 @@ guiDefaults["allOtherDefaults"] = OD([('ggMasterAutodlCheck', 0), ('ggEnableVerb
 
 
 class sccwSettingsManager:
-    def __init__(self, settingsfile):
+    def __init__(self, settingsfile, MWloc):
         self.appSettings = QtCore.QSettings(settingsfile, QtCore.QSettings.IniFormat)
+        self.appSettings.setIniCodec("UTF-8")
         self.elementsToOptions = elementsToOptions
         self.elementAccessMethods = elementAccessMethods
         self.watchListElements = watchListElements
         self.avoidListElements = avoidListElements
         self.guiDefaults = guiDefaults
-    
-    
+        self.windowPos = MWloc[0]
+        self.windowSize = MWloc[1]
+        
     def resetSettings(self):
         self.appSettings.clear()   
         
@@ -144,12 +136,17 @@ class sccwSettingsManager:
         self.appSettings.sync()
     
     def saveSettings(self, data):
+        #Clear out the data currently in our QSetting object to make sure no old stale data is saved
+        self.resetSettings()
+        
         #data{} is similar in structure to loadSettings()'s data
         #Each key is the subgroup name, below that is another dictionary containing a list of keys and values for that group.
         #You can feed back the data from loadSettings to saveSettings to give you an idea of the structure.
         #The actual subgroups are the tabs of the GUI.
         for group in data:
             #Each key is our group name
+            if data[group] is None:
+                continue
             self.appSettings.beginGroup(group)
             for key, value in data[group].iteritems():
                 #Save eack value to respective key
@@ -158,12 +155,13 @@ class sccwSettingsManager:
             self.appSettings.endGroup()
             
         #We also save window state data at the end
-        #Begin group for basic app settings
-#        self.appSettings.beginGroup("WindowState")
-#        #Screen size and position
-#        self.appSettings.setValue("windowSize", data["MainWindow"].size())
-#        self.appSettings.setValue("windowPos", data["MainWindow"].pos())
-#        self.appSettings.endGroup()
+        #Begin group for window state (size and position)
+        #Consider moving this to a different QSettings object, one that saves to the registry instead.
+        self.appSettings.beginGroup("WindowState")
+        #Screen size and position
+        self.appSettings.setValue("windowSize", self.windowSize())
+        self.appSettings.setValue("windowPos", self.windowPos())
+        self.appSettings.endGroup()
         
         #Lastly we update the Ui
         #optionsdict = OD()
