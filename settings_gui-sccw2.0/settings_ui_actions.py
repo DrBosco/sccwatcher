@@ -4,6 +4,7 @@
 from collections import OrderedDict as OD
 from PyQt4 import QtGui
 from PyQt4.QtCore import Qt
+import re
 
 
 try:
@@ -18,15 +19,7 @@ class guiActions(object):
     def __init__(self, context):
         #If anyone can think of a better way to do this I'm all ears. I think python handles this as a pointer and doesn't copy the entire object, but I could be wrong.
         self.context = context
-    
-    
-    def updateUi(self, data):
-        #Takes in the data format of loadSettings() and updates the UI with the data received
-        #We will go through data{} and use the access method detailed in the uiElements dictionary.
-        #The two's structure are identical and so make this task extremely simple.
-        #
-        #havent forgotten about this. Im waiting until the load function is complete
-        pass
+        self.__is_loading = False
     
     def removeWatchListItem(self):
         #This function will remove the currently selected item in the watch list
@@ -67,9 +60,12 @@ class guiActions(object):
         #Finally we reenable sorting, if it was enabled before
         access_object.setSortingEnabled(__sortingEnabled)
     
-    #Update functions for when anything is change for a watchlist or avoidlist item.
+    #Update functions for when anything is changed for a watchlist or avoidlist item.
     #These two functions save all the data for the item, not just the piece of data that has changed.
     def saveAllAvoidlistItems(self):
+        #Don't operate during a load operation
+        if self.__is_loading is True:
+            return
         #Get the current avoidlist item
         current_avoidlist_item = self.context.avoidlistItemsList.currentItem()
         
@@ -77,6 +73,9 @@ class guiActions(object):
         self.saveListData(self.context.avoidListElements, current_avoidlist_item)
     
     def saveAllWatchlistItems(self):
+        #Don't operate during a load operation
+        if self.__is_loading is True:
+            return
         current_watchlist_item = self.context.WLGwatchlistItemsList.currentItem()
         #Don't save if this is an 'Untitled Entry'
         if str(current_watchlist_item.text()) != "Untitled Entry":
@@ -86,20 +85,21 @@ class guiActions(object):
     #These Three functions save the data associated with each watch or avoid item whenever the user switches watch items.
     #The third is the master function while the other two just provide unique data tot he master.
     def updateCurrentAvoidListSelection(self, new_listwidget_item, previous_listwidget_item):
+        
         self.updateCurrentListSelection(new_listwidget_item, previous_listwidget_item, self.context.avoidListElements, self.context.SettingsManager.guiDefaults["avoidlistDefaults"])
-    
+        
     def updateCurrentWatchListSelection(self, new_listwidget_item, previous_listwidget_item):
         self.updateCurrentListSelection(new_listwidget_item, previous_listwidget_item, self.context.watchListElements, self.context.SettingsManager.guiDefaults["watchlistDefaults"])
     
     def updateCurrentListSelection(self, new_listwidget_item, previous_listwidget_item, listwidget_elements, reset_data):
-        #Create our OrderedDict to be stored inside the element. This will contain all the data
+        #Set the load var so nothing crappy happens
+        self.__is_loading = True
+        
         #Save data
         #If things go south here, its probably because its an Untitled entry or theres no entry at all.
-        #We still want to reset though so we do that if things do go south and then return
-        try:
+        #We still want to reset though so we allow it to pass even if it fails
+        if previous_listwidget_item is not None:
             self.saveListData(listwidget_elements, previous_listwidget_item)
-        except:
-            pass
 
         #reset listwidget
         self.clearListData(reset_data)
@@ -109,7 +109,13 @@ class guiActions(object):
             new_data = new_listwidget_item.data(Qt.UserRole).toPyObject()
             if new_data is not None:
                 self.loadListData(new_data)
-    
+        #And set the load var again to its normal state
+        
+        #Set the current selection to this item to be sure
+        new_listwidget_item.listWidget().setCurrentItem(new_listwidget_item)
+        
+        self.__is_loading = False
+        
     #These three functions deal with saving, clearing, and loading from watchlists.
     def saveListData(self, listwidget_elements, listwidget_item):
         item_save_data = OD()
@@ -137,19 +143,21 @@ class guiActions(object):
     def clearListData(self, reset_data):
         for element, data in reset_data.iteritems():
             live_element = eval("self.context." + str(element))
-            write_function = self.typeMatcher(live_element, "WRITE")
+            write_function, dtype = self.typeMatcher(live_element, "WRITE")
+            if dtype == "str": data = str(data)
+            if dtype == "int": data = int(data)
             write_function(data)
     
     
     def loadListData(self, new_data):
         #Ok we do have data, so lets set the form up with this data
-        for element in new_data:
+        for element, data in new_data.iteritems():
             live_element = eval("self.context." + str(element))
-            write_function = self.typeMatcher(live_element, "WRITE")
-            #Special case for dropdown selector
-            if "SuffixSelector" in element: new_data[element] = int(new_data[element])
+            write_function, datatype = self.typeMatcher(live_element, "WRITE")
+            if datatype == "str": data = str(data)
+            if datatype == "int": data = int(data)
             #And now we update the element with the new data
-            write_function(new_data[element])
+            write_function(data)
 
 
     def updateCurrentWatchTitle(self, text):
@@ -159,6 +167,107 @@ class guiActions(object):
     def updateCurrentAvoidTitle(self, text):
         current_item = self.context.avoidlistItemsList.currentItem()
         current_item.setText(text)
+    
+    def loadUiState(self):
+        #Takes in the data format of loadSettings() and updates the UI with the data received
+        #We will go through data{} and use the access method detailed in the uiElements dictionary.
+        #The two's structure are identical and so make this task extremely simple.
+        
+        #Load up the data
+        loaded_data = self.context.SettingsManager.loadSettings()
+        #We have to convert the ini option names back into the element object's name.
+        converted_data = OD()
+        
+        #First we do the general options
+        converted_data["GlobalSettings"] = OD()
+        for key, value in loaded_data["GlobalSettings"].iteritems():
+            objectname = self.context.SettingsManager.REVelementsToOptions[key]
+            converted_data["GlobalSettings"][objectname] = value
+        
+        
+        #Clean up loaded_data so we are left with just watches and avoids.
+        del(loaded_data["GlobalSettings"])
+        
+        converted_data["watch"] = OD()
+        converted_data["avoid"] = OD()
+        
+        for key, val in loaded_data.iteritems():
+            if key[0] == "-": converted_data["avoid"][key] = val
+            else: converted_data["watch"][key] = val
+            
+
+        #Ok now converted_data has three subdicts called: GlobalSettings, watch, and avoid.
+        #We now go about the business of setting the GUI up with the loaded data.
+        #First we do the GlobalSettings.
+        #We look through our elementsToOptions dict and set each options as we come upon it.
+        for element, einfos in self.context.SettingsManager.elementsToOptions.iteritems():
+            data = converted_data["GlobalSettings"][element] 
+            
+            #Make a live access object from element and then use its type to get our access function
+            access_string = "self.context." + str(element)
+            live_element_obj = eval(access_string)
+            #we use typeMatcher() to return our write function
+            access_function, datatype = self.typeMatcher(live_element_obj, "WRITE")
+            
+            #special case for size limit selector
+            if len(einfos) > 2:
+                #Split up the data into two part, prefix and suffix
+                prefix, suffix = re.match("([0-9]{1,9})([A-Za-z]{2})", data).groups()
+                suffix = self.convertIndex(suffix)
+                #Get the live function for the suffix
+                suffix_access_string = "self.context." + str(einfos[2])
+                live_suffix_obj = eval(suffix_access_string)
+                suffix_access_function = self.typeMatcher(live_suffix_obj, "WRITE")[0]
+                #Now we set the data for the prefix
+                access_function(prefix)
+                suffix_access_function(suffix)
+                
+            else:
+                #Get and set the needed type for the data we plan to set
+                if datatype == "str": data = str(data)
+                if datatype == "int": data = int(data)
+                #update the element with the data
+                access_function(data)
+        
+        #Now we do the watchlist. We do this a little differently.
+        #We loop through each key in converted_data["watch"] and create new watchlist items for each one
+        #Then we set the data for that item and move onto the next one. We shouldn't have to actually update the GUI since that happens automatically when you click an item.
+        for item_name, item_data in converted_data["watch"].iteritems():
+            __sortingEnabled = self.context.WLGwatchlistItemsList.isSortingEnabled()
+            self.context.WLGwatchlistItemsList.setSortingEnabled(False)
+            
+            #Create a new QListWidgetItem with the name item_name
+            new_item = QtGui.QListWidgetItem()
+            new_item.setText(_translate("sccw_SettingsUI", item_name, None))
+            #Add the item to the list
+            self.context.WLGwatchlistItemsList.addItem(new_item)
+            self.context.WLGwatchlistItemsList.setSortingEnabled(__sortingEnabled)
+            #Fix the data's options name so they are element names
+            item_data = self.fixElementsToOptionsLoad(item_data, self.context.SettingsManager.watchListElements, ["WLSGwatchNameTextbox", item_name])
+            #Add the data to the item for the user role. We're using a new item to be sure
+            actual_item = self.context.WLGwatchlistItemsList.findItems(item_name, Qt.MatchFixedString)[0]
+            actual_item.setData(Qt.UserRole, item_data)
+        
+        #Same thing for the avoidlist
+        for item_name, item_data in converted_data["avoid"].iteritems():
+            __sortingEnabled = self.context.avoidlistItemsList.isSortingEnabled()
+            self.context.avoidlistItemsList.setSortingEnabled(False)
+            #Create our QListWidgetItem
+            new_item = QtGui.QListWidgetItem()
+            #Set its text
+            new_item.setText(_translate("sccw_SettingsUI", item_name, None))
+            #Add to the list
+            self.context.avoidlistItemsList.addItem(new_item)
+            #Finally we reenable sorting, if it was enabled before
+            self.context.avoidlistItemsList.setSortingEnabled(__sortingEnabled)
+            #Fix the data
+            item_data = self.fixElementsToOptionsLoad(item_data, self.context.SettingsManager.avoidListElements, ["avoidNameTextbox", item_name])
+            #Set the data using a new item from the qlistwidget to be sure its the right one
+            actual_item = self.context.avoidlistItemsList.findItems(item_name, Qt.MatchFixedString)[0]
+            actual_item.setData(Qt.UserRole, item_data)
+            
+    
+    
     
     def saveUiState(self):
         #Takes the current state of the UI in an OrderedDict and sends it to the saveSettings() function.
@@ -211,12 +320,12 @@ class guiActions(object):
             cur_WL_data = cur_WL_item.data(Qt.UserRole).toPyObject()
             
             #Before we can save the data we have to go through it and convert raw element names into human-readable option names.
-            fixed_WL_data = self.fixElementsToOptions(cur_WL_data, self.context.watchListElements)
+            fixed_WL_data = self.fixElementsToOptionsSave(cur_WL_data, self.context.watchListElements)
             
             #Should have a nice OrderedDict full of our options with proper, human-readable names.
             save_data[cur_WL_title] = fixed_WL_data
         
-        #Ok now we do the same for the watchlist, except we prepend the title with a minus.
+        #Ok now we do the same for the avoidlist, except we prepend the title with a minus.
         avoidlist = self.context.avoidlistItemsList
         for cIndex in xrange(0, avoidlist.count()):
             #Get the avoidlist item
@@ -232,8 +341,8 @@ class guiActions(object):
             #Get the data
             cur_AL_data = cur_AL_item.data(Qt.UserRole).toPyObject()
             
-            #fix the data
-            fixed_AL_data = self.fixElementsToOptions(cur_AL_data, self.context.avoidListElements)
+            #Change the keys from the element name to the option name for saving
+            fixed_AL_data = self.fixElementsToOptionsSave(cur_AL_data, self.context.avoidListElements)
             
             #save the data
             save_data[cur_AL_title] = fixed_AL_data
@@ -242,7 +351,7 @@ class guiActions(object):
         self.context.SettingsManager.saveSettings(save_data)
     
     
-    def fixElementsToOptions(self, cur_L_data, listElements):
+    def fixElementsToOptionsSave(self, cur_L_data, listElements):
         fixed_L_data = OD()
         for element, data_list in listElements.iteritems():
             if "TITLE" in data_list[1]:
@@ -251,19 +360,53 @@ class guiActions(object):
             if len(data_list) == 3:
                 #special case for size-limit selectors
                 #Remember, we have to undo this on load
-                suffix = self.convertIndexToText(cur_L_data[data_list[2]])
+                suffix = self.convertIndex(cur_L_data[data_list[2]])
                 nice_size_limit = str(cur_L_data[element]) + str(suffix)
                 fixed_L_data[data_list[1]] = nice_size_limit
             else:    
                 fixed_L_data[data_list[1]] = cur_L_data[element]
         return fixed_L_data
     
-    def convertIndexToText(self, index):
-        if index == 0: suffix = "KB"
-        if index == 1: suffix = "MB"
-        if index == 2: suffix = "GB"
-        return suffix
+    def fixElementsToOptionsLoad(self, loaded_data, listElements, nametextbox):
+        fixed_loaded_data = OD()
+        for element, data_list in listElements.iteritems():
+            if "TITLE" in data_list[1]:
+                fixed_loaded_data[nametextbox[0]] = nametextbox[1]
+                continue
+            
+            option_name = data_list[1]
+            data = loaded_data[option_name]
+            
+            if len(data_list) == 3:
+                #special case for size-limit selectors
+                #Split the data into two different items
+                try:
+                    prefix, suffix = re.match("([0-9]{1,9})([A-Za-z]{2})", data).groups()
+                    suffix = self.convertIndex(suffix)
+                except:
+                    #This option was probably not set by the user so we ignore it too by setting the prefix and suffix to default
+                    prefix = ""
+                    suffix = 0
+                    
+                suffix_element_name = data_list[2]
+                #Set the data for both the prefix and suffix
+                fixed_loaded_data[element] = prefix
+                fixed_loaded_data[suffix_element_name] = suffix
+            else:    
+                fixed_loaded_data[element] = loaded_data[option_name]
+        return fixed_loaded_data
     
+    def convertIndex(self, index):
+        if type(index) == str:
+            if index == "KB": suffix = 0
+            if index == "MB": suffix = 1
+            if index == "GB": suffix = 2
+        if type(index) == int:
+            if index == 0: suffix = "KB"
+            if index == 1: suffix = "MB"
+            if index == 2: suffix = "GB"
+        return suffix
+        
     def typeMatcher(self, access_object, operation, alt_obj = None, sc = False):
         #This function will match the type of the access_object provided to a dictionary and return the data requested in operation.
         #operation can be READ, WRITE or a special case called SLC_READ.
@@ -272,7 +415,7 @@ class guiActions(object):
             #We need to concatenate the data returned from two objects
                 prefix = self.typeMatcher(access_object, "READ")()
                 suffix_index = int(self.typeMatcher(eval("self.context." + str(alt_obj)), "READ")())
-                suffix = self.convertIndexToText(suffix_index)
+                suffix = self.convertIndex(suffix_index)
                 if sc is True: return [prefix, suffix_index]
                 else: return str(prefix) + suffix
                     
@@ -283,10 +426,14 @@ class guiActions(object):
         for type_name in self.context.elementAccessMethods.keys():
             if type_name in str(type(access_object)):
                 access_function = self.context.elementAccessMethods[type_name][op]
+                if op == 1: dtype = self.context.elementAccessMethods[type_name][2]
                 break
         #Now we have our access function, we use getattr to return the live function
         live_function = getattr(access_object, access_function)
-        return live_function
+        if op == 1:
+            return (live_function, dtype)
+        else:
+            return live_function
     
     
     
@@ -332,3 +479,4 @@ class guiActions(object):
             chosenFile = fileDialog.getOpenFileName(caption=caption)
         
         access_object.setText(_translate("OptionsDialog", chosenFile, None))
+        

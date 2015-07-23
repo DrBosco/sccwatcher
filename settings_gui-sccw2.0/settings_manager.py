@@ -96,17 +96,24 @@ avoidListElements["avoidFilterTextbox"] = ["ASPECIAL", "avoid_filter"]
 avoidListElements["avoidFilterRegexCheck"] = ["ASPECIAL", "use_regex"]
 
 
-#This small dict keeps track of the read and write methods of different Qt types
+#This small dict keeps track of the read and write methods of different Qt types as well as the expected data type
 elementAccessMethods = {}
-#                                    READ  ,    WRITE
-elementAccessMethods["QLineEdit"] = ["text", "setText"]
-elementAccessMethods["QTextEdit"] = ["toPlainText", "setPlainText"]
-elementAccessMethods["QSpinBox"] = ["value", "setValue"]
-elementAccessMethods["QCheckBox"] = ["checkState", "setCheckState"]
-elementAccessMethods["QComboBox"] = ["currentIndex", "setCurrentIndex"]
-elementAccessMethods["QListWidget"] = ["currentItem", "addItem"]
-elementAccessMethods["QListWidgetItem"] = ["text", "setText"]
+#                                    READ  ,    WRITE   ,   type
+elementAccessMethods["QLineEdit"] = ["text", "setText", "str"]
+elementAccessMethods["QTextEdit"] = ["toPlainText", "setPlainText", "str"]
+elementAccessMethods["QSpinBox"] = ["value", "setValue", "int"]
+elementAccessMethods["QCheckBox"] = ["checkState", "setCheckState", "int"]
+elementAccessMethods["QComboBox"] = ["currentIndex", "setCurrentIndex", "int"]
+elementAccessMethods["QListWidget"] = ["currentItem", "addItem", "QListWidgetItem"]
+elementAccessMethods["QListWidgetItem"] = ["text", "setText", "str"]
 
+#Create a reverse dicts for the options>elements conversion.
+globalReverse = OD()
+watchReverse = OD()
+avoidReverse = OD()
+for key, val in elementsToOptions.iteritems(): globalReverse[val[1]] = key
+for key, val in watchListElements.iteritems(): watchReverse[val[1]] = key
+for key, val in avoidListElements.iteritems(): avoidReverse[val[1]] = key
 
 #GUI Defaults
 #These three dicts contain the default state of our application.
@@ -124,6 +131,9 @@ class sccwSettingsManager:
         self.elementAccessMethods = elementAccessMethods
         self.watchListElements = watchListElements
         self.avoidListElements = avoidListElements
+        self.REVelementsToOptions = globalReverse
+        self.REVwatchListElements = watchReverse
+        self.REVavoidListElements = avoidReverse
         self.guiDefaults = guiDefaults
         self.windowPos = MWloc[0]
         self.windowSize = MWloc[1]
@@ -157,34 +167,37 @@ class sccwSettingsManager:
         #We also save window state data at the end
         #Begin group for window state (size and position)
         #Consider moving this to a different QSettings object, one that saves to the registry instead.
-        self.appSettings.beginGroup("WindowState")
+        #This WILL be moved to registery before we use it. Until then its commented out and the settings arent ever used if loaded.
+        #self.appSettings.beginGroup("WindowState")
         #Screen size and position
-        self.appSettings.setValue("windowSize", self.windowSize())
-        self.appSettings.setValue("windowPos", self.windowPos())
-        self.appSettings.endGroup()
+        #self.appSettings.setValue("windowSize", self.windowSize())
+        #self.appSettings.setValue("windowPos", self.windowPos())
+        #self.appSettings.endGroup()
         
-        #Lastly we update the Ui
-        #optionsdict = OD()
-        #This is where the optionsdict is set up with values from data
-        #This is then passed to setupUiOptions() to update the UI with the new settings.
-        #self.setupUiOptions(optionsdict)
+        #Sync data. It works without this because sync() is automatically called on the destruction of the QSettings object, which happens at close.
+        #Id rather do it now though.
+        self.syncData()
 
-    def loadSettings(self, data):
+    def loadSettings(self):
         returnData = OD()
-        #loop through data{} and get the values requested. Each key is the subgroup name.
-        for key in data:
-            returnData[key] = OD()
-            self.appSettings.beginGroup(key)
-            #loop through the list of values to return and get the data
-            for value in data[key]:
+        #We have no idea what subgroups we need to load so we have to get the list
+        #We'll loop through each subgroup and get the data for each.
+        
+        for subgroup in self.appSettings.childGroups():
+            subgroup = str(subgroup)
+            returnData[subgroup] = OD()
+            self.appSettings.beginGroup(subgroup)
+            #loop through the keys in this subgroup and save their values
+            for value in self.appSettings.childKeys():
+                value = str(value)
                 #Need to handle QStringLists differently
                 item = self.appSettings.value(value).toPyObject()
                 if type(item) is QtCore.QStringList:
-                    returnData[key][value] = []
+                    returnData[subgroup][value] = []
                     for x in xrange(len(item)):
-                        returnData[key][value].append(str(item[x]))
+                        returnData[subgroup][value].append(str(item[x]))
                 else:
-                    returnData[key][value] = str(item)
+                    returnData[subgroup][value] = str(item)
             self.appSettings.endGroup()
         
         #We should have a nice dictionary with all the requested data in it so just return
