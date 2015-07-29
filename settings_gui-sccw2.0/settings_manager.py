@@ -125,8 +125,7 @@ guiDefaults["allOtherDefaults"] = OD([('ggMasterAutodlCheck', 0), ('ggEnableVerb
 
 class sccwSettingsManager:
     def __init__(self, settingsfile, MWloc):
-        self.appSettings = QtCore.QSettings(settingsfile, QtCore.QSettings.IniFormat)
-        self.appSettings.setIniCodec("UTF-8")
+        self.appSettings = None
         self.elementsToOptions = elementsToOptions
         self.elementAccessMethods = elementAccessMethods
         self.watchListElements = watchListElements
@@ -137,6 +136,7 @@ class sccwSettingsManager:
         self.guiDefaults = guiDefaults
         self.windowPos = MWloc[0]
         self.windowSize = MWloc[1]
+        self.isLoaded = False
         
     def resetSettings(self):
         self.appSettings.clear()   
@@ -144,6 +144,15 @@ class sccwSettingsManager:
     def syncData(self):
         #Commit all settings to file
         self.appSettings.sync()
+    
+    def openSettingsFile(self, filename):
+        self.appSettings = QtCore.QSettings(filename, QtCore.QSettings.IniFormat)
+        self.appSettings.setIniCodec("UTF-8")
+        self.isLoaded = True
+        
+    def closeSettingsFile(self):
+        self.appSettings = None
+        self.isLoaded = False
     
     def saveSettings(self, data):
         #Clear out the data currently in our QSetting object to make sure no old stale data is saved

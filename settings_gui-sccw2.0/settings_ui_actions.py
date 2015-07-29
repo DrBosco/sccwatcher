@@ -41,24 +41,50 @@ class guiActions(object):
         
     def addWatchListItem(self):
         #This function will add a new list item to the watch list
-        self.addListItem(self.context.WLGwatchlistItemsList)
+        self.addNewListItem(self.context.WLGwatchlistItemsList)
     
     def addAvoidListItem(self):
         #This function will add a new list item to the avoid list
-        self.addListItem(self.context.avoidlistItemsList)
+        self.addNewListItem(self.context.avoidlistItemsList)
     
-    def addListItem(self, access_object):
+    def addNewListItem(self, access_object):
         #Temporarily disable sorting
         __sortingEnabled = access_object.isSortingEnabled()
         access_object.setSortingEnabled(False)
         #Create our QListWidgetItem
         item = QtGui.QListWidgetItem()
+        #Make sure our untitled entry isnt going to be a duplicate
+        item_title = self.checkForDuplicates(access_object, "Untitled Entry")
         #Set its text
-        item.setText(_translate("sccw_SettingsUI", "Untitled Entry", None))
+        item.setText(_translate("sccw_SettingsUI", item_title, None))
         #And add the item to the list
         access_object.addItem(item)
         #Finally we reenable sorting, if it was enabled before
         access_object.setSortingEnabled(__sortingEnabled)
+    
+    def checkForDuplicates(self, access_object, item_text):
+        #This function will look for a duplicate entries in the QWidgetList supplied as access_object
+        #If any duplicates are detected the item_text has a number appended to it (or has its appended number incremented) and is returned
+        
+        #First we loop through each entry and see if its item_text matches anything in the watchlist.
+        for cur_index in xrange(0, access_object.count()):
+            cur_item_text = access_object.item(cur_index).text()
+            #Check if the titles match
+            if cur_item_text == item_text:
+                #Ok we got a duplicate. Lets see if this dupe has a number appended or not
+                num_reg = re.match("^(.*?)\s\(([0-9]{1,3})\)$", cur_item_text)
+                if num_reg is not None:
+                    #This dupe does have a number already. We'll get the number, increment it by one, and put it back.
+                    num_end = int(num_reg.group(2)) + 1
+                    new_title = "%s (%s)" % (num_reg.group(1), num_end)
+                else:
+                    #Ok there is no number ending, now we just append a number.
+                    new_title = "%s (1)" % (item_text)
+                #Finally, we recurse to be sure this new title isnt also a dupe.
+                final_return = self.checkForDuplicates(access_object, new_title)
+                return final_return
+        #No titles matched so we don't have a dupe. We return the correct item_text to confirm this.
+        return item_text
     
     #Update functions for when anything is changed for a watchlist or avoidlist item.
     #These two functions save all the data for the item, not just the piece of data that has changed.
@@ -77,21 +103,31 @@ class guiActions(object):
         if self.__is_loading is True:
             return
         current_watchlist_item = self.context.WLGwatchlistItemsList.currentItem()
+        #ERROR #1: Cant fix here, need a way to disable the watchlistSettingsGroup QGroupBox when no watchlist
+        # item is selected and then also reenable it when an item is selected. The enabling one is easy, just tie
+        # it into the signal for itemActivated() or whatever. We dont have a similar signal for disable but maybe
+        # current_item/row_changed functions can help. If either returns something unique for when a user deselects,
+        # it will work. And if deselection is disabled, we can still get to nothing by deleteing. 
+        
+        
         #Don't save if this is an 'Untitled Entry'
-        if str(current_watchlist_item.text()) != "Untitled Entry":
+        #This prevents saving untitled entries before the user changes their name.
+        #Im not sure this is needed. Since the item's text is an attribute of the object itself, an attribute that can
+        # be freely changed without needing a whole new item. So saving the data under Untitled and then naming it
+        # shouldn't leave remnents behind and mess up other new untitled entries. 
+        if "Untitled Entry" not in str(current_watchlist_item.text()):
             self.saveListData(self.context.watchListElements, current_watchlist_item)
         
 
     #These Three functions save the data associated with each watch or avoid item whenever the user switches watch items.
     #The third is the master function while the other two just provide unique data tot he master.
     def updateCurrentAvoidListSelection(self, new_listwidget_item, previous_listwidget_item):
-        
-        self.updateCurrentListSelection(new_listwidget_item, previous_listwidget_item, self.context.avoidListElements, self.context.SettingsManager.guiDefaults["avoidlistDefaults"])
+        self.updateCurrentListSelection(new_listwidget_item, previous_listwidget_item, self.context.avoidListElements, self.context.SettingsManager.guiDefaults["avoidlistDefaults"], self.context.avoidlistSettingsGroup)
         
     def updateCurrentWatchListSelection(self, new_listwidget_item, previous_listwidget_item):
-        self.updateCurrentListSelection(new_listwidget_item, previous_listwidget_item, self.context.watchListElements, self.context.SettingsManager.guiDefaults["watchlistDefaults"])
+        self.updateCurrentListSelection(new_listwidget_item, previous_listwidget_item, self.context.watchListElements, self.context.SettingsManager.guiDefaults["watchlistDefaults"], self.context.watchlistSettingsGroup)
     
-    def updateCurrentListSelection(self, new_listwidget_item, previous_listwidget_item, listwidget_elements, reset_data):
+    def updateCurrentListSelection(self, new_listwidget_item, previous_listwidget_item, listwidget_elements, reset_data, opgrp_access_object):
         #Set the load var so nothing crappy happens
         self.__is_loading = True
         
@@ -108,13 +144,20 @@ class guiActions(object):
         if new_listwidget_item is not None:
             new_data = new_listwidget_item.data(Qt.UserRole).toPyObject()
             if new_data is not None:
-                self.loadListData(new_data)
+                self.loadListData(new_data)       
+            #Set the current selection to this item to be sure
+            new_listwidget_item.listWidget().setCurrentItem(new_listwidget_item)
+            #Now that we have loaded up our data, we enable the watch/avoid list's option groups if necessary
+            if opgrp_access_object.isEnabled() is False:
+                opgrp_access_object.setEnabled(True)
+            
+        else:
+            #Ok so we know new_listwidget_item is NoneType, this means the user has no item selected.
+            #We will disable the group of options adjacent to the listwidget object
+            opgrp_access_object.setDisabled(True)
         #And set the load var again to its normal state
-        
-        #Set the current selection to this item to be sure
-        new_listwidget_item.listWidget().setCurrentItem(new_listwidget_item)
-        
         self.__is_loading = False
+        
         
     #These three functions deal with saving, clearing, and loading from watchlists.
     def saveListData(self, listwidget_elements, listwidget_item):
@@ -141,13 +184,13 @@ class guiActions(object):
         if hasattr(listwidget_item, "setData"): listwidget_item.setData(Qt.UserRole, item_save_data)
     
     def clearListData(self, reset_data):
+        p = 'LOL'
         for element, data in reset_data.iteritems():
             live_element = eval("self.context." + str(element))
             write_function, dtype = self.typeMatcher(live_element, "WRITE")
             if dtype == "str": data = str(data)
             if dtype == "int": data = int(data)
             write_function(data)
-    
     
     def loadListData(self, new_data):
         #Ok we do have data, so lets set the form up with this data
@@ -172,6 +215,18 @@ class guiActions(object):
         #Takes in the data format of loadSettings() and updates the UI with the data received
         #We will go through data{} and use the access method detailed in the uiElements dictionary.
         #The two's structure are identical and so make this task extremely simple.
+        
+        #If we already have a file loaded, prompt the user if they want to save or not
+        if self.context.SettingsManager.isLoaded == True:
+            #I OWE U ONE BIT OF CODE
+            pass
+        
+        #Now that we have either saved or discared any changes made, we prompt the user to open up a new file
+        #Fist we properly close the QSetting object
+        self.context.SettingsManager.closeSettingsFile()
+        
+        #Get the new file name and tell the SettingsManager to update its QSettings object to use the new file location
+        self.context.SettingsManager.openSettingsFile(self.browse_button_loadFile())
         
         #Load up the data
         loaded_data = self.context.SettingsManager.loadSettings()
@@ -211,6 +266,9 @@ class guiActions(object):
             
             #special case for size limit selector
             if len(einfos) > 2:
+                #Check if we have any data, if not we just move along
+                if len(data) < 1:
+                    continue
                 #Split up the data into two part, prefix and suffix
                 prefix, suffix = re.match("([0-9]{1,9})([A-Za-z]{2})", data).groups()
                 suffix = self.convertIndex(suffix)
@@ -238,6 +296,8 @@ class guiActions(object):
             
             #Create a new QListWidgetItem with the name item_name
             new_item = QtGui.QListWidgetItem()
+            #Make sure the item_name isnt a duplicate
+            item_name = self.checkForDuplicates(self.context.WLGwatchlistItemsList, item_name)
             new_item.setText(_translate("sccw_SettingsUI", item_name, None))
             #Add the item to the list
             self.context.WLGwatchlistItemsList.addItem(new_item)
@@ -254,6 +314,10 @@ class guiActions(object):
             self.context.avoidlistItemsList.setSortingEnabled(False)
             #Create our QListWidgetItem
             new_item = QtGui.QListWidgetItem()
+            #Remove the minus sign from the beginning of the watch title
+            if item_name[0] == "-": item_name = self.removeMinusSignPrefix(item_name)
+            #Make sure the title isnt a dupe
+            item_name = self.checkForDuplicates(self.context.avoidlistItemsList, item_name)
             #Set its text
             new_item.setText(_translate("sccw_SettingsUI", item_name, None))
             #Add to the list
@@ -265,8 +329,13 @@ class guiActions(object):
             #Set the data using a new item from the qlistwidget to be sure its the right one
             actual_item = self.context.avoidlistItemsList.findItems(item_name, Qt.MatchFixedString)[0]
             actual_item.setData(Qt.UserRole, item_data)
-            
-    
+
+    def removeMinusSignPrefix(self, text):
+        #Silly to have this as its own function but recursing has its benefits
+        if text[0] == "-":
+            text = text[1:]
+            text = self.removeMinusSignPrefix(text)
+        return text
     
     
     def saveUiState(self):
@@ -302,9 +371,9 @@ class guiActions(object):
         watchlist = self.context.WLGwatchlistItemsList
         
         #We're going to grab the data associated with each item in the watchlist and save it to our save_data
-        for cIndex in xrange(0, watchlist.count()):
+        for cur_index in xrange(0, watchlist.count()):
             #Get our watchlist item
-            cur_WL_item = watchlist.item(cIndex)
+            cur_WL_item = watchlist.item(cur_index)
             #If we get a 0 it means this index has no item, so we go onto the next iteration.
             #We should really just break here since returning no item usually means end of list, but I cant be sure.
             if cur_WL_item == 0:
@@ -327,9 +396,9 @@ class guiActions(object):
         
         #Ok now we do the same for the avoidlist, except we prepend the title with a minus.
         avoidlist = self.context.avoidlistItemsList
-        for cIndex in xrange(0, avoidlist.count()):
+        for cur_index in xrange(0, avoidlist.count()):
             #Get the avoidlist item
-            cur_AL_item = avoidlist.item(cIndex)
+            cur_AL_item = avoidlist.item(cur_index)
             if cur_AL_item == 0:
                 continue
             
@@ -398,13 +467,15 @@ class guiActions(object):
     
     def convertIndex(self, index):
         if type(index) == str:
-            if index == "KB": suffix = 0
-            if index == "MB": suffix = 1
-            if index == "GB": suffix = 2
+            if index == "": suffix = 0
+            if index == "KB": suffix = 1
+            if index == "MB": suffix = 2
+            if index == "GB": suffix = 3
         if type(index) == int:
-            if index == 0: suffix = "KB"
-            if index == 1: suffix = "MB"
-            if index == 2: suffix = "GB"
+            if index == 0: suffix = ""
+            if index == 1: suffix = "KB"
+            if index == 2: suffix = "MB"
+            if index == 3: suffix = "GB"
         return suffix
         
     def typeMatcher(self, access_object, operation, alt_obj = None, sc = False):
@@ -468,8 +539,12 @@ class guiActions(object):
         self.browse_button_master(self.context.WLSGexternalCommandTextbox, QtGui.QFileDialog.AcceptOpen, QtGui.QFileDialog.ExistingFile, caption)
         
     
-    def browse_button_master(self, access_object, main_mode, file_mode, caption):
-        #Infos has extra data, like the caption
+    def browse_button_loadFile(self):
+        caption = "Location of scc.ini..."
+        filename = self.browse_button_master(None, QtGui.QFileDialog.AcceptOpen, QtGui.QFileDialog.ExistingFile, caption, altmode=True)
+        return filename
+    
+    def browse_button_master(self, access_object, main_mode, file_mode, caption, alt_mode=False):
         fileDialog = QtGui.QFileDialog()
         fileDialog.AcceptMode = main_mode
         fileDialog.setFileMode(file_mode)
@@ -477,6 +552,9 @@ class guiActions(object):
             chosenFile = fileDialog.getExistingDirectory(caption=caption)
         elif file_mode == QtGui.QFileDialog.ExistingFile:
             chosenFile = fileDialog.getOpenFileName(caption=caption)
-        
-        access_object.setText(_translate("OptionsDialog", chosenFile, None))
+        if alt_mode is True:
+            #We are going to return the filename instead
+            return chosenFile
+        else:
+            access_object.setText(_translate("OptionsDialog", chosenFile, None))
         
