@@ -43,10 +43,6 @@ Done! - Implement utorrent uploader checkbox/QLabel logic
 
 
 Implement Current Version/Update check in about box
-	Hao2Do?
-		Basic file on GitHub with just version number
-			Script grabs file using raw interface and compares that version with local version
-		<Worse solution goes here>
 
 
 ---------------------------------------------------------------
@@ -76,3 +72,6 @@ Implementing status group on first tab:
 				FiFo?
 					- Almost as robust as function hooks and sockets but much simplier to implement.
 					- Feels like an unfavorable, "dirty" solution. Sockets are a mess but this is just not an elegant solution.
+				Initial Arguments?
+					- Offers same flexibility of the Function hook but allows easier access between sccw1 and sccw2.
+					
