@@ -299,7 +299,7 @@ class Ui_sccw_SettingsUI(object):
         self.utwuiMasterEnableTriCheck.setTristate(True)
         self.utwuiMasterEnableTriCheck.setObjectName(_fromUtf8("utwuiMasterEnableTriCheck"))
         self.utwuiStateLabel = QtGui.QLabel(self.utWebUiUploadGroup)
-        self.utwuiStateLabel.setGeometry(QtCore.QRect(210, 21, 56, 16))
+        self.utwuiStateLabel.setGeometry(QtCore.QRect(210, 21, 151, 16))
         self.utwuiStateLabel.setObjectName(_fromUtf8("utwuiStateLabel"))
         self.utwuiPortLabel = QtGui.QLabel(self.utWebUiUploadGroup)
         self.utwuiPortLabel.setGeometry(QtCore.QRect(270, 65, 31, 16))
@@ -822,6 +822,32 @@ class Ui_sccw_SettingsUI(object):
         self.menuFile.addAction(self.action_Quit)
         self.menubar.addAction(self.menuFile.menuAction())
         
+        #Disable sections by default
+        self.ggVerboseTabTextbox.setEnabled(False)
+        self.ftpHostnameTextbox.setEnabled(False)
+        self.ftpPortTextbox.setEnabled(False)
+        self.ftpUsernameTextbox.setEnabled(False)
+        self.ftpPasswordTextbox.setEnabled(False)
+        self.ftpRemoteFolderTextbox.setEnabled(False)
+        self.ftpPasvModeCheck.setEnabled(False)
+        self.ftpTLSModeCheck.setEnabled(False)
+        self.utwuiHostnameTextbox.setEnabled(False)
+        self.utwuiPortTextbox.setEnabled(False)
+        self.utwuiUsernameTextbox.setEnabled(False)
+        self.utwuiPasswordTextbox.setEnabled(False)
+        self.extCmdExeLocation.setEnabled(False)
+        self.extCmdBrowseButton.setEnabled(False)
+        self.extCmdExeArguments.setEnabled(False)
+        self.hostnameIPTextbox.setEnabled(False)
+        self.portTextbox.setEnabled(False)
+        self.usernameTextbox.setEnabled(False)
+        self.passwordTextbox.setEnabled(False)
+        self.emailUseTLSCheck.setEnabled(False)
+        self.emailFromTextbox.setEnabled(False)
+        self.emailToTextbox.setEnabled(False)
+        self.emailSubjectTextbox.setEnabled(False)
+        self.emailMessageTextbox.setEnabled(False)
+        
         #buddy crap
         self.globalSizeLimitUpperLabel.setBuddy(self.WLSGsizeLimitUpperTextbox)
         self.globalSizeLimitLowerLabel.setBuddy(self.WLSGsizeLimitLowerTextbox)
@@ -888,6 +914,16 @@ class Ui_sccw_SettingsUI(object):
         QtCore.QObject.connect(self.avoidNameTextbox, QtCore.SIGNAL(_fromUtf8("editingFinished()")), self.guiActions.saveAllAvoidlistItems)
         QtCore.QObject.connect(self.avoidFilterTextbox, QtCore.SIGNAL(_fromUtf8("editingFinished()")), self.guiActions.saveAllAvoidlistItems)
         QtCore.QObject.connect(self.avoidFilterRegexCheck, QtCore.SIGNAL(_fromUtf8("clicked()")), self.guiActions.saveAllAvoidlistItems)
+        
+        #Enable/Disable Subsection checkboxes
+        QtCore.QObject.connect(self.ggEnableVerboseCheck, QtCore.SIGNAL(_fromUtf8("toggled(bool)")), self.ggVerboseTabTextbox.setEnabled)
+        QtCore.QObject.connect(self.ftpMasterEnableCheck, QtCore.SIGNAL(_fromUtf8("toggled(bool)")), self.guiActions.EDsection_ftpupload)
+        QtCore.QObject.connect(self.utwuiMasterEnableTriCheck, QtCore.SIGNAL(_fromUtf8("stateChanged(int)")), self.guiActions.EDsection_utwebui)
+        QtCore.QObject.connect(self.extCmdMasterEnableCheck, QtCore.SIGNAL(_fromUtf8("toggled(bool)")), self.guiActions.EDsection_externalcmd)
+        QtCore.QObject.connect(self.emailMasterEnableCheck, QtCore.SIGNAL(_fromUtf8("toggled(bool)")), self.guiActions.EDsection_emailer)
+        
+        
+        
         
         #Finally connect our slots
         QtCore.QMetaObject.connectSlotsByName(sccw_SettingsUI)

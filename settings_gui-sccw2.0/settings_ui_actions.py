@@ -184,7 +184,6 @@ class guiActions(object):
         if hasattr(listwidget_item, "setData"): listwidget_item.setData(Qt.UserRole, item_save_data)
     
     def clearListData(self, reset_data):
-        p = 'LOL'
         for element, data in reset_data.iteritems():
             live_element = eval("self.context." + str(element))
             write_function, dtype = self.typeMatcher(live_element, "WRITE")
@@ -256,7 +255,7 @@ class guiActions(object):
         #First we do the GlobalSettings.
         #We look through our elementsToOptions dict and set each options as we come upon it.
         for element, einfos in self.context.SettingsManager.elementsToOptions.iteritems():
-            data = converted_data["GlobalSettings"][element] 
+            data = converted_data["GlobalSettings"][element]
             
             #Make a live access object from element and then use its type to get our access function
             access_string = "self.context." + str(element)
@@ -541,8 +540,67 @@ class guiActions(object):
     
     def browse_button_loadFile(self):
         caption = "Location of scc.ini..."
-        filename = self.browse_button_master(None, QtGui.QFileDialog.AcceptOpen, QtGui.QFileDialog.ExistingFile, caption, altmode=True)
+        filename = self.browse_button_master(None, QtGui.QFileDialog.AcceptOpen, QtGui.QFileDialog.ExistingFile, caption, alt_mode=True)
         return filename
+    
+    #These EDsection_ functions enable/disable the option sections that correspond to certain checkboxes.
+    #self.context.
+    #checkboxes will have thier toggled(bool) slots tied into these functions.
+    #It was only possible to directly connect one checkbox, the others needed these helper functions.
+    def EDsection_ftpupload(self, state):
+        #FTP upload section of Upload/Download tab
+        #These functions are pretty simple, we just pass state, which is a bool, to the setEnabled functions of the objects we need to turn off/on.
+        self.context.ftpHostnameTextbox.setEnabled(state)
+        self.context.ftpPortTextbox.setEnabled(state)
+        self.context.ftpUsernameTextbox.setEnabled(state)
+        self.context.ftpPasswordTextbox.setEnabled(state)
+        self.context.ftpRemoteFolderTextbox.setEnabled(state)
+        self.context.ftpPasvModeCheck.setEnabled(state)
+        self.context.ftpTLSModeCheck.setEnabled(state)
+        
+    def EDsection_utwebui(self, state):
+        #uTorrent WebUI of the Ul/Dl tab
+        #Because this is a tri-state checkbox we cant use toggled(bool). Instead of have to use stateChanged(int) and compare the int.
+        #We also update the QLabel here with the appropriate text and color change to indicate the different modes of operation for the utorrent module
+        
+        #QLabel first
+        if state == 0:
+            color = "#ff0000"
+            text = "Disabled"
+        elif state == 1:
+            color = "#00aa00"
+            text = "Normal DL and WebUI UL"
+        elif state == 2:
+            color = "#ff8700"
+            text = "WebUI Uploading Only"
+            
+        self.context.utwuiStateLabel.setText(_translate("sccw_SettingsUI", "<html><head/><body><p><span style=\" font-weight:600; color:%s;\">%s</span></p></body></html>" % (color, text), None))
+        
+        if state > 0: state = True
+        else: state = False
+        self.context.utwuiHostnameTextbox.setEnabled(state)
+        self.context.utwuiPortTextbox.setEnabled(state)
+        self.context.utwuiUsernameTextbox.setEnabled(state)
+        self.context.utwuiPasswordTextbox.setEnabled(state)
+        
+    def EDsection_externalcmd(self, state):
+        #External command section of the ul/dl tab
+        self.context.extCmdExeLocation.setEnabled(state)
+        self.context.extCmdBrowseButton.setEnabled(state)
+        self.context.extCmdExeArguments.setEnabled(state)
+        
+    def EDsection_emailer(self, state):
+        #Emailer section of the Emailer tab
+        self.context.hostnameIPTextbox.setEnabled(state)
+        self.context.portTextbox.setEnabled(state)
+        self.context.usernameTextbox.setEnabled(state)
+        self.context.passwordTextbox.setEnabled(state)
+        self.context.emailUseTLSCheck.setEnabled(state)
+        self.context.emailFromTextbox.setEnabled(state)
+        self.context.emailToTextbox.setEnabled(state)
+        self.context.emailSubjectTextbox.setEnabled(state)
+        self.context.emailMessageTextbox.setEnabled(state)
+        
     
     def browse_button_master(self, access_object, main_mode, file_mode, caption, alt_mode=False):
         fileDialog = QtGui.QFileDialog()
