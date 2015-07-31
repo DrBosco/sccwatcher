@@ -1,0 +1,74 @@
+Todo until GUI is done:
+
+TOOLTIPS!
+
+DONE! - Master checkbox to enable/disable subsection:
+	General Tab - "Enable Verbose Output"
+	Dl/Ul Tab  - "Enable FTP Uploading"
+	Dl/Ul Tab  - "uT WebUI Uploader Mode"
+	Dl/Ul Tab  - "Enable External Command"
+	Email Tab  - "Enable Emailer"
+	
+Copy general options to watch items as applicable
+	e.g. If External command is enabled globally, then its also set in the watch
+		Ways to do it:
+			Loop through all applicable global options and set the state of the respective options under the watch
+			Change the reset data to include the options selected.
+			
+
+	
+
+Make it impossible to "double-load", where watches and avoids from the last file are kept along with the new watches.
+	It should ask the user if they want to save the old file
+	Then it should clear the GUI
+	THen it should finally load the new settings
+	--
+	This one requires other stuff to be done first. We need the save-as dialog and logic that detects when we are trying to save without 
+	any settings file loaded. This will be easier to do once save-as is finished
+
+Implement save-as dialog
+Implement New button.
+	Needs to ask user whether or not to save current file
+	Then clears out all settings and starts new
+
+
+Change save dialog to switch to Save-as dialog when no settings file is selected
+	Currently saving from fresh start gives an error.
+
+
+What is the cancel button even supposed to do?
+	Change it to quit?
+	
+Done! - Implement utorrent uploader checkbox/QLabel logic
+
+
+Implement Current Version/Update check in about box
+
+
+---------------------------------------------------------------
+Todo to finish app entirely:
+A LOT!
+Have to integrate it with sccwatcher script
+	Need to add new checks, new settings manager, everything.
+		options dict will now be the dict thats created by loadSettings()
+			Must update all references to options dict with subdicts
+			On loading we must create a list of watch names so its easier to reference them later
+				Load up ini file, discard General Options
+					All options left that start with a minus sign are avoids
+					All options left are watches.
+
+
+Implementing status group on first tab:
+	We should be able to make a simple function now without needing to fully integrate sccw1.0 and sccw2.0.
+		We'll make a function that takes in a simple dict with the status in the form of strings (preferrably in their final form)
+		This will allow us to later go back to sccw1.0 and add in a function that sends this data
+			How should we send the data?
+				Function hook? 
+					- Probably the best solution but requires tight integration between sccw1 and sccw2
+					- In theory the best solution
+				Sockets?
+					- Probably the most robust solution, allowing the client to be on a completely different computer
+					- Added robustness also increases complexity since ip and port will be needed for anything besides local connections
+				FiFo?
+					- Almost as robust as function hooks and sockets but much simplier to implement.
+					- Feels like an unfavorable, "dirty" solution. Sockets are a mess but this is just not an elegant solution.
