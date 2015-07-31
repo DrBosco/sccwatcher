@@ -43,6 +43,10 @@ Done! - Implement utorrent uploader checkbox/QLabel logic
 
 
 Implement Current Version/Update check in about box
+	Hao2Do?
+		Basic file on GitHub with just version number
+			Script grabs file using raw interface and compares that version with local version
+		<Worse solution goes here>
 
 
 ---------------------------------------------------------------
