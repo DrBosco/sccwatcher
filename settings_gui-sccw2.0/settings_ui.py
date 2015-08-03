@@ -869,8 +869,9 @@ class Ui_sccw_SettingsUI(object):
         QtCore.QObject.connect(self.action_Quit, QtCore.SIGNAL(_fromUtf8("triggered()")), sccw_SettingsUI.close)
         QtCore.QObject.connect(self.actionOpen, QtCore.SIGNAL(_fromUtf8("triggered()")), self.guiActions.loadUiState)
         QtCore.QObject.connect(self.actionSave, QtCore.SIGNAL(_fromUtf8("triggered()")), self.guiActions.saveUiState)
-        QtCore.QObject.connect(self.actionSave_As, QtCore.SIGNAL(_fromUtf8("triggered()")), sccw_SettingsUI.close)
+        QtCore.QObject.connect(self.actionSave_As, QtCore.SIGNAL(_fromUtf8("triggered()")), self.guiActions.saveAsDialog)
         QtCore.QObject.connect(self.action_New, QtCore.SIGNAL(_fromUtf8("triggered()")), sccw_SettingsUI.close)
+        
         QtCore.QObject.connect(self.WLGaddEntryButton, QtCore.SIGNAL(_fromUtf8("clicked()")), self.guiActions.addWatchListItem)
         QtCore.QObject.connect(self.WLGremoveEntryButton, QtCore.SIGNAL(_fromUtf8("clicked()")), self.guiActions.removeWatchListItem)
         QtCore.QObject.connect(self.addAvoidEntryButton, QtCore.SIGNAL(_fromUtf8("clicked()")), self.guiActions.addAvoidListItem)

@@ -19,6 +19,8 @@ class guiActions(object):
     def __init__(self, context):
         #If anyone can think of a better way to do this I'm all ears. I think python handles this as a pointer and doesn't copy the entire object, but I could be wrong.
         self.context = context
+        #this is different from self.context.SettingsManager.isLoaded.
+        #This just flags during the load operation itself and gives no indication as to whether or not something is currently loaded.
         self.__is_loading = False
     
     def removeWatchListItem(self):
@@ -138,7 +140,7 @@ class guiActions(object):
             self.saveListData(listwidget_elements, previous_listwidget_item)
 
         #reset listwidget
-        self.clearListData(reset_data)
+        self.clearGuiData(reset_data)
         
         #Finally, load new data if necessary
         if new_listwidget_item is not None:
@@ -183,7 +185,7 @@ class guiActions(object):
         #We will be saving the data in the Qt.UserRole role to the previous qlistwidgetitem we just had selected.
         if hasattr(listwidget_item, "setData"): listwidget_item.setData(Qt.UserRole, item_save_data)
     
-    def clearListData(self, reset_data):
+    def clearGuiData(self, reset_data):
         for element, data in reset_data.iteritems():
             live_element = eval("self.context." + str(element))
             write_function, dtype = self.typeMatcher(live_element, "WRITE")
@@ -210,27 +212,65 @@ class guiActions(object):
         current_item = self.context.avoidlistItemsList.currentItem()
         current_item.setText(text)
     
+    def clearList(self, access_object):
+        #This function will remove all items from the QListWidget supplied as access_object
+        while access_object.count() > 0:
+            removed_item = access_object.takeItem(0)
+            del(removed_item) #Sometimes I don't trust the GC, and it can't hurt to be sure.
+    
     def loadUiState(self):
         #Takes in the data format of loadSettings() and updates the UI with the data received
         #We will go through data{} and use the access method detailed in the uiElements dictionary.
-        #The two's structure are identical and so make this task extremely simple.
+        #The two's structure are identical and making this task extremely simple.
         
         #If we already have a file loaded, prompt the user if they want to save or not
         if self.context.SettingsManager.isLoaded == True:
-            #I OWE U ONE BIT OF CODE
-            pass
+            #Ask user if they want to save old data
+            msgBox = QtGui.QMessageBox()
+            msgBox.setInformativeText("Do you want to save any changes to the current settings file?")
+            msgBox.setStandardButtons(QtGui.QMessageBox.Save | QtGui.QMessageBox.Discard | QtGui.QMessageBox.Cancel)
+            msgBox.setDefaultButton(QtGui.QMessageBox.Save)
+            rtn = msgBox.exec_()
+            if rtn == QtGui.QMessageBox.Save:
+                self.guiActions.saveUiState()
+            elif rtn == QtGui.QMessageBox.Discard:
+                pass
+            elif rtn == QtGui.QMessageBox.Cancel:
+                return
+            #Clear UI state
+            self.clearGuiData(self.context.SettingsManager.guiDefaults["allOtherDefaults"])
+            self.clearGuiData(self.context.SettingsManager.guiDefaults["watchlistDefaults"])
+            self.clearGuiData(self.context.SettingsManager.guiDefaults["avoidlistDefaults"])
+            #Remove any watches or avoids
+            self.clearList(self.context.WLGwatchlistItemsList)
+            self.clearList(self.context.avoidlistItemsList)
         
         #Now that we have either saved or discared any changes made, we prompt the user to open up a new file
         #Fist we properly close the QSetting object
         self.context.SettingsManager.closeSettingsFile()
         
         #Get the new file name and tell the SettingsManager to update its QSettings object to use the new file location
-        self.context.SettingsManager.openSettingsFile(self.browse_button_loadFile())
+        filename = self.browse_button_loadFile()
+        #Discontinue if the user canceled selection of a file
+        if len(filename) < 1:
+            return
+        else:
+            self.context.SettingsManager.openSettingsFile(filename)
         
         #Load up the data
         loaded_data = self.context.SettingsManager.loadSettings()
         #We have to convert the ini option names back into the element object's name.
         converted_data = OD()
+        
+        #Check if we have the correct settings, if not notify the user and discontinue current operation
+        if loaded_data.has_key("GlobalSettings") is False:
+            #The settings ini we are trying to load doesnt have our main settings section
+            #We will assume this is not a correct file and give an error to the user
+            errorbox = QtGui.QMessageBox()
+            errorbox.setText("There was an error while trying to load the provided settings file. This file doesn't look like a valid SCCwatcher 2.0 settings file.")
+            errorbox.exec_()
+            self.context.SettingsManager.closeSettingsFile()
+            return
         
         #First we do the general options
         converted_data["GlobalSettings"] = OD()
@@ -337,6 +377,16 @@ class guiActions(object):
         return text
     
     
+    def saveAsDialog(self):
+        #Since this is a save-as dialog, we just change the file location and save
+        newfilename = self.saveAsAction()
+        #Close the old file first
+        self.context.SettingsManager.closeSettingsFile()
+        #Then set the new file
+        self.context.SettingsManager.openSettingsFile(newfilename)
+        #Finally we pass onto saveUiState to finish things off
+        self.saveUiState()
+    
     def saveUiState(self):
         #Takes the current state of the UI in an OrderedDict and sends it to the saveSettings() function.
         #This is only a temp save, to write the changes to disk you must call syncData() to really get it written.
@@ -344,6 +394,10 @@ class guiActions(object):
         save_data = OD()
         #Our return dictionary will be in the form:
         #save_data[subgroupName][optionName] = data
+        
+        #If there isnt a file currently loaded to save to, we turn this into a save-as dialog
+        if self.context.SettingsManager.isLoaded == False:
+            self.saveAsDialog()
         
         #Similar to updateUi(), we are going to loop through the uiElements dict and use its access methods to save the Ui state.
         #Now we loop through each element and eval it into life. Then we send each element through a type checking function that will access its data depending on its type.
@@ -543,6 +597,32 @@ class guiActions(object):
         filename = self.browse_button_master(None, QtGui.QFileDialog.AcceptOpen, QtGui.QFileDialog.ExistingFile, caption, alt_mode=True)
         return filename
     
+    def saveAsAction(self):
+        caption = "Choose location to save settings file..."
+        filename = self.browse_button_master(None, QtGui.QFileDialog.AcceptSave, QtGui.QFileDialog.AnyFile, caption, alt_mode=True, save_mode=True)
+        return filename
+    
+    
+    def browse_button_master(self, access_object, main_mode, file_mode, caption, alt_mode=False, save_mode = False):
+        fileDialog = QtGui.QFileDialog()
+        fileDialog.AcceptMode = main_mode
+        fileDialog.setFileMode(file_mode)
+        if save_mode == True:
+            fd_access = fileDialog.getSaveFileName
+        else:
+            fd_access = fileDialog.getOpenFileName
+        
+        if file_mode == QtGui.QFileDialog.Directory:
+            chosenFile = fileDialog.getExistingDirectory(caption=caption)
+        elif file_mode == QtGui.QFileDialog.ExistingFile or file_mode == QtGui.QFileDialog.AnyFile:
+            chosenFile = fd_access(caption=caption)
+        if alt_mode is True:
+            #We are going to return the filename instead
+            return chosenFile
+        else:
+            access_object.setText(_translate("OptionsDialog", chosenFile, None))
+    
+    
     #These EDsection_ functions enable/disable the option sections that correspond to certain checkboxes.
     #self.context.
     #checkboxes will have thier toggled(bool) slots tied into these functions.
@@ -601,18 +681,4 @@ class guiActions(object):
         self.context.emailSubjectTextbox.setEnabled(state)
         self.context.emailMessageTextbox.setEnabled(state)
         
-    
-    def browse_button_master(self, access_object, main_mode, file_mode, caption, alt_mode=False):
-        fileDialog = QtGui.QFileDialog()
-        fileDialog.AcceptMode = main_mode
-        fileDialog.setFileMode(file_mode)
-        if file_mode == QtGui.QFileDialog.Directory:
-            chosenFile = fileDialog.getExistingDirectory(caption=caption)
-        elif file_mode == QtGui.QFileDialog.ExistingFile:
-            chosenFile = fileDialog.getOpenFileName(caption=caption)
-        if alt_mode is True:
-            #We are going to return the filename instead
-            return chosenFile
-        else:
-            access_object.setText(_translate("OptionsDialog", chosenFile, None))
         
