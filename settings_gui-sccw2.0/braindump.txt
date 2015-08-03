@@ -17,10 +17,6 @@ Implement New button.
 			Uses the change detection system to see if any changes were made since the last save
 
 
-Change save dialog to switch to Save-as dialog when no settings file is selected
-	Currently saving from fresh start gives an error.
-
-
 What is the cancel button even supposed to do?
 	Change it to quit?
 	Change it to "Reset to defaults" (i.e. blank out entire GUI or just current page"
@@ -44,6 +40,9 @@ Implement system to detect changes. If anything differes from default, the docum
 			Shoudnt been too bad, just as much work goes into saving and loading. Adding a comparison shouldnt bog it down.
 
 Implement Current Version/Update check in about box
+
+DONE! Change save dialog to switch to Save-as dialog when no settings file is selected
+	Currently saving from fresh start gives an error.
 
 DONE! Implement save-as dialog
 
