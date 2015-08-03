@@ -2,13 +2,6 @@ Todo until GUI is done:
 
 TOOLTIPS!
 
-DONE! - Master checkbox to enable/disable subsection:
-	General Tab - "Enable Verbose Output"
-	Dl/Ul Tab  - "Enable FTP Uploading"
-	Dl/Ul Tab  - "uT WebUI Uploader Mode"
-	Dl/Ul Tab  - "Enable External Command"
-	Email Tab  - "Enable Emailer"
-	
 Copy general options to watch items as applicable
 	e.g. If External command is enabled globally, then its also set in the watch
 		Ways to do it:
@@ -16,20 +9,12 @@ Copy general options to watch items as applicable
 			Change the reset data to include the options selected.
 			
 
-	
-
-Make it impossible to "double-load", where watches and avoids from the last file are kept along with the new watches.
-	It should ask the user if they want to save the old file
-	Then it should clear the GUI
-	THen it should finally load the new settings
-	--
-	This one requires other stuff to be done first. We need the save-as dialog and logic that detects when we are trying to save without 
-	any settings file loaded. This will be easier to do once save-as is finished
-
-Implement save-as dialog
 Implement New button.
 	Needs to ask user whether or not to save current file
 	Then clears out all settings and starts new
+	Would be nice to have the change detection system up before we implement this
+		Would like to ask user if they want to save changes when creating new document
+			Uses the change detection system to see if any changes were made since the last save
 
 
 Change save dialog to switch to Save-as dialog when no settings file is selected
@@ -38,11 +23,50 @@ Change save dialog to switch to Save-as dialog when no settings file is selected
 
 What is the cancel button even supposed to do?
 	Change it to quit?
-	
-Done! - Implement utorrent uploader checkbox/QLabel logic
+	Change it to "Reset to defaults" (i.e. blank out entire GUI or just current page"
 
+Undo/Redo system?
+	Would have to be able to track every change as its made, which means hooking every single element that can be edited.
+	Is it really necessary?
+
+Implement system to detect changes. If anything differes from default, the document might need to be saved.
+	This system is only useful as a way to detect if the user has any changes on a new file
+	What we really need is a system to detect changes from default AND from last saved.
+		Maybe for working documents, every time we save we update the reset data defaults with the new data
+			This way we cant compare with the reset data to see if any changes have been made to the open document
+	How it will work:
+		Program starts, reset data starts off set to the default blank state.
+		User loads an ini or saves changes to ini file. 
+			New defaults are created and set corresponding to the data loaded or saved.
+		Whenever the user tries to load, quit, or create a new document, we check the current settings to see if they match the saved defaults.
+			If the saved defaults and the current settings do not match, we inform the user here have been changes made and ask to save.
+		Resource usage? 
+			Shoudnt been too bad, just as much work goes into saving and loading. Adding a comparison shouldnt bog it down.
 
 Implement Current Version/Update check in about box
+
+DONE! Implement save-as dialog
+
+DONE! Implement system to detect when the ini file being loaded is not a valid file.
+	Pretty simple, just check if it has GlobalSettings. If it doesnt we say it's not good.
+
+
+DONE! Make it impossible to "double-load", where watches and avoids from the last file are kept along with the new watches.
+	It should ask the user if they want to save the old file
+	Then it should clear the GUI
+	THen it should finally load the new settings
+	--
+	This one requires other stuff to be done first. We need the save-as dialog and logic that detects when we are trying to save without 
+	any settings file loaded. This will be easier to do once save-as is finished
+
+DONE! - Master checkbox to enable/disable subsection:
+	General Tab - "Enable Verbose Output"
+	Dl/Ul Tab  - "Enable FTP Uploading"
+	Dl/Ul Tab  - "uT WebUI Uploader Mode"
+	Dl/Ul Tab  - "Enable External Command"
+	Email Tab  - "Enable Emailer"
+
+Done! - Implement utorrent uploader checkbox/QLabel logic
 
 
 ---------------------------------------------------------------
