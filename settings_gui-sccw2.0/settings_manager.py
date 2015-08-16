@@ -6,10 +6,10 @@ from collections import OrderedDict as OD
 #This is useful because we also don't wan't the options in our ini file being saved in any old way, we want an order.
 #The order of options is therefore extremely important. All of the global options must come first before all others.
 
-#Format for the database is this:
+#Format for the dictionary is this:
 #uiElements[element_name] = [ini_file_section_name, ini_file_option_name]
 #The access methods are provided by running a type comparison on an eval of the element_name. Eval'ing turns that name into a proper object which can be type()'d.
-#The type database is kept in elementAccessMethods below elementsToOptions.
+#The type dictionary is kept in elementAccessMethods below elementsToOptions.
 
 #This dictionary defines the translation between UI Elements and ini options. Without this, things would get much more complicated.
 #The structure is the same as all the other elements databases. The main keys are the tab names, and each subkey of the tab is the UI element. Each value is the Group and the INI option name in a list.
@@ -120,13 +120,12 @@ for key, val in avoidListElements.iteritems(): avoidReverse[val[1]] = key
 guiDefaults = {}
 guiDefaults["watchlistDefaults"] = OD([('WLSGwatchNameTextbox', QtCore.QString(u'')), ('WLSGwatchFilterTextbox', QtCore.QString(u'')), ('WLSGwatchFilterRegexCheck', 0), ('WLSGavoidFilterListTextbox', QtCore.QString(u'')), ('WLSGavoidFilterListRegexCheck', 0), ('WLSGwatchCatListTextbox', QtCore.QString(u'')), ('WLSGsavepathTextbox', QtCore.QString(u'')), ('WLSGdupecheckingCheckbox', 0), ('WLSGsizeLimitLowerTextbox', QtCore.QString(u'')), ('WLSGsizeLimitLowerSuffixSelector', 0), ('WLSGsizeLimitUpperTextbox', QtCore.QString(u'')), ('WLSGsizeLimitUpperSuffixSelector', 0), ('WLSGemailCheckbox', 0), ('WLSGftpUploadCheckbox', 0), ('WLSGutWebUiCheckox', 0), ('WLSGenableExternalCmdCheckbox', 0), ('WLSGexternalCommandTextbox', QtCore.QString(u'')), ('WLSGexternalCommandArgsTextbox', QtCore.QString(u''))])
 guiDefaults["avoidlistDefaults"] = OD([('avoidNameTextbox', QtCore.QString(u'')), ('avoidFilterTextbox', QtCore.QString(u'')), ('avoidFilterRegexCheck', 0)])
-guiDefaults["allOtherDefaults"] = OD([('ggMasterAutodlCheck', 0), ('ggEnableVerboseCheck', 0), ('ggVerboseTabTextbox', QtCore.QString(u'')), ('ggBeepCheckbox', 0), ('ggEnableLoggingCheck', 0), ('ggLogpathTextbox', QtCore.QString(u'')), ('ggNetworkDelaySpinbox', 0), ('ggPasskeyTextbox', QtCore.QString(u'')), ('globalDupecheckCheck', 0), ('globalSSLDownloadCheck', 0), ('ggSavepathTextbox', QtCore.QString(u'')), ('globalSizeLimitLowerTextbox', 'KB'), ('globalSizeLimitUpperTextbox', 'KB'), ('globalSizeLimitLowerSuffixSelector', 0), ('globalSizeLimitUpperSuffixSelector', 0), ('globalCFBypassUseragentTextbox', QtCore.QString(u'')), ('globalCFBypassCookiefilePathTextbox', QtCore.QString(u'')), ('ftpMasterEnableCheck', 0), ('ftpHostnameTextbox', QtCore.QString(u'')), ('ftpPortTextbox', QtCore.QString(u'')), ('ftpRemoteFolderTextbox', QtCore.QString(u'')), ('ftpUsernameTextbox', QtCore.QString(u'')), ('ftpPasswordTextbox', QtCore.QString(u'')), ('ftpPasvModeCheck', 0), ('ftpTLSModeCheck', 0), ('utwuiMasterEnableTriCheck', 0), ('utwuiUsernameTextbox', QtCore.QString(u'')), ('utwuiPasswordTextbox', QtCore.QString(u'')), ('utwuiHostnameTextbox', QtCore.QString(u'')), ('utwuiPortTextbox', QtCore.QString(u'')), ('emailMasterEnableCheck', 0), ('hostnameIPTextbox', QtCore.QString(u'')), ('portTextbox', QtCore.QString(u'')), ('emailUseTLSCheck', 0), ('usernameTextbox', QtCore.QString(u'')), ('passwordTextbox', QtCore.QString(u'')), ('emailFromTextbox', QtCore.QString(u'')), ('emailToTextbox', QtCore.QString(u'')), ('emailSubjectTextbox', QtCore.QString(u'')), ('emailMessageTextbox', QtCore.QString(u'')), ('extCmdMasterEnableCheck', 0), ('extCmdExeLocation', QtCore.QString(u'')), ('extCmdExeArguments', QtCore.QString(u'')), ('ggEnableDebugCheck', 0)])
+guiDefaults["allOtherDefaults"] = OD([('ggMasterAutodlCheck', 0), ('ggEnableVerboseCheck', 0), ('ggVerboseTabTextbox', QtCore.QString(u'')), ('ggBeepCheckbox', 0), ('ggEnableLoggingCheck', 0), ('ggLogpathTextbox', QtCore.QString(u'')), ('ggNetworkDelaySpinbox', 0), ('ggPasskeyTextbox', QtCore.QString(u'')), ('globalDupecheckCheck', 0), ('globalSSLDownloadCheck', 0), ('ggSavepathTextbox', QtCore.QString(u'')), ('globalSizeLimitLowerTextbox', ''), ('globalSizeLimitUpperTextbox', ''), ('globalSizeLimitLowerSuffixSelector', 0), ('globalSizeLimitUpperSuffixSelector', 0), ('globalCFBypassUseragentTextbox', QtCore.QString(u'')), ('globalCFBypassCookiefilePathTextbox', QtCore.QString(u'')), ('ftpMasterEnableCheck', 0), ('ftpHostnameTextbox', QtCore.QString(u'')), ('ftpPortTextbox', QtCore.QString(u'')), ('ftpRemoteFolderTextbox', QtCore.QString(u'')), ('ftpUsernameTextbox', QtCore.QString(u'')), ('ftpPasswordTextbox', QtCore.QString(u'')), ('ftpPasvModeCheck', 0), ('ftpTLSModeCheck', 0), ('utwuiMasterEnableTriCheck', 0), ('utwuiUsernameTextbox', QtCore.QString(u'')), ('utwuiPasswordTextbox', QtCore.QString(u'')), ('utwuiHostnameTextbox', QtCore.QString(u'')), ('utwuiPortTextbox', QtCore.QString(u'')), ('emailMasterEnableCheck', 0), ('hostnameIPTextbox', QtCore.QString(u'')), ('portTextbox', QtCore.QString(u'')), ('emailUseTLSCheck', 0), ('usernameTextbox', QtCore.QString(u'')), ('passwordTextbox', QtCore.QString(u'')), ('emailFromTextbox', QtCore.QString(u'')), ('emailToTextbox', QtCore.QString(u'')), ('emailSubjectTextbox', QtCore.QString(u'')), ('emailMessageTextbox', QtCore.QString(u'')), ('extCmdMasterEnableCheck', 0), ('extCmdExeLocation', QtCore.QString(u'')), ('extCmdExeArguments', QtCore.QString(u'')), ('ggEnableDebugCheck', 0)])
 
 
 class sccwSettingsManager:
     def __init__(self, settingsfile, MWloc):
-        self.appSettings = QtCore.QSettings(settingsfile, QtCore.QSettings.IniFormat)
-        self.appSettings.setIniCodec("UTF-8")
+        self.appSettings = None
         self.elementsToOptions = elementsToOptions
         self.elementAccessMethods = elementAccessMethods
         self.watchListElements = watchListElements
@@ -137,6 +136,7 @@ class sccwSettingsManager:
         self.guiDefaults = guiDefaults
         self.windowPos = MWloc[0]
         self.windowSize = MWloc[1]
+        self.isLoaded = False
         
     def resetSettings(self):
         self.appSettings.clear()   
@@ -144,6 +144,15 @@ class sccwSettingsManager:
     def syncData(self):
         #Commit all settings to file
         self.appSettings.sync()
+    
+    def openSettingsFile(self, filename):
+        self.appSettings = QtCore.QSettings(filename, QtCore.QSettings.IniFormat)
+        self.appSettings.setIniCodec("UTF-8")
+        self.isLoaded = True
+        
+    def closeSettingsFile(self):
+        self.appSettings = None
+        self.isLoaded = False
     
     def saveSettings(self, data):
         #Clear out the data currently in our QSetting object to make sure no old stale data is saved

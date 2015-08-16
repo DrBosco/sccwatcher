@@ -10,6 +10,7 @@
 from PyQt4 import QtCore, QtGui
 from settings_manager import sccwSettingsManager as sccwSettingsManager
 from settings_ui_actions import guiActions as guiActions
+import icon_resources_rc
 
 
 try:
@@ -248,6 +249,7 @@ class Ui_sccw_SettingsUI(object):
         self.globalSizeLimitLowerSuffixSelector.addItem(_fromUtf8(""))
         self.globalSizeLimitLowerSuffixSelector.addItem(_fromUtf8(""))
         self.globalSizeLimitLowerSuffixSelector.addItem(_fromUtf8(""))
+        self.globalSizeLimitLowerSuffixSelector.addItem(_fromUtf8(""))
         self.globalSizeLimitUpperTextbox = QtGui.QLineEdit(self.generalDownloadSettingsGroup)
         self.globalSizeLimitUpperTextbox.setGeometry(QtCore.QRect(125, 87, 41, 20))
         self.globalSizeLimitUpperTextbox.setObjectName(_fromUtf8("globalSizeLimitUpperTextbox"))
@@ -257,6 +259,7 @@ class Ui_sccw_SettingsUI(object):
         self.globalSizeLimitUpperSuffixSelector = QtGui.QComboBox(self.generalDownloadSettingsGroup)
         self.globalSizeLimitUpperSuffixSelector.setGeometry(QtCore.QRect(170, 86, 51, 22))
         self.globalSizeLimitUpperSuffixSelector.setObjectName(_fromUtf8("globalSizeLimitUpperSuffixSelector"))
+        self.globalSizeLimitUpperSuffixSelector.addItem(_fromUtf8(""))
         self.globalSizeLimitUpperSuffixSelector.addItem(_fromUtf8(""))
         self.globalSizeLimitUpperSuffixSelector.addItem(_fromUtf8(""))
         self.globalSizeLimitUpperSuffixSelector.addItem(_fromUtf8(""))
@@ -297,7 +300,7 @@ class Ui_sccw_SettingsUI(object):
         self.utwuiMasterEnableTriCheck.setTristate(True)
         self.utwuiMasterEnableTriCheck.setObjectName(_fromUtf8("utwuiMasterEnableTriCheck"))
         self.utwuiStateLabel = QtGui.QLabel(self.utWebUiUploadGroup)
-        self.utwuiStateLabel.setGeometry(QtCore.QRect(210, 21, 56, 16))
+        self.utwuiStateLabel.setGeometry(QtCore.QRect(210, 21, 151, 16))
         self.utwuiStateLabel.setObjectName(_fromUtf8("utwuiStateLabel"))
         self.utwuiPortLabel = QtGui.QLabel(self.utWebUiUploadGroup)
         self.utwuiPortLabel.setGeometry(QtCore.QRect(270, 65, 31, 16))
@@ -450,6 +453,8 @@ class Ui_sccw_SettingsUI(object):
         self.watchlistSettingsGroup.setMinimumSize(QtCore.QSize(450, 447))
         self.watchlistSettingsGroup.setMaximumSize(QtCore.QSize(450, 447))
         self.watchlistSettingsGroup.setObjectName(_fromUtf8("watchlistSettingsGroup"))
+        #Disabled on start
+        self.watchlistSettingsGroup.setDisabled(True)
         self.WLSGwatchNameTextbox = QtGui.QLineEdit(self.watchlistSettingsGroup)
         self.WLSGwatchNameTextbox.setGeometry(QtCore.QRect(90, 22, 291, 20))
         self.WLSGwatchNameTextbox.setObjectName(_fromUtf8("WLSGwatchNameTextbox"))
@@ -523,9 +528,11 @@ class Ui_sccw_SettingsUI(object):
         self.WLSGsizeLimitLowerSuffixSelector.addItem(_fromUtf8(""))
         self.WLSGsizeLimitLowerSuffixSelector.addItem(_fromUtf8(""))
         self.WLSGsizeLimitLowerSuffixSelector.addItem(_fromUtf8(""))
+        self.WLSGsizeLimitLowerSuffixSelector.addItem(_fromUtf8(""))
         self.WLSGsizeLimitUpperSuffixSelector = QtGui.QComboBox(self.watchlistSettingsGroup)
         self.WLSGsizeLimitUpperSuffixSelector.setGeometry(QtCore.QRect(150, 330, 51, 22))
         self.WLSGsizeLimitUpperSuffixSelector.setObjectName(_fromUtf8("WLSGsizeLimitUpperSuffixSelector"))
+        self.WLSGsizeLimitUpperSuffixSelector.addItem(_fromUtf8(""))
         self.WLSGsizeLimitUpperSuffixSelector.addItem(_fromUtf8(""))
         self.WLSGsizeLimitUpperSuffixSelector.addItem(_fromUtf8(""))
         self.WLSGsizeLimitUpperSuffixSelector.addItem(_fromUtf8(""))
@@ -603,6 +610,8 @@ class Ui_sccw_SettingsUI(object):
         self.avoidlistSettingsGroup.setMinimumSize(QtCore.QSize(450, 447))
         self.avoidlistSettingsGroup.setMaximumSize(QtCore.QSize(450, 447))
         self.avoidlistSettingsGroup.setObjectName(_fromUtf8("avoidlistSettingsGroup"))
+        #Disabled on start
+        self.avoidlistSettingsGroup.setDisabled(True)
         self.avoidNameTextbox = QtGui.QLineEdit(self.avoidlistSettingsGroup)
         self.avoidNameTextbox.setGeometry(QtCore.QRect(90, 22, 291, 20))
         self.avoidNameTextbox.setObjectName(_fromUtf8("avoidNameTextbox"))
@@ -814,6 +823,32 @@ class Ui_sccw_SettingsUI(object):
         self.menuFile.addAction(self.action_Quit)
         self.menubar.addAction(self.menuFile.menuAction())
         
+        #Disable sections by default
+        self.ggVerboseTabTextbox.setEnabled(False)
+        self.ftpHostnameTextbox.setEnabled(False)
+        self.ftpPortTextbox.setEnabled(False)
+        self.ftpUsernameTextbox.setEnabled(False)
+        self.ftpPasswordTextbox.setEnabled(False)
+        self.ftpRemoteFolderTextbox.setEnabled(False)
+        self.ftpPasvModeCheck.setEnabled(False)
+        self.ftpTLSModeCheck.setEnabled(False)
+        self.utwuiHostnameTextbox.setEnabled(False)
+        self.utwuiPortTextbox.setEnabled(False)
+        self.utwuiUsernameTextbox.setEnabled(False)
+        self.utwuiPasswordTextbox.setEnabled(False)
+        self.extCmdExeLocation.setEnabled(False)
+        self.extCmdBrowseButton.setEnabled(False)
+        self.extCmdExeArguments.setEnabled(False)
+        self.hostnameIPTextbox.setEnabled(False)
+        self.portTextbox.setEnabled(False)
+        self.usernameTextbox.setEnabled(False)
+        self.passwordTextbox.setEnabled(False)
+        self.emailUseTLSCheck.setEnabled(False)
+        self.emailFromTextbox.setEnabled(False)
+        self.emailToTextbox.setEnabled(False)
+        self.emailSubjectTextbox.setEnabled(False)
+        self.emailMessageTextbox.setEnabled(False)
+        
         #buddy crap
         self.globalSizeLimitUpperLabel.setBuddy(self.WLSGsizeLimitUpperTextbox)
         self.globalSizeLimitLowerLabel.setBuddy(self.WLSGsizeLimitLowerTextbox)
@@ -835,8 +870,9 @@ class Ui_sccw_SettingsUI(object):
         QtCore.QObject.connect(self.action_Quit, QtCore.SIGNAL(_fromUtf8("triggered()")), sccw_SettingsUI.close)
         QtCore.QObject.connect(self.actionOpen, QtCore.SIGNAL(_fromUtf8("triggered()")), self.guiActions.loadUiState)
         QtCore.QObject.connect(self.actionSave, QtCore.SIGNAL(_fromUtf8("triggered()")), self.guiActions.saveUiState)
-        QtCore.QObject.connect(self.actionSave_As, QtCore.SIGNAL(_fromUtf8("triggered()")), sccw_SettingsUI.close)
+        QtCore.QObject.connect(self.actionSave_As, QtCore.SIGNAL(_fromUtf8("triggered()")), self.guiActions.saveAsDialog)
         QtCore.QObject.connect(self.action_New, QtCore.SIGNAL(_fromUtf8("triggered()")), sccw_SettingsUI.close)
+        
         QtCore.QObject.connect(self.WLGaddEntryButton, QtCore.SIGNAL(_fromUtf8("clicked()")), self.guiActions.addWatchListItem)
         QtCore.QObject.connect(self.WLGremoveEntryButton, QtCore.SIGNAL(_fromUtf8("clicked()")), self.guiActions.removeWatchListItem)
         QtCore.QObject.connect(self.addAvoidEntryButton, QtCore.SIGNAL(_fromUtf8("clicked()")), self.guiActions.addAvoidListItem)
@@ -880,6 +916,16 @@ class Ui_sccw_SettingsUI(object):
         QtCore.QObject.connect(self.avoidNameTextbox, QtCore.SIGNAL(_fromUtf8("editingFinished()")), self.guiActions.saveAllAvoidlistItems)
         QtCore.QObject.connect(self.avoidFilterTextbox, QtCore.SIGNAL(_fromUtf8("editingFinished()")), self.guiActions.saveAllAvoidlistItems)
         QtCore.QObject.connect(self.avoidFilterRegexCheck, QtCore.SIGNAL(_fromUtf8("clicked()")), self.guiActions.saveAllAvoidlistItems)
+        
+        #Enable/Disable Subsection checkboxes
+        QtCore.QObject.connect(self.ggEnableVerboseCheck, QtCore.SIGNAL(_fromUtf8("toggled(bool)")), self.ggVerboseTabTextbox.setEnabled)
+        QtCore.QObject.connect(self.ftpMasterEnableCheck, QtCore.SIGNAL(_fromUtf8("toggled(bool)")), self.guiActions.EDsection_ftpupload)
+        QtCore.QObject.connect(self.utwuiMasterEnableTriCheck, QtCore.SIGNAL(_fromUtf8("stateChanged(int)")), self.guiActions.EDsection_utwebui)
+        QtCore.QObject.connect(self.extCmdMasterEnableCheck, QtCore.SIGNAL(_fromUtf8("toggled(bool)")), self.guiActions.EDsection_externalcmd)
+        QtCore.QObject.connect(self.emailMasterEnableCheck, QtCore.SIGNAL(_fromUtf8("toggled(bool)")), self.guiActions.EDsection_emailer)
+        
+        
+        
         
         #Finally connect our slots
         QtCore.QMetaObject.connectSlotsByName(sccw_SettingsUI)
@@ -1014,13 +1060,15 @@ class Ui_sccw_SettingsUI(object):
         self.generalDownloadSettingsGroup.setTitle(_translate("sccw_SettingsUI", "Global Download Settings", None))
         self.globalSSLDownloadCheck.setText(_translate("sccw_SettingsUI", "SSL Downloading", None))
         self.globalDupecheckCheck.setText(_translate("sccw_SettingsUI", "Dupechecking", None))
-        self.globalSizeLimitLowerSuffixSelector.setItemText(0, _translate("sccw_SettingsUI", "KB", None))
-        self.globalSizeLimitLowerSuffixSelector.setItemText(1, _translate("sccw_SettingsUI", "MB", None))
-        self.globalSizeLimitLowerSuffixSelector.setItemText(2, _translate("sccw_SettingsUI", "GB", None))
+        self.globalSizeLimitLowerSuffixSelector.setItemText(0, _translate("sccw_SettingsUI", "", None))
+        self.globalSizeLimitLowerSuffixSelector.setItemText(1, _translate("sccw_SettingsUI", "KB", None))
+        self.globalSizeLimitLowerSuffixSelector.setItemText(2, _translate("sccw_SettingsUI", "MB", None))
+        self.globalSizeLimitLowerSuffixSelector.setItemText(3, _translate("sccw_SettingsUI", "GB", None))
         self.globalSizeLimitUpperLabel.setText(_translate("sccw_SettingsUI", "Size limit (upper):", None))
-        self.globalSizeLimitUpperSuffixSelector.setItemText(0, _translate("sccw_SettingsUI", "KB", None))
-        self.globalSizeLimitUpperSuffixSelector.setItemText(1, _translate("sccw_SettingsUI", "MB", None))
-        self.globalSizeLimitUpperSuffixSelector.setItemText(2, _translate("sccw_SettingsUI", "GB", None))
+        self.globalSizeLimitUpperSuffixSelector.setItemText(0, _translate("sccw_SettingsUI", "", None))
+        self.globalSizeLimitUpperSuffixSelector.setItemText(1, _translate("sccw_SettingsUI", "KB", None))
+        self.globalSizeLimitUpperSuffixSelector.setItemText(2, _translate("sccw_SettingsUI", "MB", None))
+        self.globalSizeLimitUpperSuffixSelector.setItemText(3, _translate("sccw_SettingsUI", "GB", None))
         self.globalSizeLimitLowerLabel.setText(_translate("sccw_SettingsUI", "Size limit (lower):", None))
         self.globalCFBypassLabel.setText(_translate("sccw_SettingsUI", "Cloudflare Bypass Options:", None))
         self.globalCFBypassCookiefileLabel.setText(_translate("sccw_SettingsUI", "Cookie File:", None))
@@ -1063,12 +1111,14 @@ class Ui_sccw_SettingsUI(object):
         self.WLSGexternalCommandArgsLabel.setText(_translate("sccw_SettingsUI", "External Command Arguments: ", None))
         self.WLSGsizeLimitLowerLabel.setText(_translate("sccw_SettingsUI", "Size limit (lower):", None))
         self.WLSGsizeLimitUpperLabel.setText(_translate("sccw_SettingsUI", "Size limit (upper):", None))
-        self.WLSGsizeLimitLowerSuffixSelector.setItemText(0, _translate("sccw_SettingsUI", "KB", None))
-        self.WLSGsizeLimitLowerSuffixSelector.setItemText(1, _translate("sccw_SettingsUI", "MB", None))
-        self.WLSGsizeLimitLowerSuffixSelector.setItemText(2, _translate("sccw_SettingsUI", "GB", None))
-        self.WLSGsizeLimitUpperSuffixSelector.setItemText(0, _translate("sccw_SettingsUI", "KB", None))
-        self.WLSGsizeLimitUpperSuffixSelector.setItemText(1, _translate("sccw_SettingsUI", "MB", None))
-        self.WLSGsizeLimitUpperSuffixSelector.setItemText(2, _translate("sccw_SettingsUI", "GB", None))
+        self.WLSGsizeLimitLowerSuffixSelector.setItemText(0, _translate("sccw_SettingsUI", "", None))
+        self.WLSGsizeLimitLowerSuffixSelector.setItemText(1, _translate("sccw_SettingsUI", "KB", None))
+        self.WLSGsizeLimitLowerSuffixSelector.setItemText(2, _translate("sccw_SettingsUI", "MB", None))
+        self.WLSGsizeLimitLowerSuffixSelector.setItemText(3, _translate("sccw_SettingsUI", "GB", None))
+        self.WLSGsizeLimitUpperSuffixSelector.setItemText(0, _translate("sccw_SettingsUI", "", None))
+        self.WLSGsizeLimitUpperSuffixSelector.setItemText(1, _translate("sccw_SettingsUI", "KB", None))
+        self.WLSGsizeLimitUpperSuffixSelector.setItemText(2, _translate("sccw_SettingsUI", "MB", None))
+        self.WLSGsizeLimitUpperSuffixSelector.setItemText(3, _translate("sccw_SettingsUI", "GB", None))
         self.WLSGutWebUiCheckox.setText(_translate("sccw_SettingsUI", "Upload to uTorrent WebUI", None))
         self.WLSGftpUploadCheckbox.setText(_translate("sccw_SettingsUI", "Upload to FTP server", None))
         self.WLSGenableExternalCmdCheckbox.setText(_translate("sccw_SettingsUI", "Enable External Command", None))
@@ -1141,7 +1191,3 @@ class Ui_sccw_SettingsUI(object):
 
 
 
-
-
-
-import icon_resources_rc

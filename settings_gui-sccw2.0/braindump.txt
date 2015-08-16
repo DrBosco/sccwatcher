@@ -1,0 +1,102 @@
+Todo until GUI is done:
+
+TOOLTIPS!
+
+Copy general options to watch items as applicable
+	e.g. If External command is enabled globally, then its also set in the watch
+		Ways to do it:
+			Loop through all applicable global options and set the state of the respective options under the watch
+			Change the reset data to include the options selected.			
+
+Implement New button.
+	Needs to ask user whether or not to save current file
+	Then clears out all settings and starts new
+	Would be nice to have the change detection system up before we implement this
+		Would like to ask user if they want to save changes when creating new document
+			Uses the change detection system to see if any changes were made since the last save
+
+
+Change save dialog to switch to Save-as dialog when no settings file is selected
+	Currently saving from fresh start gives an error.
+
+
+What is the cancel button even supposed to do?
+	Change it to quit?
+	Change it to "Reset to defaults" (i.e. blank out entire GUI or just current page" (isnt that what new is supposed to do?)
+
+Undo/Redo system?
+	Would have to be able to track every change as its made, which means hooking every single element that can be edited.
+	Is it really necessary?
+
+Implement system to detect changes. If anything differes from default, the document might need to be saved.
+	This system is only useful as a way to detect if the user has any changes on a new file
+	What we really need is a system to detect changes from default AND from last saved.
+		Maybe for working documents, every time we save we update the reset data defaults with the new data
+			This way we cant compare with the reset data to see if any changes have been made to the open document
+	How it will work:
+		Program starts, reset data starts off set to the default blank state.
+		User loads an ini or saves changes to ini file. 
+			New defaults are created and set corresponding to the data loaded or saved.
+		Whenever the user tries to load, quit, or create a new document, we check the current settings to see if they match the saved defaults.
+			If the saved defaults and the current settings do not match, we inform the user here have been changes made and ask to save.
+		Resource usage? 
+			Shoudnt been too bad, just as much work goes into saving and loading. Adding a comparison shouldnt bog it down.
+
+Implement Current Version/Update check in about box
+
+DONE! Prevent duplicate QWatchListItem titles
+
+DONE! Implement save-as dialog
+
+DONE! Implement system to detect when the ini file being loaded is not a valid file.
+	Pretty simple, just check if it has GlobalSettings. If it doesnt we say it's not good.
+
+
+DONE! Make it impossible to "double-load", where watches and avoids from the last file are kept along with the new watches.
+	It should ask the user if they want to save the old file
+	Then it should clear the GUI
+	THen it should finally load the new settings
+	--
+	This one requires other stuff to be done first. We need the save-as dialog and logic that detects when we are trying to save without 
+	any settings file loaded. This will be easier to do once save-as is finished
+
+DONE! - Master checkbox to enable/disable subsection:
+	General Tab - "Enable Verbose Output"
+	Dl/Ul Tab  - "Enable FTP Uploading"
+	Dl/Ul Tab  - "uT WebUI Uploader Mode"
+	Dl/Ul Tab  - "Enable External Command"
+	Email Tab  - "Enable Emailer"
+
+Done! - Implement utorrent uploader checkbox/QLabel logic
+
+
+---------------------------------------------------------------
+Todo to finish app entirely:
+A LOT!
+Have to integrate it with sccwatcher script
+	Need to add new checks, new settings manager, everything.
+		options dict will now be the dict thats created by loadSettings()
+			Must update all references to options dict with subdicts
+			On loading we must create a list of watch names so its easier to reference them later
+				Load up ini file, discard General Options
+					All options left that start with a minus sign are avoids
+					All options left are watches.
+
+
+Implementing status group on first tab:
+	We should be able to make a simple function now without needing to fully integrate sccw1.0 and sccw2.0.
+		We'll make a function that takes in a simple dict with the status in the form of strings (preferrably in their final form)
+		This will allow us to later go back to sccw1.0 and add in a function that sends this data
+			How should we send the data?
+				Function hook? 
+					- Probably the best solution but requires tight integration between sccw1 and sccw2
+					- In theory the best solution
+				Sockets?
+					- Probably the most robust solution, allowing the client to be on a completely different computer
+					- Added robustness also increases complexity since ip and port will be needed for anything besides local connections
+				FiFo?
+					- Almost as robust as function hooks and sockets but much simplier to implement.
+					- Feels like an unfavorable, "dirty" solution. Sockets are a mess but this is just not an elegant solution.
+				Initial Arguments?
+					- Offers same flexibility of the Function hook but allows easier access between sccw1 and sccw2.
+					
