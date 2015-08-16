@@ -6,7 +6,12 @@ Copy general options to watch items as applicable
 	e.g. If External command is enabled globally, then its also set in the watch
 		Ways to do it:
 			Loop through all applicable global options and set the state of the respective options under the watch
+<<<<<<< HEAD
 			Change the reset data to include the options selected.			
+=======
+			Change the reset data to include the options selected.
+			
+>>>>>>> origin/master
 
 Implement New button.
 	Needs to ask user whether or not to save current file
@@ -16,6 +21,7 @@ Implement New button.
 			Uses the change detection system to see if any changes were made since the last save
 
 
+<<<<<<< HEAD
 Change save dialog to switch to Save-as dialog when no settings file is selected
 	Currently saving from fresh start gives an error.
 
@@ -23,6 +29,11 @@ Change save dialog to switch to Save-as dialog when no settings file is selected
 What is the cancel button even supposed to do?
 	Change it to quit?
 	Change it to "Reset to defaults" (i.e. blank out entire GUI or just current page" (isnt that what new is supposed to do?)
+=======
+What is the cancel button even supposed to do?
+	Change it to quit?
+	Change it to "Reset to defaults" (i.e. blank out entire GUI or just current page"
+>>>>>>> origin/master
 
 Undo/Redo system?
 	Would have to be able to track every change as its made, which means hooking every single element that can be edited.
@@ -44,7 +55,12 @@ Implement system to detect changes. If anything differes from default, the docum
 
 Implement Current Version/Update check in about box
 
+<<<<<<< HEAD
 DONE! Prevent duplicate QWatchListItem titles
+=======
+DONE! Change save dialog to switch to Save-as dialog when no settings file is selected
+	Currently saving from fresh start gives an error.
+>>>>>>> origin/master
 
 DONE! Implement save-as dialog
 

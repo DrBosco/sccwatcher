@@ -64,12 +64,17 @@ class guiActions(object):
         #Finally we reenable sorting, if it was enabled before
         access_object.setSortingEnabled(__sortingEnabled)
     
+<<<<<<< HEAD
     def checkForDuplicates(self, access_object, item_text, alt_match=None): #I hate doing this, adding params as needed
+=======
+    def checkForDuplicates(self, access_object, item_text):
+>>>>>>> origin/master
         #This function will look for a duplicate entries in the QWidgetList supplied as access_object
         #If any duplicates are detected the item_text has a number appended to it (or has its appended number incremented) and is returned
         
         #First we loop through each entry and see if its item_text matches anything in the watchlist.
         for cur_index in xrange(0, access_object.count()):
+<<<<<<< HEAD
             cur_item = access_object.item(cur_index)
             cur_item_text = cur_item.text()
             
@@ -77,6 +82,9 @@ class guiActions(object):
                     #We make sure the current item isnt the one supplied by alt_match
                     if cur_item == alt_match: continue
             
+=======
+            cur_item_text = access_object.item(cur_index).text()
+>>>>>>> origin/master
             #Check if the titles match
             if cur_item_text == item_text:
                 #Ok we got a duplicate. Lets see if this dupe has a number appended or not
@@ -106,6 +114,24 @@ class guiActions(object):
         #Don't operate during a load operation
         if self.__is_loading is True:
             return
+<<<<<<< HEAD
+=======
+        current_watchlist_item = self.context.WLGwatchlistItemsList.currentItem()
+        #ERROR #1: Cant fix here, need a way to disable the watchlistSettingsGroup QGroupBox when no watchlist
+        # item is selected and then also reenable it when an item is selected. The enabling one is easy, just tie
+        # it into the signal for itemActivated() or whatever. We dont have a similar signal for disable but maybe
+        # current_item/row_changed functions can help. If either returns something unique for when a user deselects,
+        # it will work. And if deselection is disabled, we can still get to nothing by deleteing. 
+        
+        
+        #Don't save if this is an 'Untitled Entry'
+        #This prevents saving untitled entries before the user changes their name.
+        #Im not sure this is needed. Since the item's text is an attribute of the object itself, an attribute that can
+        # be freely changed without needing a whole new item. So saving the data under Untitled and then naming it
+        # shouldn't leave remnents behind and mess up other new untitled entries. 
+        if "Untitled Entry" not in str(current_watchlist_item.text()):
+            self.saveListData(self.context.watchListElements, current_watchlist_item)
+>>>>>>> origin/master
         
         #Get the current avoidlist item
         current_list_item = access_object.currentItem()
@@ -223,10 +249,16 @@ class guiActions(object):
     def loadUiState(self):
         #Takes in the data format of loadSettings() and updates the UI with the data received
         #We will go through data{} and use the access method detailed in the uiElements dictionary.
+<<<<<<< HEAD
         #The two's structure are identical, making this task extremely simple.
         
         #If we already have a file loaded, prompt the user if they want to save or not
         #This code is going to be changed to detect changes from the last saved internal state.
+=======
+        #The two's structure are identical and making this task extremely simple.
+        
+        #If we already have a file loaded, prompt the user if they want to save or not
+>>>>>>> origin/master
         if self.context.SettingsManager.isLoaded == True:
             #Ask user if they want to save old data
             msgBox = QtGui.QMessageBox()
@@ -606,7 +638,11 @@ class guiActions(object):
         return filename
     
     
+<<<<<<< HEAD
     def browse_button_master(self, access_object, main_mode, file_mode, dialog_caption, alt_mode=False, save_mode=False):
+=======
+    def browse_button_master(self, access_object, main_mode, file_mode, caption, alt_mode=False, save_mode = False):
+>>>>>>> origin/master
         fileDialog = QtGui.QFileDialog()
         fileDialog.AcceptMode = main_mode
         fileDialog.setFileMode(file_mode)
@@ -616,9 +652,15 @@ class guiActions(object):
             fd_access = fileDialog.getOpenFileName
         
         if file_mode == QtGui.QFileDialog.Directory:
+<<<<<<< HEAD
             chosenFile = fileDialog.getExistingDirectory(caption=dialog_caption)
         elif file_mode == QtGui.QFileDialog.ExistingFile or file_mode == QtGui.QFileDialog.AnyFile:
             chosenFile = fd_access(caption=dialog_caption)
+=======
+            chosenFile = fileDialog.getExistingDirectory(caption=caption)
+        elif file_mode == QtGui.QFileDialog.ExistingFile or file_mode == QtGui.QFileDialog.AnyFile:
+            chosenFile = fd_access(caption=caption)
+>>>>>>> origin/master
         if alt_mode is True:
             #We are going to return the filename instead
             return chosenFile
@@ -627,6 +669,10 @@ class guiActions(object):
     
     
     #These EDsection_ functions enable/disable the option sections that correspond to certain checkboxes.
+<<<<<<< HEAD
+=======
+    #self.context.
+>>>>>>> origin/master
     #checkboxes will have thier toggled(bool) slots tied into these functions.
     #It was only possible to directly connect one checkbox, the others needed these helper functions.
     def EDsection_ftpupload(self, state):
