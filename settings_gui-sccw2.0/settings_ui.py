@@ -31,13 +31,14 @@ class Ui_sccw_SettingsUI(object):
     def setupUi(self, sccw_SettingsUI):
         #Instantiate our settings object and set it up with the settings file
         #This is set up with a path for testings, this will change for release.
-        self.SettingsManager = sccwSettingsManager("C:\\sccw2test4.ini", [sccw_SettingsUI.pos, sccw_SettingsUI.size])
+        self.SettingsManager = sccwSettingsManager([sccw_SettingsUI.pos, sccw_SettingsUI.size])
         self.elementsToOptions = self.SettingsManager.elementsToOptions
         self.elementAccessMethods = self.SettingsManager.elementAccessMethods
         self.watchListElements = self.SettingsManager.watchListElements
         self.avoidListElements = self.SettingsManager.avoidListElements
         #Set up our actions class with the proper context info
         self.guiActions = guiActions(self)
+        self.MainWindow = sccw_SettingsUI
         
         #Setting up the main window
         sccw_SettingsUI.setObjectName(_fromUtf8("sccw_SettingsUI"))
@@ -499,7 +500,6 @@ class Ui_sccw_SettingsUI(object):
         self.WLSGexternalCommandLabel.setObjectName(_fromUtf8("WLSGexternalCommandLabel"))
         self.WLSGexternalCommandTextbox = QtGui.QLineEdit(self.watchlistSettingsGroup)
         self.WLSGexternalCommandTextbox.setGeometry(QtCore.QRect(115, 197, 256, 20))
-        self.WLSGexternalCommandTextbox.setReadOnly(True)
         self.WLSGexternalCommandTextbox.setObjectName(_fromUtf8("WLSGexternalCommandTextbox"))
         self.WLSGexternalCommandBrowseButton = QtGui.QPushButton(self.watchlistSettingsGroup)
         self.WLSGexternalCommandBrowseButton.setGeometry(QtCore.QRect(380, 195, 61, 23))
@@ -869,9 +869,9 @@ class Ui_sccw_SettingsUI(object):
         ## Slot connectors ##
         QtCore.QObject.connect(self.action_Quit, QtCore.SIGNAL(_fromUtf8("triggered()")), sccw_SettingsUI.close)
         QtCore.QObject.connect(self.actionOpen, QtCore.SIGNAL(_fromUtf8("triggered()")), self.guiActions.loadUiState)
-        QtCore.QObject.connect(self.actionSave, QtCore.SIGNAL(_fromUtf8("triggered()")), self.guiActions.saveUiState)
+        QtCore.QObject.connect(self.actionSave, QtCore.SIGNAL(_fromUtf8("triggered()")), self.guiActions.saveUiToFile)
         QtCore.QObject.connect(self.actionSave_As, QtCore.SIGNAL(_fromUtf8("triggered()")), self.guiActions.saveAsDialog)
-        QtCore.QObject.connect(self.action_New, QtCore.SIGNAL(_fromUtf8("triggered()")), sccw_SettingsUI.close)
+        QtCore.QObject.connect(self.action_New, QtCore.SIGNAL(_fromUtf8("triggered()")), self.guiActions.newSettingsFile)
         
         QtCore.QObject.connect(self.WLGaddEntryButton, QtCore.SIGNAL(_fromUtf8("clicked()")), self.guiActions.addWatchListItem)
         QtCore.QObject.connect(self.WLGremoveEntryButton, QtCore.SIGNAL(_fromUtf8("clicked()")), self.guiActions.removeWatchListItem)
@@ -1017,7 +1017,7 @@ class Ui_sccw_SettingsUI(object):
     
     
     def retranslateUi(self, sccw_SettingsUI):
-        sccw_SettingsUI.setWindowTitle(_translate("sccw_SettingsUI", "MainWindow", None))
+        sccw_SettingsUI.setWindowTitle(_translate("sccw_SettingsUI", "SCCwatcher - New Settings File", None))
         self.generalGroup.setTitle(_translate("sccw_SettingsUI", "General Settings", None))
         self.ggMasterAutodlCheck.setText(_translate("sccw_SettingsUI", "Enable Autodl at Startup", None))
         self.ggNetworkDelaySpinbox.setSuffix(_translate("sccw_SettingsUI", " s", None))
@@ -1183,11 +1183,3 @@ class Ui_sccw_SettingsUI(object):
         self.actionSave.setText(_translate("sccw_SettingsUI", "&Save", None))
         self.actionSave_As.setText(_translate("sccw_SettingsUI", "Save &As...", None))
         self.action_Quit.setText(_translate("sccw_SettingsUI", "&Quit", None))
-
-
-            
-            
-
-
-
-

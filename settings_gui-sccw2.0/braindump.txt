@@ -2,24 +2,15 @@ Todo until GUI is done:
 
 TOOLTIPS!
 
+Make sure selecting a file with a file dialog updates the stored data for the list items
+	currently it doesnt save the data until the user clicks out of the box, it should update immediately.
+
 Copy general options to watch items as applicable
 	e.g. If External command is enabled globally, then its also set in the watch
 		Ways to do it:
 			Loop through all applicable global options and set the state of the respective options under the watch
 			Change the reset data to include the options selected.			
-
-Implement New button.
-	Needs to ask user whether or not to save current file
-	Then clears out all settings and starts new
-	Would be nice to have the change detection system up before we implement this
-		Would like to ask user if they want to save changes when creating new document
-			Uses the change detection system to see if any changes were made since the last save
-
-
-Change save dialog to switch to Save-as dialog when no settings file is selected
-	Currently saving from fresh start gives an error.
-
-
+	
 What is the cancel button even supposed to do?
 	Change it to quit?
 	Change it to "Reset to defaults" (i.e. blank out entire GUI or just current page" (isnt that what new is supposed to do?)
@@ -28,7 +19,20 @@ Undo/Redo system?
 	Would have to be able to track every change as its made, which means hooking every single element that can be edited.
 	Is it really necessary?
 
-Implement system to detect changes. If anything differes from default, the document might need to be saved.
+Implement Current Version/Update check in about box
+
+DONE! Implement New button.
+	Needs to ask user whether or not to save current file
+	Then clears out all settings and starts new
+	Would be nice to have the change detection system up before we implement this
+		Would like to ask user if they want to save changes when creating new document
+			Uses the change detection system to see if any changes were made since the last save
+
+
+DONE! Change save dialog to switch to Save-as dialog when no settings file is selected
+	Currently saving from fresh start gives an error.
+
+DONE! Implement system to detect changes. If anything differes from default, the document might need to be saved.
 	This system is only useful as a way to detect if the user has any changes on a new file
 	What we really need is a system to detect changes from default AND from last saved.
 		Maybe for working documents, every time we save we update the reset data defaults with the new data
@@ -41,8 +45,6 @@ Implement system to detect changes. If anything differes from default, the docum
 			If the saved defaults and the current settings do not match, we inform the user here have been changes made and ask to save.
 		Resource usage? 
 			Shoudnt been too bad, just as much work goes into saving and loading. Adding a comparison shouldnt bog it down.
-
-Implement Current Version/Update check in about box
 
 DONE! Prevent duplicate QWatchListItem titles
 

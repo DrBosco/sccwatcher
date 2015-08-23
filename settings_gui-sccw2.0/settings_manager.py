@@ -1,5 +1,6 @@
 from PyQt4 import QtCore
 from collections import OrderedDict as OD
+from copy import deepcopy as DC
 
 #Get ready for tons of lame code
 #The use of OD(), OrderedDict, means that the dictionary we create will be in the exact order as its created.
@@ -122,9 +123,14 @@ guiDefaults["watchlistDefaults"] = OD([('WLSGwatchNameTextbox', QtCore.QString(u
 guiDefaults["avoidlistDefaults"] = OD([('avoidNameTextbox', QtCore.QString(u'')), ('avoidFilterTextbox', QtCore.QString(u'')), ('avoidFilterRegexCheck', 0)])
 guiDefaults["allOtherDefaults"] = OD([('ggMasterAutodlCheck', 0), ('ggEnableVerboseCheck', 0), ('ggVerboseTabTextbox', QtCore.QString(u'')), ('ggBeepCheckbox', 0), ('ggEnableLoggingCheck', 0), ('ggLogpathTextbox', QtCore.QString(u'')), ('ggNetworkDelaySpinbox', 0), ('ggPasskeyTextbox', QtCore.QString(u'')), ('globalDupecheckCheck', 0), ('globalSSLDownloadCheck', 0), ('ggSavepathTextbox', QtCore.QString(u'')), ('globalSizeLimitLowerTextbox', ''), ('globalSizeLimitUpperTextbox', ''), ('globalSizeLimitLowerSuffixSelector', 0), ('globalSizeLimitUpperSuffixSelector', 0), ('globalCFBypassUseragentTextbox', QtCore.QString(u'')), ('globalCFBypassCookiefilePathTextbox', QtCore.QString(u'')), ('ftpMasterEnableCheck', 0), ('ftpHostnameTextbox', QtCore.QString(u'')), ('ftpPortTextbox', QtCore.QString(u'')), ('ftpRemoteFolderTextbox', QtCore.QString(u'')), ('ftpUsernameTextbox', QtCore.QString(u'')), ('ftpPasswordTextbox', QtCore.QString(u'')), ('ftpPasvModeCheck', 0), ('ftpTLSModeCheck', 0), ('utwuiMasterEnableTriCheck', 0), ('utwuiUsernameTextbox', QtCore.QString(u'')), ('utwuiPasswordTextbox', QtCore.QString(u'')), ('utwuiHostnameTextbox', QtCore.QString(u'')), ('utwuiPortTextbox', QtCore.QString(u'')), ('emailMasterEnableCheck', 0), ('hostnameIPTextbox', QtCore.QString(u'')), ('portTextbox', QtCore.QString(u'')), ('emailUseTLSCheck', 0), ('usernameTextbox', QtCore.QString(u'')), ('passwordTextbox', QtCore.QString(u'')), ('emailFromTextbox', QtCore.QString(u'')), ('emailToTextbox', QtCore.QString(u'')), ('emailSubjectTextbox', QtCore.QString(u'')), ('emailMessageTextbox', QtCore.QString(u'')), ('extCmdMasterEnableCheck', 0), ('extCmdExeLocation', QtCore.QString(u'')), ('extCmdExeArguments', QtCore.QString(u'')), ('ggEnableDebugCheck', 0)])
 
+#These are for tracking GUI changes
+guiState = {}
+guiState["globalOptionsState"] = DC(guiDefaults["allOtherDefaults"])
+guiState["watchlistState"] = OD()
+guiState["avoidlistState"] = OD()
 
 class sccwSettingsManager:
-    def __init__(self, settingsfile, MWloc):
+    def __init__(self, MWloc):
         self.appSettings = None
         self.elementsToOptions = elementsToOptions
         self.elementAccessMethods = elementAccessMethods
@@ -134,9 +140,11 @@ class sccwSettingsManager:
         self.REVwatchListElements = watchReverse
         self.REVavoidListElements = avoidReverse
         self.guiDefaults = guiDefaults
+        self.guiState = guiState
         self.windowPos = MWloc[0]
         self.windowSize = MWloc[1]
         self.isLoaded = False
+        self.currentFile = ""
         
     def resetSettings(self):
         self.appSettings.clear()   
@@ -148,10 +156,12 @@ class sccwSettingsManager:
     def openSettingsFile(self, filename):
         self.appSettings = QtCore.QSettings(filename, QtCore.QSettings.IniFormat)
         self.appSettings.setIniCodec("UTF-8")
+        self.currentFile = filename
         self.isLoaded = True
         
     def closeSettingsFile(self):
         self.appSettings = None
+        self.currentFile = ""
         self.isLoaded = False
     
     def saveSettings(self, data):
