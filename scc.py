@@ -22,7 +22,7 @@
 #                                                                            #
 ##############################################################################
 __module_name__ = "SCCwatcher"
-__module_version__ = "1.85"
+__module_version__ = "1.86"
 __module_description__ = "SCCwatcher"
 
 import xchat, os, re, string, urllib, ftplib, time, threading, base64, urllib2, smtplib, subprocess, platform, socket, cookielib
@@ -54,7 +54,7 @@ color = {"white":"\00300", "black":"\00301", "blue":"\00302", "green":"\00303", 
 
 class sccwDownloader(urllib.FancyURLopener):
         #This is where we adjust the useragent.
-        version = "Mozilla/5.0 (compatible; Python urllib; SCCwatcher; v%s" % (__module_version__)
+        version = "Mozilla/5.0 (compatible; Python urllib; SCCwatcher; v%s)" % (__module_version__)
 
 def reload_vars():
 	global option, has_tab_data, downloaderHeaders
@@ -1300,7 +1300,9 @@ class download(threading.Thread):
 				#END DBG	
 					
 				#Download normally
-				thread_data.dl = urllib.urlretrieve(self.dlurl, self.flname)
+				thread_data.opener = sccwDownloader()
+				thread_data.dl = thread_data.opener.retrieve(self.dlurl, self.flname)			
+				#thread_data.dl = urllib.urlretrieve(self.dlurl, self.flname)
 				
 				
 				#DBG
@@ -2088,5 +2090,5 @@ if (__name__ == "__main__"):
 		main()
 
 #LICENSE GPL
-#Last modified 01-17-15 (MM/DD/YY)
+#Last modified 10-15-15 (MM/DD/YY)
 
