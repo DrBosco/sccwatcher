@@ -1,3 +1,9 @@
+Updated to 1.86
+Fixes:
+# Updated the download function to send a compatible useragent string when trying to download without the Cloudflare bypass. Before it would send a generic useragent string which cloudflare would deny. 
+
+----------------------------------
+
 Updated to 1.85
 Bugfixes:
 # Fixed the issue with normal downloading not working.
