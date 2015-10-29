@@ -97,9 +97,9 @@ avoidListElements["avoidFilterTextbox"] = ["ASPECIAL", "avoid_filter"]
 avoidListElements["avoidFilterRegexCheck"] = ["ASPECIAL", "use_regex"]
 
 
-#This small dict keeps track of the read and write methods of different Qt types as well as the expected data type
+#This small dict keeps track of the read and write methods of different Qt types as well as the argument's expected data type
 elementAccessMethods = {}
-#                                    READ  ,    WRITE   ,   type
+#                                     READ ,   WRITE  ,  type
 elementAccessMethods["QLineEdit"] = ["text", "setText", "str"]
 elementAccessMethods["QTextEdit"] = ["toPlainText", "setPlainText", "str"]
 elementAccessMethods["QSpinBox"] = ["value", "setValue", "int"]
@@ -121,7 +121,7 @@ for key, val in avoidListElements.iteritems(): avoidReverse[val[1]] = key
 guiDefaults = {}
 guiDefaults["watchlistDefaults"] = OD([('WLSGwatchNameTextbox', QtCore.QString(u'')), ('WLSGwatchFilterTextbox', QtCore.QString(u'')), ('WLSGwatchFilterRegexCheck', 0), ('WLSGavoidFilterListTextbox', QtCore.QString(u'')), ('WLSGavoidFilterListRegexCheck', 0), ('WLSGwatchCatListTextbox', QtCore.QString(u'')), ('WLSGsavepathTextbox', QtCore.QString(u'')), ('WLSGdupecheckingCheckbox', 0), ('WLSGsizeLimitLowerTextbox', QtCore.QString(u'')), ('WLSGsizeLimitLowerSuffixSelector', 0), ('WLSGsizeLimitUpperTextbox', QtCore.QString(u'')), ('WLSGsizeLimitUpperSuffixSelector', 0), ('WLSGemailCheckbox', 0), ('WLSGftpUploadCheckbox', 0), ('WLSGutWebUiCheckox', 0), ('WLSGenableExternalCmdCheckbox', 0), ('WLSGexternalCommandTextbox', QtCore.QString(u'')), ('WLSGexternalCommandArgsTextbox', QtCore.QString(u''))])
 guiDefaults["avoidlistDefaults"] = OD([('avoidNameTextbox', QtCore.QString(u'')), ('avoidFilterTextbox', QtCore.QString(u'')), ('avoidFilterRegexCheck', 0)])
-guiDefaults["allOtherDefaults"] = OD([('ggMasterAutodlCheck', 0), ('ggEnableVerboseCheck', 0), ('ggVerboseTabTextbox', QtCore.QString(u'')), ('ggBeepCheckbox', 0), ('ggEnableLoggingCheck', 0), ('ggLogpathTextbox', QtCore.QString(u'')), ('ggNetworkDelaySpinbox', 0), ('ggPasskeyTextbox', QtCore.QString(u'')), ('globalDupecheckCheck', 0), ('globalSSLDownloadCheck', 0), ('ggSavepathTextbox', QtCore.QString(u'')), ('globalSizeLimitLowerTextbox', ''), ('globalSizeLimitUpperTextbox', ''), ('globalSizeLimitLowerSuffixSelector', 0), ('globalSizeLimitUpperSuffixSelector', 0), ('globalCFBypassUseragentTextbox', QtCore.QString(u'')), ('globalCFBypassCookiefilePathTextbox', QtCore.QString(u'')), ('ftpMasterEnableCheck', 0), ('ftpHostnameTextbox', QtCore.QString(u'')), ('ftpPortTextbox', QtCore.QString(u'')), ('ftpRemoteFolderTextbox', QtCore.QString(u'')), ('ftpUsernameTextbox', QtCore.QString(u'')), ('ftpPasswordTextbox', QtCore.QString(u'')), ('ftpPasvModeCheck', 0), ('ftpTLSModeCheck', 0), ('utwuiMasterEnableTriCheck', 0), ('utwuiUsernameTextbox', QtCore.QString(u'')), ('utwuiPasswordTextbox', QtCore.QString(u'')), ('utwuiHostnameTextbox', QtCore.QString(u'')), ('utwuiPortTextbox', QtCore.QString(u'')), ('emailMasterEnableCheck', 0), ('hostnameIPTextbox', QtCore.QString(u'')), ('portTextbox', QtCore.QString(u'')), ('emailUseTLSCheck', 0), ('usernameTextbox', QtCore.QString(u'')), ('passwordTextbox', QtCore.QString(u'')), ('emailFromTextbox', QtCore.QString(u'')), ('emailToTextbox', QtCore.QString(u'')), ('emailSubjectTextbox', QtCore.QString(u'')), ('emailMessageTextbox', QtCore.QString(u'')), ('extCmdMasterEnableCheck', 0), ('extCmdExeLocation', QtCore.QString(u'')), ('extCmdExeArguments', QtCore.QString(u'')), ('ggEnableDebugCheck', 0)])
+guiDefaults["allOtherDefaults"] = OD([('ggMasterAutodlCheck', 0), ('ggEnableVerboseCheck', 0), ('ggVerboseTabTextbox', QtCore.QString(u'')), ('ggBeepCheckbox', 0), ('ggEnableLoggingCheck', 0), ('ggLogpathTextbox', QtCore.QString(u'')), ('ggNetworkDelaySpinbox', 20), ('ggPasskeyTextbox', QtCore.QString(u'')), ('globalDupecheckCheck', 0), ('globalSSLDownloadCheck', 0), ('ggSavepathTextbox', QtCore.QString(u'')), ('globalSizeLimitLowerTextbox', ''), ('globalSizeLimitUpperTextbox', ''), ('globalSizeLimitLowerSuffixSelector', 0), ('globalSizeLimitUpperSuffixSelector', 0), ('globalCFBypassUseragentTextbox', QtCore.QString(u'')), ('globalCFBypassCookiefilePathTextbox', QtCore.QString(u'')), ('ftpMasterEnableCheck', 0), ('ftpHostnameTextbox', QtCore.QString(u'')), ('ftpPortTextbox', QtCore.QString(u'')), ('ftpRemoteFolderTextbox', QtCore.QString(u'')), ('ftpUsernameTextbox', QtCore.QString(u'')), ('ftpPasswordTextbox', QtCore.QString(u'')), ('ftpPasvModeCheck', 0), ('ftpTLSModeCheck', 0), ('utwuiMasterEnableTriCheck', 0), ('utwuiUsernameTextbox', QtCore.QString(u'')), ('utwuiPasswordTextbox', QtCore.QString(u'')), ('utwuiHostnameTextbox', QtCore.QString(u'')), ('utwuiPortTextbox', QtCore.QString(u'')), ('emailMasterEnableCheck', 0), ('hostnameIPTextbox', QtCore.QString(u'')), ('portTextbox', QtCore.QString(u'')), ('emailUseTLSCheck', 0), ('usernameTextbox', QtCore.QString(u'')), ('passwordTextbox', QtCore.QString(u'')), ('emailFromTextbox', QtCore.QString(u'')), ('emailToTextbox', QtCore.QString(u'')), ('emailSubjectTextbox', QtCore.QString(u'')), ('emailMessageTextbox', QtCore.QString(u'')), ('extCmdMasterEnableCheck', 0), ('extCmdExeLocation', QtCore.QString(u'')), ('extCmdExeArguments', QtCore.QString(u'')), ('ggEnableDebugCheck', 0)])
 
 #These are for tracking GUI changes
 guiState = {}
@@ -182,16 +182,6 @@ class sccwSettingsManager:
                 self.appSettings.setValue(key, value)
             #close the group and move on to the next one
             self.appSettings.endGroup()
-            
-        #We also save window state data at the end
-        #Begin group for window state (size and position)
-        #Consider moving this to a different QSettings object, one that saves to the registry instead.
-        #This WILL be moved to registery before we use it. Until then its commented out and the settings arent ever used if loaded.
-        #self.appSettings.beginGroup("WindowState")
-        #Screen size and position
-        #self.appSettings.setValue("windowSize", self.windowSize())
-        #self.appSettings.setValue("windowPos", self.windowPos())
-        #self.appSettings.endGroup()
         
         #Sync data. It works without this because sync() is automatically called on the destruction of the QSettings object, which happens at close.
         #Id rather do it now though.

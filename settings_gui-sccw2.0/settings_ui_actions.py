@@ -65,7 +65,7 @@ class guiActions(object):
     def checkListChanges(self, list_object, check_dict):
         #This function will take a watchlist object as list_object and compare its items against the data stored in check_dict
         if len(check_dict) == list_object.count():
-            #Ok we at least that matches, no onto the rest
+            #Ok well at least the size matches, now onto the rest
             #Now loop over the items in the list_object and check for differences one by one. (is there a better way?)
             for cur_index in xrange(0, list_object.count()):
                 cur_item = list_object.item(cur_index)
@@ -119,7 +119,7 @@ class guiActions(object):
             return [False, None]
         
     def updateUiStateInfo(self):
-        #This function will loop through all the standard GUI options (outside of the watch and avoidlist options), saving the state of all objects
+        #This function will loop through all the GUI options, saving the state of all objects.
         #This will allow us to detect whether or not a user has changed anything in the program since the last save/load operation
         
         globalOptions = self.context.SettingsManager.guiState["globalOptionsState"]
@@ -178,13 +178,27 @@ class guiActions(object):
         
     def addWatchListItem(self):
         #This function will add a new list item to the watch list
-        self.addNewListItem(self.context.WLGwatchlistItemsList)
+        updated_wl_defaults = DC(self.context.SettingsManager.guiDefaults["watchlistDefaults"])
+        updated_wl_defaults["WLSGsavepathTextbox"] = self.context.ggSavepathTextbox.text()
+        updated_wl_defaults["WLSGexternalCommandTextbox"] = self.context.extCmdExeLocation.text()
+        updated_wl_defaults["WLSGexternalCommandArgsTextbox"] = self.context.extCmdExeArguments.text()
+        updated_wl_defaults["WLSGsizeLimitLowerTextbox"] = self.context.globalSizeLimitLowerTextbox.text()
+        updated_wl_defaults["WLSGsizeLimitLowerSuffixSelector"] = self.context.globalSizeLimitLowerSuffixSelector.currentIndex()
+        updated_wl_defaults["WLSGsizeLimitUpperTextbox"] = self.context.globalSizeLimitUpperTextbox.text()
+        updated_wl_defaults["WLSGsizeLimitUpperSuffixSelector"] = self.context.globalSizeLimitUpperSuffixSelector.currentIndex()
+        updated_wl_defaults["WLSGenableExternalCmdCheckbox"] = self.context.extCmdMasterEnableCheck.checkState()
+        updated_wl_defaults["WLSGdupecheckingCheckbox"] = self.context.globalDupecheckCheck.checkState()
+        updated_wl_defaults["WLSGutWebUiCheckox"] = self.context.utwuiMasterEnableTriCheck.checkState()
+        updated_wl_defaults["WLSGftpUploadCheckbox"] = self.context.ftpMasterEnableCheck.checkState()
+        updated_wl_defaults["WLSGemailCheckbox"] = self.context.emailMasterEnableCheck.checkState()
+        
+        self.addNewListItem(self.context.WLGwatchlistItemsList, updated_wl_defaults)
     
     def addAvoidListItem(self):
         #This function will add a new list item to the avoid list
         self.addNewListItem(self.context.avoidlistItemsList)
     
-    def addNewListItem(self, access_object):
+    def addNewListItem(self, access_object, wl_defaults=None):
         #Temporarily disable sorting
         __sortingEnabled = access_object.isSortingEnabled()
         access_object.setSortingEnabled(False)
@@ -194,13 +208,16 @@ class guiActions(object):
         item_title = self.checkForDuplicates(access_object, "Untitled Entry")
         #Set its text
         item.setText(_translate("sccw_SettingsUI", item_title, None))
+        #Set the default data items if we are a new watchlist item:
+        if wl_defaults is not None:
+            item.setData(Qt.UserRole, wl_defaults)  
         #And add the item to the list
         access_object.addItem(item)
         #Finally we reenable sorting, if it was enabled before
         access_object.setSortingEnabled(__sortingEnabled)
     
     def checkForDuplicates(self, access_object, item_text, alt_match=None): #I hate doing this, adding params as needed
-        #This function will look for a duplicate entries in the QWidgetList supplied as access_object
+        #This function will look for duplicate entries in the QWidgetList supplied as access_object
         #If any duplicates are detected the item_text has a number appended to it (or has its appended number incremented) and is returned
         
         #First we loop through each entry and see if its item_text matches anything in the watchlist.
@@ -316,7 +333,7 @@ class guiActions(object):
             else:
                 #Get our access function to read the data from the live element into our save dict
                 item_save_data[element] = self.typeMatcher(live_element, "READ")()
-                #We may want to now get the write function to "zero out" the form. This may be better put in its own function however.
+                #We may want to now get the write function to "zero out" the form. This may be better put in its own function however. (why?)
              
         #Now we have an OrderedDict with our data to save in it, we store it inside the element using the setData() function.
         #We will be saving the data in the Qt.UserRole role to the previous qlistwidgetitem we just had selected.
@@ -535,6 +552,12 @@ class guiActions(object):
         self.context.SettingsManager.closeSettingsFile()
         #Then set the new file
         self.context.SettingsManager.openSettingsFile(newfilename)
+        #Update the title of the window to reflect the new file name
+        nameonly = str(newfilename)
+        nameonly = nameonly.replace("\\", "/")
+        nameonly = ntpath_basename(nameonly)
+        title = "%s (%s)" % (nameonly, newfilename)
+        self.updateUiTitle(title)
         #Finally we pass onto saveUiToFile to finish things off
         if recurse == False: self.saveUiToFile()
         else: return
@@ -763,13 +786,16 @@ class guiActions(object):
         start_dir = [self.context.WLSGsavepathTextbox.text(), 1]
         caption = "Choose location to save .torrent files to..."
         self.browse_button_master(self.context.WLSGsavepathTextbox, QtGui.QFileDialog.AcceptSave, QtGui.QFileDialog.Directory, caption, start_dir=start_dir)
+        #Update the data for the watch item manually
+        self.saveAllWatchlistItems()
         
         
     def browse_button_WLextProgram(self):
         start_dir = [self.context.WLSGexternalCommandTextbox.text(), 1]
         caption = "Choose Program..."
         self.browse_button_master(self.context.WLSGexternalCommandTextbox, QtGui.QFileDialog.AcceptOpen, QtGui.QFileDialog.ExistingFile, caption, start_dir=start_dir)
-        
+        #Update the data for the watch item manually
+        self.saveAllWatchlistItems()
     
     def browse_button_loadFile(self):
         start_dir = [self.context.SettingsManager.currentFile, 0]

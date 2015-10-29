@@ -74,6 +74,10 @@
       <bold>false</bold>
      </font>
     </property>
+    <property name="toolTip">
+     <string>This controls the uTorrent WebUI upload feature. This will use the 
+WebUI settings given on the &quot;Download/Upload Settings&quot; tab.</string>
+    </property>
     <property name="currentIndex">
      <number>0</number>
     </property>
@@ -120,6 +124,11 @@
          <height>17</height>
         </rect>
        </property>
+       <property name="toolTip">
+        <string>Enable/Disable automatically starting the autodl script at startup If disabled, 
+you will have to manually detect network settings using the SCCwatcher menu 
+in the Xchat/Hexchat GUI or use the text command: /sccwatcher detectnetwork </string>
+       </property>
        <property name="text">
         <string>Enable Autodl at Startup</string>
        </property>
@@ -133,8 +142,16 @@
          <height>22</height>
         </rect>
        </property>
+       <property name="toolTip">
+        <string>This delays when SCCwatcher checks the network settings, allowing 
+some time for your client to get connected to the network and into 
+the channel before the script detects the network settings.</string>
+       </property>
        <property name="suffix">
         <string> s</string>
+       </property>
+       <property name="value">
+        <number>20</number>
        </property>
       </widget>
       <widget class="QLabel" name="ggNetworkDelayLabel">
@@ -171,6 +188,10 @@
          <width>256</width>
          <height>20</height>
         </rect>
+       </property>
+       <property name="toolTip">
+        <string>See the end of the first post of the SCCwatcher topic in 
+the forums for help with finding your passkey.</string>
        </property>
        <property name="echoMode">
         <enum>QLineEdit::PasswordEchoOnEdit</enum>
@@ -211,6 +232,9 @@
          <height>20</height>
         </rect>
        </property>
+       <property name="toolTip">
+        <string>This is the base path where SCCwatcher will download .torrent files to.</string>
+       </property>
       </widget>
       <widget class="QLineEdit" name="ggLogpathTextbox">
        <property name="geometry">
@@ -220,6 +244,9 @@
          <width>256</width>
          <height>20</height>
         </rect>
+       </property>
+       <property name="toolTip">
+        <string>This folder is where SCCwatcher will keep its log file.</string>
        </property>
       </widget>
       <widget class="QPushButton" name="ggSavepathBrowseButton">
@@ -257,6 +284,10 @@
          <height>17</height>
         </rect>
        </property>
+       <property name="toolTip">
+        <string>This will enable/disable the logging feature. Log files 
+are placed in the savepath if the logpath is left empty.</string>
+       </property>
        <property name="text">
         <string>Enable Logging to File</string>
        </property>
@@ -270,6 +301,11 @@
          <height>17</height>
         </rect>
        </property>
+       <property name="toolTip">
+        <string>This will enable/disable verbose output. This will output all important 
+information from SCCwatcher into a separate tab. This tab will be named 
+SCCwatcher by default unless you change this (see Verbose Tab Name).</string>
+       </property>
        <property name="text">
         <string>Enable Verbose Output</string>
        </property>
@@ -282,6 +318,9 @@
          <width>141</width>
          <height>17</height>
         </rect>
+       </property>
+       <property name="toolTip">
+        <string>Enable/Disable a system bell whenever a download occurs.</string>
        </property>
        <property name="text">
         <string>Beep on Download</string>
@@ -309,6 +348,9 @@
          <height>20</height>
         </rect>
        </property>
+       <property name="toolTip">
+        <string>This will change the name of the verbose output tab.</string>
+       </property>
       </widget>
       <widget class="QCheckBox" name="ggEnableDebugCheck">
        <property name="geometry">
@@ -318,6 +360,11 @@
          <width>131</width>
          <height>17</height>
         </rect>
+       </property>
+       <property name="toolTip">
+        <string>Enable/Disable debug mode. Debug mode will output info on the processes 
+involved in the script deciding whether or not to download a release. This 
+aids in diagnosing any issues with the script.</string>
        </property>
        <property name="text">
         <string>Enable Debug Mode</string>
@@ -701,6 +748,9 @@
          <height>17</height>
         </rect>
        </property>
+       <property name="toolTip">
+        <string>Enable/Disable SSL downloading of torrents.</string>
+       </property>
        <property name="text">
         <string>SSL Downloading</string>
        </property>
@@ -713,6 +763,9 @@
          <width>101</width>
          <height>17</height>
         </rect>
+       </property>
+       <property name="toolTip">
+        <string>Enable/Disable Dupechecking. When enabled SCCwatcher will not download the exact same release twice.</string>
        </property>
        <property name="text">
         <string>Dupechecking</string>
@@ -727,6 +780,14 @@
          <height>22</height>
         </rect>
        </property>
+       <property name="toolTip">
+        <string>If you do not choose a suffix the size limit function will be disabled.</string>
+       </property>
+       <item>
+        <property name="text">
+         <string/>
+        </property>
+       </item>
        <item>
         <property name="text">
          <string>KB</string>
@@ -751,6 +812,10 @@
          <width>41</width>
          <height>20</height>
         </rect>
+       </property>
+       <property name="toolTip">
+        <string>Upper size limit for this watch item. Anything larger than 
+this won't be downloaded.</string>
        </property>
       </widget>
       <widget class="QLabel" name="globalSizeLimitUpperLabel">
@@ -778,6 +843,14 @@
          <height>22</height>
         </rect>
        </property>
+       <property name="toolTip">
+        <string>If you do not choose a suffix the size limit function will be disabled.</string>
+       </property>
+       <item>
+        <property name="text">
+         <string/>
+        </property>
+       </item>
        <item>
         <property name="text">
          <string>KB</string>
@@ -802,6 +875,10 @@
          <width>41</width>
          <height>20</height>
         </rect>
+       </property>
+       <property name="toolTip">
+        <string>Lower size limit for this watch item. Anything smaller than 
+this won't be downloaded.</string>
        </property>
       </widget>
       <widget class="QLabel" name="globalSizeLimitLowerLabel">
@@ -881,6 +958,9 @@
          <height>20</height>
         </rect>
        </property>
+       <property name="toolTip">
+        <string>This is the path to the file containing the required cookies to bypass Cloudflare protection.</string>
+       </property>
       </widget>
       <widget class="QLabel" name="globalCFBypassUseragentLabel">
        <property name="geometry">
@@ -904,6 +984,10 @@
          <height>20</height>
         </rect>
        </property>
+       <property name="toolTip">
+        <string>This must be the exact same userstring as the browser you use to browse SCC.
+See whatsmyuseragent.com to get your useragent string.</string>
+       </property>
       </widget>
      </widget>
      <widget class="QGroupBox" name="utWebUiUploadGroup">
@@ -926,6 +1010,12 @@
          <width>181</width>
          <height>17</height>
         </rect>
+       </property>
+       <property name="toolTip">
+        <string>This controls the uTorrent WebUI Upload function.
+Unchecked means no WebUI upload is done. 
+Half checked means both the normal download and the WebUI Upload are executed.
+Fully checked means only the WebUI Upload function is used. No torrent will be downloaded locally.</string>
        </property>
        <property name="text">
         <string>uTorrent WebUI Uploader Mode:</string>
@@ -982,6 +1072,9 @@
          <height>20</height>
         </rect>
        </property>
+       <property name="toolTip">
+        <string>Port number for the uTorrent WebUI.</string>
+       </property>
        <property name="inputMethodHints">
         <set>Qt::ImhDigitsOnly</set>
        </property>
@@ -1011,6 +1104,9 @@
          <height>20</height>
         </rect>
        </property>
+       <property name="toolTip">
+        <string>Password (if required) for the uTorrent WebUI.</string>
+       </property>
       </widget>
       <widget class="QLineEdit" name="utwuiUsernameTextbox">
        <property name="geometry">
@@ -1021,6 +1117,9 @@
          <height>20</height>
         </rect>
        </property>
+       <property name="toolTip">
+        <string>Username (if required) for the uTorrent WebUI.</string>
+       </property>
       </widget>
       <widget class="QLineEdit" name="utwuiHostnameTextbox">
        <property name="geometry">
@@ -1030,6 +1129,9 @@
          <width>166</width>
          <height>20</height>
         </rect>
+       </property>
+       <property name="toolTip">
+        <string>Hostname or IP address of the uTorrent WebUI to upload to.</string>
        </property>
       </widget>
       <widget class="QLabel" name="utwuiUsernameLabel">
@@ -1067,6 +1169,9 @@
          <height>17</height>
         </rect>
        </property>
+       <property name="toolTip">
+        <string>Enable/Disable uploading to FTP server. </string>
+       </property>
        <property name="text">
         <string>Enable FTP Uploading</string>
        </property>
@@ -1080,6 +1185,9 @@
          <height>20</height>
         </rect>
        </property>
+       <property name="toolTip">
+        <string>Hostname or IP address of the FTP server.</string>
+       </property>
       </widget>
       <widget class="QLineEdit" name="ftpUsernameTextbox">
        <property name="geometry">
@@ -1089,6 +1197,9 @@
          <width>166</width>
          <height>20</height>
         </rect>
+       </property>
+       <property name="toolTip">
+        <string>Username (if required) for the FTP server.</string>
        </property>
       </widget>
       <widget class="QLineEdit" name="ftpPasswordTextbox">
@@ -1100,6 +1211,9 @@
          <height>20</height>
         </rect>
        </property>
+       <property name="toolTip">
+        <string>Password (if required) for the FTP server.</string>
+       </property>
       </widget>
       <widget class="QLineEdit" name="ftpPortTextbox">
        <property name="geometry">
@@ -1109,6 +1223,9 @@
          <width>41</width>
          <height>20</height>
         </rect>
+       </property>
+       <property name="toolTip">
+        <string>Port number of the FTP server (usually port 21).</string>
        </property>
        <property name="inputMethodHints">
         <set>Qt::ImhDigitsOnly</set>
@@ -1191,6 +1308,9 @@
          <height>20</height>
         </rect>
        </property>
+       <property name="toolTip">
+        <string>The remote path on the FTP server to upload the torrent files to.</string>
+       </property>
       </widget>
       <widget class="QCheckBox" name="ftpPasvModeCheck">
        <property name="geometry">
@@ -1200,6 +1320,10 @@
          <width>141</width>
          <height>17</height>
         </rect>
+       </property>
+       <property name="toolTip">
+        <string>Enable/Disable passive mode for your FTP server. It is recommended 
+that you use PASV if it's supported by your FTP server.</string>
        </property>
        <property name="text">
         <string>Passive Mode (PASV)</string>
@@ -1213,6 +1337,9 @@
          <width>111</width>
          <height>17</height>
         </rect>
+       </property>
+       <property name="toolTip">
+        <string>Use TLS encryption when uploading to FTP server. </string>
        </property>
        <property name="text">
         <string>Use TLS (FTPS)</string>
@@ -1253,6 +1380,9 @@
          <height>20</height>
         </rect>
        </property>
+       <property name="toolTip">
+        <string>This is the path to an executable to be used by the external-command feature, if enabled.</string>
+       </property>
       </widget>
       <widget class="QCheckBox" name="extCmdMasterEnableCheck">
        <property name="geometry">
@@ -1262,6 +1392,10 @@
          <width>161</width>
          <height>17</height>
         </rect>
+       </property>
+       <property name="toolTip">
+        <string>Enable/Disable the optional external command function. This will 
+exectute any function you want when a torrent is downloaded.</string>
        </property>
        <property name="text">
         <string>Enable External Command</string>
@@ -1301,6 +1435,10 @@
          <width>181</width>
          <height>20</height>
         </rect>
+       </property>
+       <property name="toolTip">
+        <string>Any arguments to be used with the external command feature. 
+All of the shortcuts listed on the &quot;Emailer Settings&quot; tab work here.</string>
        </property>
       </widget>
      </widget>
@@ -1354,6 +1492,9 @@
          <property name="mouseTracking">
           <bool>false</bool>
          </property>
+         <property name="toolTip">
+          <string>Add new watchlist entry.</string>
+         </property>
          <property name="text">
           <string/>
          </property>
@@ -1377,6 +1518,9 @@
            <weight>75</weight>
            <bold>true</bold>
           </font>
+         </property>
+         <property name="toolTip">
+          <string>Remove currently selected watchlist entry.</string>
          </property>
          <property name="text">
           <string/>
@@ -1451,6 +1595,10 @@
            <height>20</height>
           </rect>
          </property>
+         <property name="toolTip">
+          <string>The name of the watchlist item. This is for display purposes 
+only and has no effect on the operation of the script.</string>
+         </property>
         </widget>
         <widget class="QLabel" name="WLSGwatchNameLabel">
          <property name="geometry">
@@ -1493,6 +1641,9 @@
            <height>20</height>
           </rect>
          </property>
+         <property name="toolTip">
+          <string>SCCwatcher will download any release matching this filter.</string>
+         </property>
         </widget>
         <widget class="QCheckBox" name="WLSGwatchFilterRegexCheck">
          <property name="geometry">
@@ -1502,6 +1653,9 @@
            <width>61</width>
            <height>17</height>
           </rect>
+         </property>
+         <property name="toolTip">
+          <string>Enabe/Disable regular expressions in the watch filter.</string>
          </property>
          <property name="text">
           <string>Regex</string>
@@ -1532,6 +1686,9 @@
            <height>20</height>
           </rect>
          </property>
+         <property name="toolTip">
+          <string>SCCwatcher will avoid any release name that matches this filter.</string>
+         </property>
         </widget>
         <widget class="QCheckBox" name="WLSGavoidFilterListRegexCheck">
          <property name="geometry">
@@ -1541,6 +1698,9 @@
            <width>61</width>
            <height>17</height>
           </rect>
+         </property>
+         <property name="toolTip">
+          <string>Enabe/Disable regular expressions in the avoid filter.</string>
          </property>
          <property name="text">
           <string>Regex</string>
@@ -1571,6 +1731,10 @@
            <height>20</height>
           </rect>
          </property>
+         <property name="toolTip">
+          <string>This is a list of categories you want SCCwatcher to monitor for this filter. A list of 
+acceptable categories is available in the first post of the official SCCwatcher topic.</string>
+         </property>
         </widget>
         <widget class="QLabel" name="WLSGsavepathLabel">
          <property name="geometry">
@@ -1596,6 +1760,9 @@
            <width>301</width>
            <height>20</height>
           </rect>
+         </property>
+         <property name="toolTip">
+          <string>This is the path where SCCwatcher will save matched .torrent files to.</string>
          </property>
         </widget>
         <widget class="QPushButton" name="WLSGsavepathBrowseButton">
@@ -1635,6 +1802,9 @@
            <width>256</width>
            <height>20</height>
           </rect>
+         </property>
+         <property name="toolTip">
+          <string>This is the path to an executable to be used by the external-command feature, if enabled.</string>
          </property>
          <property name="readOnly">
           <bool>true</bool>
@@ -1678,6 +1848,10 @@
            <height>20</height>
           </rect>
          </property>
+         <property name="toolTip">
+          <string>Any arguments to be used with the external command feature. 
+All of the shortcuts listed on the &quot;Emailer Settings&quot; tab work here.</string>
+         </property>
         </widget>
         <widget class="QLabel" name="WLSGsizeLimitLowerLabel">
          <property name="geometry">
@@ -1720,6 +1894,10 @@
            <height>20</height>
           </rect>
          </property>
+         <property name="toolTip">
+          <string>Lower size limit for this watch item. Anything smaller than 
+this won't be downloaded.</string>
+         </property>
         </widget>
         <widget class="QLineEdit" name="WLSGsizeLimitUpperTextbox">
          <property name="geometry">
@@ -1729,6 +1907,10 @@
            <width>41</width>
            <height>20</height>
           </rect>
+         </property>
+         <property name="toolTip">
+          <string>Upper size limit for this watch item. Anything larger than 
+this won't be downloaded.</string>
          </property>
         </widget>
         <widget class="QComboBox" name="WLSGsizeLimitLowerSuffixSelector">
@@ -1740,6 +1922,14 @@
            <height>22</height>
           </rect>
          </property>
+         <property name="toolTip">
+          <string>If you do not choose a suffix the size limit function will be disabled.</string>
+         </property>
+         <item>
+          <property name="text">
+           <string/>
+          </property>
+         </item>
          <item>
           <property name="text">
            <string>KB</string>
@@ -1765,6 +1955,14 @@
            <height>22</height>
           </rect>
          </property>
+         <property name="toolTip">
+          <string>If you do not choose a suffix the size limit function will be disabled.</string>
+         </property>
+         <item>
+          <property name="text">
+           <string/>
+          </property>
+         </item>
          <item>
           <property name="text">
            <string>KB</string>
@@ -1790,8 +1988,17 @@
            <height>17</height>
           </rect>
          </property>
+         <property name="toolTip">
+          <string>This controls the uTorrent WebUI Upload function.
+Unchecked means no WebUI upload is done. 
+Half checked means both the normal download and the WebUI Upload are executed.
+Fully checked means only the WebUI Upload function is used. No torrent will be downloaded locally.</string>
+         </property>
          <property name="text">
           <string>Upload to uTorrent WebUI</string>
+         </property>
+         <property name="tristate">
+          <bool>true</bool>
          </property>
         </widget>
         <widget class="QCheckBox" name="WLSGftpUploadCheckbox">
@@ -1802,6 +2009,10 @@
            <width>131</width>
            <height>17</height>
           </rect>
+         </property>
+         <property name="toolTip">
+          <string>Enable/Disable uploading to FTP server. This will use the ftp 
+settings given on the &quot;Download/Upload Settings&quot; tab.</string>
          </property>
          <property name="text">
           <string>Upload to FTP server</string>
@@ -1816,6 +2027,9 @@
            <height>17</height>
           </rect>
          </property>
+         <property name="toolTip">
+          <string>Enable/Disable the use of the optional external command feature.</string>
+         </property>
          <property name="text">
           <string>Enable External Command</string>
          </property>
@@ -1829,6 +2043,10 @@
            <height>17</height>
           </rect>
          </property>
+         <property name="toolTip">
+          <string>Enable/Disable the emailer feature for this filter. This 
+will use the info given on the &quot;Emailer Settings&quot; tab.</string>
+         </property>
          <property name="text">
           <string>Email on download</string>
          </property>
@@ -1841,6 +2059,9 @@
            <width>101</width>
            <height>17</height>
           </rect>
+         </property>
+         <property name="toolTip">
+          <string>Enable/Disable the dupechecking feature.</string>
          </property>
          <property name="text">
           <string>Dupechecking</string>
@@ -1899,6 +2120,9 @@
          <property name="mouseTracking">
           <bool>false</bool>
          </property>
+         <property name="toolTip">
+          <string>Add new avoidlist entry.</string>
+         </property>
          <property name="text">
           <string/>
          </property>
@@ -1922,6 +2146,9 @@
            <weight>75</weight>
            <bold>true</bold>
           </font>
+         </property>
+         <property name="toolTip">
+          <string>Remove currently selected avoidlist entry.</string>
          </property>
          <property name="text">
           <string/>
@@ -1996,6 +2223,9 @@
            <height>20</height>
           </rect>
          </property>
+         <property name="toolTip">
+          <string>The avoid filter's name. This is just for display purposes and has no effect on the operation of the script.</string>
+         </property>
         </widget>
         <widget class="QLabel" name="avoidNameLabel">
          <property name="geometry">
@@ -2032,6 +2262,9 @@
            <height>20</height>
           </rect>
          </property>
+         <property name="toolTip">
+          <string>SCCwatcher will avoid any release name that matches this filter.</string>
+         </property>
         </widget>
         <widget class="QCheckBox" name="avoidFilterRegexCheck">
          <property name="geometry">
@@ -2041,6 +2274,9 @@
            <width>61</width>
            <height>17</height>
           </rect>
+         </property>
+         <property name="toolTip">
+          <string>This enables/disables the use of regular expressions in the avoid filter.</string>
          </property>
          <property name="text">
           <string>Regex</string>
@@ -2088,6 +2324,9 @@
          <height>17</height>
         </rect>
        </property>
+       <property name="toolTip">
+        <string>Enable/Disable the email function of this script.</string>
+       </property>
        <property name="text">
         <string>Enable Emailer</string>
        </property>
@@ -2101,6 +2340,9 @@
          <height>17</height>
         </rect>
        </property>
+       <property name="toolTip">
+        <string>This will enable/disable the use of TLS. It is highly recommended that you use TLS when possible.</string>
+       </property>
        <property name="text">
         <string>Use TLS</string>
        </property>
@@ -2113,6 +2355,9 @@
          <width>131</width>
          <height>20</height>
         </rect>
+       </property>
+       <property name="toolTip">
+        <string>The hostname or IP address of the outgoing SMTP server to use for sending emails.</string>
        </property>
       </widget>
       <widget class="QLabel" name="portLabel">
@@ -2136,6 +2381,9 @@
          <width>36</width>
          <height>20</height>
         </rect>
+       </property>
+       <property name="toolTip">
+        <string>The port number of the SMTP server (commonly 25, 465, or 587).</string>
        </property>
        <property name="inputMethodHints">
         <set>Qt::ImhNone</set>
@@ -2182,6 +2430,9 @@
          <height>20</height>
         </rect>
        </property>
+       <property name="toolTip">
+        <string>Username (if required) for the SMTP server.</string>
+       </property>
       </widget>
       <widget class="QLineEdit" name="passwordTextbox">
        <property name="geometry">
@@ -2191,6 +2442,9 @@
          <width>113</width>
          <height>20</height>
         </rect>
+       </property>
+       <property name="toolTip">
+        <string>Password (if required) for the SMTP server.</string>
        </property>
        <property name="echoMode">
         <enum>QLineEdit::Password</enum>
@@ -2231,6 +2485,9 @@
          <height>20</height>
         </rect>
        </property>
+       <property name="toolTip">
+        <string>Your email address.</string>
+       </property>
        <property name="inputMethodHints">
         <set>Qt::ImhEmailCharactersOnly</set>
        </property>
@@ -2256,6 +2513,9 @@
          <width>146</width>
          <height>20</height>
         </rect>
+       </property>
+       <property name="toolTip">
+        <string>The recipient's email address.</string>
        </property>
        <property name="inputMethodHints">
         <set>Qt::ImhEmailCharactersOnly</set>
@@ -2283,6 +2543,9 @@
          <height>20</height>
         </rect>
        </property>
+       <property name="toolTip">
+        <string>The subject of the email. You may use any of the shortcuts (listed on the left) here.</string>
+       </property>
        <property name="inputMethodHints">
         <set>Qt::ImhNone</set>
        </property>
@@ -2301,6 +2564,9 @@
          <width>366</width>
          <height>261</height>
         </rect>
+       </property>
+       <property name="toolTip">
+        <string>The email message itself goes here. You may use any of the shortcuts (listed to the left).</string>
        </property>
        <property name="acceptRichText">
         <bool>false</bool>
@@ -2534,7 +2800,15 @@ p, li { white-space: pre-wrap; }
     <addaction name="separator"/>
     <addaction name="action_Quit"/>
    </widget>
+   <widget class="QMenu" name="menuE_dit">
+    <property name="title">
+     <string>&amp;Edit</string>
+    </property>
+    <addaction name="actionUndo"/>
+    <addaction name="actionRedo"/>
+   </widget>
    <addaction name="menuFile"/>
+   <addaction name="menuE_dit"/>
   </widget>
   <action name="action_New">
    <property name="icon">
@@ -2609,6 +2883,16 @@ p, li { white-space: pre-wrap; }
      <family>Arial</family>
      <pointsize>8</pointsize>
     </font>
+   </property>
+  </action>
+  <action name="actionUndo">
+   <property name="text">
+    <string>Undo</string>
+   </property>
+  </action>
+  <action name="actionRedo">
+   <property name="text">
+    <string>Redo</string>
    </property>
   </action>
  </widget>
