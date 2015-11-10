@@ -29,8 +29,7 @@ except AttributeError:
 
 class Ui_sccw_SettingsUI(object):
     def setupUi(self, sccw_SettingsUI):
-        #Instantiate our settings object and set it up with the settings file
-        #This is set up with a path for testings, this will change for release.
+        #Instantiate our settings object, passing windows position and size to set the window to its last known position
         self.SettingsManager = sccwSettingsManager([sccw_SettingsUI.pos, sccw_SettingsUI.size])
         self.elementsToOptions = self.SettingsManager.elementsToOptions
         self.elementAccessMethods = self.SettingsManager.elementAccessMethods
@@ -744,11 +743,11 @@ class Ui_sccw_SettingsUI(object):
         self.ugServVerLabel.setGeometry(QtCore.QRect(45, 44, 76, 16))
         self.ugServVerLabel.setObjectName(_fromUtf8("ugServVerLabel"))
         self.ugCliVerActual = QtGui.QLabel(self.aboutTabUpdateGroup)
-        self.ugCliVerActual.setGeometry(QtCore.QRect(145, 20, 51, 13))
+        self.ugCliVerActual.setGeometry(QtCore.QRect(145, 20, 100, 13))
         self.ugCliVerActual.setTextFormat(QtCore.Qt.RichText)
         self.ugCliVerActual.setObjectName(_fromUtf8("ugCliVerActual"))
         self.ugServVerActual = QtGui.QLabel(self.aboutTabUpdateGroup)
-        self.ugServVerActual.setGeometry(QtCore.QRect(145, 45, 51, 13))
+        self.ugServVerActual.setGeometry(QtCore.QRect(145, 45, 100, 13))
         self.ugServVerActual.setTextFormat(QtCore.Qt.RichText)
         self.ugServVerActual.setObjectName(_fromUtf8("ugServVerActual"))
         self.ugCheckUpdateButton = QtGui.QPushButton(self.aboutTabUpdateGroup)
@@ -890,6 +889,7 @@ class Ui_sccw_SettingsUI(object):
         QtCore.QObject.connect(self.extCmdBrowseButton, QtCore.SIGNAL(_fromUtf8("clicked()")), self.guiActions.browse_button_mainExtProgram)
         QtCore.QObject.connect(self.WLSGsavepathBrowseButton, QtCore.SIGNAL(_fromUtf8("clicked()")), self.guiActions.browse_button_WLsavepath)
         QtCore.QObject.connect(self.WLSGexternalCommandBrowseButton, QtCore.SIGNAL(_fromUtf8("clicked()")), self.guiActions.browse_button_WLextProgram)
+        QtCore.QObject.connect(self.ugCheckUpdateButton, QtCore.SIGNAL(_fromUtf8("clicked()")), self.guiActions.checkForUpdates)
         #Data update triggers
         ##Watchlist##
         #textboxes
@@ -926,7 +926,8 @@ class Ui_sccw_SettingsUI(object):
         QtCore.QObject.connect(self.extCmdMasterEnableCheck, QtCore.SIGNAL(_fromUtf8("toggled(bool)")), self.guiActions.EDsection_externalcmd)
         QtCore.QObject.connect(self.emailMasterEnableCheck, QtCore.SIGNAL(_fromUtf8("toggled(bool)")), self.guiActions.EDsection_emailer)
         
-        
+        #DELETEME TEST
+        #QtCore.QObject.connect(self.ggVerboseTabTextbox, QtCore.SIGNAL(_fromUtf8("editingFinished()")), self.guiActions.deleteme)
         
         
         #Finally connect our slots
@@ -1169,14 +1170,14 @@ class Ui_sccw_SettingsUI(object):
 "p, li { white-space: pre-wrap; }\n"
 "</style></head><body style=\" font-family:\'Tahoma\'; font-size:8.25pt; font-weight:400; font-style:normal;\">\n"
 "<p align=\"center\" style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:18pt; font-weight:600; color:#b037b0;\">SCCwatcher</span></p>\n"
-"<p align=\"center\" style=\" margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:8pt; font-weight:600; color:#000000;\">version: _SCCWVER_</span></p>\n"
+"<p align=\"center\" style=\" margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:8pt; font-weight:600; color:#000000;\">version: %s</span></p>\n"
 "<p style=\" margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:8pt; color:#000000;\">Main script written in Python using only standard libraries. This GUI was written in Python using the PyQt framework. This script was written by TRB for the fine people of SCC. If you encounter any bugs, have any issues getting things working, or have any ideas or feature requests please contact TRB on the forums or on IRC.</span></p>\n"
-"<p style=\" margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:8pt;\"><br /></span></p></body></html>", None))
+"<p style=\" margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:8pt;\"><br /></span></p></body></html>" % (self.SettingsManager._CURRENT_GUI_VERSION_), None))
         self.aboutTabUpdateGroup.setTitle(_translate("sccw_SettingsUI", "Update", None))
         self.ugCliVerLabel.setText(_translate("sccw_SettingsUI", "Your Version: ", None))
         self.ugServVerLabel.setText(_translate("sccw_SettingsUI", "Latest Version: ", None))
-        self.ugCliVerActual.setText(_translate("sccw_SettingsUI", "<html><head/><body><p><span style=\" font-weight:600; color:#55ff00;\">_SCCWVER_</span></p></body></html>", None))
-        self.ugServVerActual.setText(_translate("sccw_SettingsUI", "<html><head/><body><p><span style=\" font-weight:600; color:#ff0000;\">_SCCWLATESTVER_</span></p></body></html>", None))
+        self.ugCliVerActual.setText(_translate("sccw_SettingsUI", "<html><head/><body><p><span style=\" font-weight:600; color:#0055ff;\">%s</span></p></body></html>" % (self.SettingsManager._CURRENT_GUI_VERSION_), None))
+        self.ugServVerActual.setText(_translate("sccw_SettingsUI", "<html><head/><body><p><span style=\" font-weight:600; color:#ff5500;\">???</span></p></body></html>", None))
         self.ugCheckUpdateButton.setText(_translate("sccw_SettingsUI", "Check for Updates", None))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.aboutTab), _translate("sccw_SettingsUI", "About", None))
         self.menuFile.setTitle(_translate("sccw_SettingsUI", "&File", None))

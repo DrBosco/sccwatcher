@@ -2,6 +2,11 @@ from PyQt4 import QtCore
 from collections import OrderedDict as OD
 from copy import deepcopy as DC
 
+#Tracking the current version from here only, making the change here updates everything.
+_CURRENT_GUI_VERSION_ = "2.0b1"
+#GitHub API url for version infos
+_GITHUB_VERSION_URL_ = "https://api.github.com/repos/TheRealBanana/sccwatcher/releases/latest"
+
 #Get ready for tons of lame code
 #The use of OD(), OrderedDict, means that the dictionary we create will be in the exact order as its created.
 #This is useful because we also don't wan't the options in our ini file being saved in any old way, we want an order.
@@ -141,10 +146,14 @@ class sccwSettingsManager:
         self.REVavoidListElements = avoidReverse
         self.guiDefaults = guiDefaults
         self.guiState = guiState
+        #These two below are functions
         self.windowPos = MWloc[0]
         self.windowSize = MWloc[1]
         self.isLoaded = False
         self.currentFile = ""
+        #Current version tracking
+        self._CURRENT_GUI_VERSION_ = _CURRENT_GUI_VERSION_
+        self._GITHUB_VER_URL_ = _GITHUB_VERSION_URL_
         
     def resetSettings(self):
         self.appSettings.clear()   

@@ -37,9 +37,11 @@ Undo/Redo system? (not necessary for completion)
 	When eval'd the undo or redo operation will be completed. No need to know the element name or anything.
 		Still have to know what operations to do before run-time. We have to plan.
 			
-			
-			
-Implement Current Version/Update check in about box
+		
+------------------------------------
+------------------------------------
+------------------------------------
+DONE! Implement Current Version/Update check in about box
 	Two ways to do this:
 		Easy way: 
 			We upload a text file to github with just the current version number in it. 
@@ -49,10 +51,9 @@ Implement Current Version/Update check in about box
 				I've never used the github api before.
 				adds further complication by requiring SOAP or something.
 				Also requires me to label releases with the proper version numbers IN GIT, rather than the current system of not doing anything.
-		
-------------------------------------
-------------------------------------
-------------------------------------
+	
+	Turns our the hard way was actually just as easy to do as the easy way and gave more information than my easy way would have. 
+	
 DONE! TOOLTIPS!
 
 DONE! Copy general options to watch items as applicable

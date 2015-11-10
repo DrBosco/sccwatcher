@@ -2,11 +2,14 @@
 # wanted to move all the ui functions into their own file to make everything look nicer
 # otherwise the settings_ui.py file is going to get really crowded.
 from collections import OrderedDict as OD
+#from collections import namedtuple as NT
 from PyQt4 import QtGui
 from PyQt4.QtCore import Qt
 from PyQt4.QtCore import QDir
 from copy import deepcopy as DC
 from ntpath import basename as ntpath_basename
+from urllib import urlopen as ulibOpen
+from ast import literal_eval as safe_eval
 import re
 
 
@@ -178,6 +181,9 @@ class guiActions(object):
         
     def addWatchListItem(self):
         #This function will add a new list item to the watch list
+        #First thing we do is make a copy of the defaults for the watchlist, then populate it with values from the general options
+        #I am wondering now whether or not making a new deep copy each time we add a list item is a good idea or not. Might lead to a memory leak.
+        #We should instead create the structure once and then update the values as needed.
         updated_wl_defaults = DC(self.context.SettingsManager.guiDefaults["watchlistDefaults"])
         updated_wl_defaults["WLSGsavepathTextbox"] = self.context.ggSavepathTextbox.text()
         updated_wl_defaults["WLSGexternalCommandTextbox"] = self.context.extCmdExeLocation.text()
@@ -548,6 +554,8 @@ class guiActions(object):
     def saveAsDialog(self, recurse=False):
         #Since this is a save-as dialog, we just change the file location and save
         newfilename = self.saveAsAction()
+        if len(newfilename) < 1:
+            return False
         #Close the old file first
         self.context.SettingsManager.closeSettingsFile()
         #Then set the new file
@@ -560,7 +568,7 @@ class guiActions(object):
         self.updateUiTitle(title)
         #Finally we pass onto saveUiToFile to finish things off
         if recurse == False: self.saveUiToFile()
-        else: return
+        else: return True
     
     def saveUiToFile(self):
         #Takes the current state of the UI in an OrderedDict and sends it to the saveSettings() function.
@@ -572,7 +580,8 @@ class guiActions(object):
         
         #If there isnt a file currently loaded to save to, we turn this into a save-as dialog
         if self.context.SettingsManager.isLoaded == False:
-            self.saveAsDialog(recurse=True)
+            if not self.saveAsDialog(recurse=True):
+                return
         
         #Similar to updateUi(), we are going to loop through the uiElements dict and use its access methods to save the Ui state.
         #Now we loop through each element and eval it into life. Then we send each element through a type checking function that will access its data depending on its type.
@@ -895,3 +904,42 @@ class guiActions(object):
         self.context.emailToTextbox.setEnabled(state)
         self.context.emailSubjectTextbox.setEnabled(state)
         self.context.emailMessageTextbox.setEnabled(state)
+    
+    def checkForUpdates(self):
+        #version_regex = "(?P<major>[0-9])\.(?P<minor>[0-9]{1,3})(?P<extra>[a-zA-Z][0-9]{1,2})?"
+        text_color = "#ff0000"
+        comment = "Error!"
+        c = ulibOpen(self.context.SettingsManager._GITHUB_VER_URL_)
+        version_txt = c.read()
+        c.close()
+        #Fix some minor stuffs
+        version_txt = version_txt.replace("true", "True")
+        version_txt = version_txt.replace("false", "False")
+        try:
+            version_dict = safe_eval(version_txt) #might still be a bad idea
+        except Exception as e:
+            print e
+            return
+        latest_version = version_dict["tag_name"]
+        #Now we separate out the components of the version and compare against our own
+        #This is a more exact way to test and is incomplete, will work on this further if necessary
+        #ourver_re = re.match(version_regex, self.context.SettingsManager._CURRENT_GUI_VERSION_)
+        #latestver_re = re.match(version_regex, latest_version)
+        
+        #This seemed like a good idea at the time, but now I dunno
+        #It seems to work most of the time, as long as I dont do anything crazy with the version string.
+        if self.context.SettingsManager._CURRENT_GUI_VERSION_ < latest_version:
+            text_color = "#ff0000"
+            comment = "Old"
+        else:
+            comment = "Latest"
+            text_color = "#0055ff"
+        
+        #Set the latest version number in the GUI
+        self.context.ugServVerActual.setText(_translate("sccw_SettingsUI", "<html><head/><body><p><span style=\" font-weight:600; color:#0055ff;\">%s</span></p></body></html>" % (latest_version), None))
+        self.context.ugCliVerActual.setText(_translate("sccw_SettingsUI", "<html><head/><body><p><span style=\" font-weight:600; color:%s;\">%s (%s)</span></p></body></html>" % (text_color, self.context.SettingsManager._CURRENT_GUI_VERSION_, comment), None))
+        
+
+    #Undo/Redo system.
+    #Temporarily removed to restore my sanity
+    
