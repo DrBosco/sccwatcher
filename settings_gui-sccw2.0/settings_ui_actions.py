@@ -8,7 +8,7 @@ from PyQt4.QtCore import Qt
 from PyQt4.QtCore import QDir
 from copy import deepcopy as DC
 from ntpath import basename as ntpath_basename
-from urllib import urlopen as ulibOpen
+from urllib import urlopen
 from ast import literal_eval as safe_eval
 import re
 
@@ -28,6 +28,53 @@ class guiActions(object):
         #this is different from self.context.SettingsManager.isLoaded.
         #This just flags during the load operation itself and gives no indication as to whether or not something is currently loaded.
         self.__is_loading = False
+    
+    def get_multi(self, sizedetail):
+        sizedetail = str(sizedetail).upper()
+        if sizedetail == "KB":
+            multi=int(1024)
+        elif sizedetail == "MB":
+            multi=int(1048576)
+        elif sizedetail == "GB":
+            multi=int(1073741824)
+        else:
+            multi = int(1)
+        return multi
+    
+    def checkSizeLimitBounds(self, tab):
+        #tab should be either gen or wlist
+        #this function will make sure the upper and lower are within bounds of each other.
+        #If not it will correct the last changed value to within bounds
+        ul_set = {}
+        ul_set["gen"] = {}
+        ul_set["gen"]["lower"] = [self.context.globalSizeLimitLowerTextbox, self.context.globalSizeLimitLowerSuffixSelector]
+        ul_set["gen"]["upper"] = [self.context.globalSizeLimitUpperTextbox, self.context.globalSizeLimitUpperSuffixSelector]
+        ul_set["wlist"] = {}
+        ul_set["wlist"]["lower"] = [self.context.WLSGsizeLimitLowerTextbox, self.context.WLSGsizeLimitLowerSuffixSelector]
+        ul_set["wlist"]["upper"] = [self.context.WLSGsizeLimitUpperTextbox, self.context.WLSGsizeLimitUpperSuffixSelector]
+        
+        #Sanity checks, we dont want to do anything unless both boxes have integers in them
+        try:
+            int(ul_set[tab]["lower"][0].text())
+            int(ul_set[tab]["upper"][0].text())
+        except:
+            return
+        
+        #First thing we need to do is convert both the upper and lower numbers to bytes
+        upper_multi = self.get_multi(self.convertIndex(ul_set[tab]["upper"][1].currentIndex()))
+        lower_multi = self.get_multi(self.convertIndex(ul_set[tab]["lower"][1].currentIndex()))
+        upper_size_bytes = int(ul_set[tab]["upper"][0].text()) * upper_multi
+        lower_size_bytes = int(ul_set[tab]["lower"][0].text()) * lower_multi
+
+        #Now its a simple compare to see which is bigger
+        if upper_size_bytes < lower_size_bytes:
+            #We got a prob, change the background so we know
+            ul_set[tab]["lower"][0].setStyleSheet("QLineEdit { background: rgb(255, 136, 61); }")
+            ul_set[tab]["upper"][0].setStyleSheet("QLineEdit { background: rgb(255, 136, 61); }")
+        else:
+            #no prob, make sure the background is fine
+            ul_set[tab]["lower"][0].setStyleSheet("QLineEdit { background: rgb(255, 255, 255); }")
+            ul_set[tab]["upper"][0].setStyleSheet("QLineEdit { background: rgb(255, 255, 255); }")
     
     
     def updateUiTitle(self, text):
@@ -112,8 +159,10 @@ class guiActions(object):
                 is_changed = True
                     
         if is_changed is True:
-            msgBox = QtGui.QMessageBox()
-            msgBox.setInformativeText("Do you want to save any changes to the current settings file?")
+            msgBox = QtGui.QMessageBox(QtGui.QMessageBox.Warning, "SCCwatcher", "There are unsaved changes to the current file.", QtGui.QMessageBox.Save | QtGui.QMessageBox.Discard | QtGui.QMessageBox.Cancel)
+            #msgBox.setTitle("")
+            msgBox.setWindowIcon(self.context.icon)
+            msgBox.setInformativeText("Do you want to save these changes?")
             msgBox.setStandardButtons(QtGui.QMessageBox.Save | QtGui.QMessageBox.Discard | QtGui.QMessageBox.Cancel)
             msgBox.setDefaultButton(QtGui.QMessageBox.Save)
             rtn = msgBox.exec_()
@@ -906,10 +955,9 @@ class guiActions(object):
         self.context.emailMessageTextbox.setEnabled(state)
     
     def checkForUpdates(self):
-        #version_regex = "(?P<major>[0-9])\.(?P<minor>[0-9]{1,3})(?P<extra>[a-zA-Z][0-9]{1,2})?"
         text_color = "#ff0000"
         comment = "Error!"
-        c = ulibOpen(self.context.SettingsManager._GITHUB_VER_URL_)
+        c = urlopen(self.context.SettingsManager._GITHUB_VER_URL_)
         version_txt = c.read()
         c.close()
         #Fix some minor stuffs
@@ -917,14 +965,9 @@ class guiActions(object):
         version_txt = version_txt.replace("false", "False")
         try:
             version_dict = safe_eval(version_txt) #might still be a bad idea
-        except Exception as e:
-            print e
+        except:
             return
         latest_version = version_dict["tag_name"]
-        #Now we separate out the components of the version and compare against our own
-        #This is a more exact way to test and is incomplete, will work on this further if necessary
-        #ourver_re = re.match(version_regex, self.context.SettingsManager._CURRENT_GUI_VERSION_)
-        #latestver_re = re.match(version_regex, latest_version)
         
         #This seemed like a good idea at the time, but now I dunno
         #It seems to work most of the time, as long as I dont do anything crazy with the version string.

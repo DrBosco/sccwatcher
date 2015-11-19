@@ -1,4 +1,6 @@
 Todo until GUI is done:
+
+Set default file type for file dialog when saving and loading.
 	
 What is the cancel button even supposed to do?
 	Change it to quit?

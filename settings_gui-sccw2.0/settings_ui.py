@@ -10,6 +10,7 @@
 from PyQt4 import QtCore, QtGui
 from settings_manager import sccwSettingsManager as sccwSettingsManager
 from settings_ui_actions import guiActions as guiActions
+from functools import partial
 import icon_resources_rc
 
 
@@ -48,9 +49,9 @@ class Ui_sccw_SettingsUI(object):
         font.setFamily(_fromUtf8("Arial"))
         font.setPointSize(8)
         sccw_SettingsUI.setFont(font)
-        icon = QtGui.QIcon()
-        icon.addPixmap(QtGui.QPixmap(_fromUtf8(":/guiIcons/icons/logo.png")), QtGui.QIcon.Normal, QtGui.QIcon.Off)
-        sccw_SettingsUI.setWindowIcon(icon)
+        self.icon = QtGui.QIcon()
+        self.icon.addPixmap(QtGui.QPixmap(_fromUtf8(":/guiIcons/icons/logo.png")), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        sccw_SettingsUI.setWindowIcon(self.icon)
         sccw_SettingsUI.setToolButtonStyle(QtCore.Qt.ToolButtonIconOnly)
         
         #Create the main widgets
@@ -929,6 +930,20 @@ class Ui_sccw_SettingsUI(object):
         #DELETEME TEST
         #QtCore.QObject.connect(self.ggVerboseTabTextbox, QtCore.SIGNAL(_fromUtf8("editingFinished()")), self.guiActions.deleteme)
         
+        #This was supposed to make things easier, but im questioning things now
+        gen_lower_updated = partial(self.guiActions.checkSizeLimitBounds, "gen")
+        gen_upper_updated = partial(self.guiActions.checkSizeLimitBounds, "gen")
+        wlist_lower_updated = partial(self.guiActions.checkSizeLimitBounds, "wlist")
+        wlist_upper_updated = partial(self.guiActions.checkSizeLimitBounds, "wlist")
+        QtCore.QObject.connect(self.globalSizeLimitLowerTextbox, QtCore.SIGNAL(_fromUtf8("editingFinished()")), gen_lower_updated)
+        QtCore.QObject.connect(self.globalSizeLimitUpperTextbox, QtCore.SIGNAL(_fromUtf8("editingFinished()")), gen_upper_updated)
+        QtCore.QObject.connect(self.WLSGsizeLimitLowerTextbox, QtCore.SIGNAL(_fromUtf8("editingFinished()")), wlist_lower_updated)
+        QtCore.QObject.connect(self.WLSGsizeLimitUpperTextbox, QtCore.SIGNAL(_fromUtf8("editingFinished()")), wlist_upper_updated)
+        QtCore.QObject.connect(self.globalSizeLimitLowerSuffixSelector, QtCore.SIGNAL(_fromUtf8("currentIndexChanged(int)")), gen_lower_updated)
+        QtCore.QObject.connect(self.globalSizeLimitUpperSuffixSelector, QtCore.SIGNAL(_fromUtf8("currentIndexChanged(int)")), gen_upper_updated)
+        QtCore.QObject.connect(self.WLSGsizeLimitLowerSuffixSelector, QtCore.SIGNAL(_fromUtf8("currentIndexChanged(int)")), wlist_lower_updated)
+        QtCore.QObject.connect(self.WLSGsizeLimitUpperSuffixSelector, QtCore.SIGNAL(_fromUtf8("currentIndexChanged(int)")), wlist_upper_updated)
+        
         
         #Finally connect our slots
         QtCore.QMetaObject.connectSlotsByName(sccw_SettingsUI)
@@ -1193,7 +1208,6 @@ class Ui_sccw_SettingsUI(object):
         self.action_Quit.setShortcut(QtCore.Qt.Key_Q | QtCore.Qt.CTRL)
         
         ##Tooltips, LOTS of em
-        self.tabWidget.setToolTip(_translate("sccw_SettingsUI", "This controls the uTorrent WebUI upload feature. This will use the \n""WebUI settings given on the \"Download/Upload Settings\" tab.", None))
         self.ggMasterAutodlCheck.setToolTip(_translate("sccw_SettingsUI", "Enable/Disable automatically starting the autodl script at startup If disabled, \n""you will have to manually detect network settings using the SCCwatcher menu \n""in the Xchat/Hexchat GUI or use the text command: /sccwatcher detectnetwork ", None))
         self.ggNetworkDelaySpinbox.setToolTip(_translate("sccw_SettingsUI", "This delays when SCCwatcher checks the network settings, allowing \n""some time for your client to get connected to the network and into \n""the channel before the script detects the network settings.", None))
         self.ggPasskeyTextbox.setToolTip(_translate("sccw_SettingsUI", "See the end of the first post of the SCCwatcher topic in \n""the forums for help with finding your passkey.", None))

@@ -74,10 +74,6 @@
       <bold>false</bold>
      </font>
     </property>
-    <property name="toolTip">
-     <string>This controls the uTorrent WebUI upload feature. This will use the 
-WebUI settings given on the &quot;Download/Upload Settings&quot; tab.</string>
-    </property>
     <property name="currentIndex">
      <number>0</number>
     </property>
