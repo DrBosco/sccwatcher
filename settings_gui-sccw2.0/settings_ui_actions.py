@@ -13,6 +13,17 @@ from ast import literal_eval as safe_eval
 import re
 
 
+#I didnt think this should be included in each guiActions instance
+def regexValidator(expr):
+    #This function will take in a string, as expr, and determine if it is a valid regular expression
+    #Super simple
+    try:
+        re.compile(expr)
+        return True
+    except:
+        return False
+
+
 try:
     _encoding = QtGui.QApplication.UnicodeUTF8
     def _translate(context, text, disambig):
@@ -28,6 +39,26 @@ class guiActions(object):
         #this is different from self.context.SettingsManager.isLoaded.
         #This just flags during the load operation itself and gives no indication as to whether or not something is currently loaded.
         self.__is_loading = False
+    
+    
+    def checkRegexContent(self, pElement, pCheckbox):
+        #This is a generic function for each box supporting regular expressions.
+        #You can just connect the finishedEditing() signal to this function, using partial to fill in the variables.
+        
+        pCheckbox_value = pCheckbox.checkState()
+        regex = str(pElement.text())
+        
+        #We only operate if the regex checkbox is active
+        if pCheckbox_value > 0:
+            if regexValidator(regex) is True:
+                #Regular expression checks out, we will set the background back to normal
+                pElement.setStyleSheet("QLineEdit { background: rgb(255, 255, 255); }")
+            else:
+                #invalid regex, set the background to orange to indicate the error
+                pElement.setStyleSheet("QLineEdit { background: rgb(255, 100, 0); }")
+        else:
+            #Set the background to normal, just in-case it was set before
+            pElement.setStyleSheet("QLineEdit { background: rgb(255, 255, 255); }")
     
     def get_multi(self, sizedetail):
         sizedetail = str(sizedetail).upper()
@@ -69,8 +100,8 @@ class guiActions(object):
         #Now its a simple compare to see which is bigger
         if upper_size_bytes < lower_size_bytes:
             #We got a prob, change the background so we know
-            ul_set[tab]["lower"][0].setStyleSheet("QLineEdit { background: rgb(255, 136, 61); }")
-            ul_set[tab]["upper"][0].setStyleSheet("QLineEdit { background: rgb(255, 136, 61); }")
+            ul_set[tab]["lower"][0].setStyleSheet("QLineEdit { background: rgb(255, 100, 0); }")
+            ul_set[tab]["upper"][0].setStyleSheet("QLineEdit { background: rgb(255, 100, 0); }")
         else:
             #no prob, make sure the background is fine
             ul_set[tab]["lower"][0].setStyleSheet("QLineEdit { background: rgb(255, 255, 255); }")
@@ -91,7 +122,7 @@ class guiActions(object):
             elif rtn == QtGui.QMessageBox.Discard:
                 pass
             elif rtn == QtGui.QMessageBox.Cancel:
-                return
+                return False
         
         #Now we clear the UI
         self.clearUiData(self.context.SettingsManager.guiDefaults["allOtherDefaults"])
@@ -111,6 +142,9 @@ class guiActions(object):
         self.updateUiTitle("New Settings File")
         #and finally set the UI state to fresh
         self.updateUiStateInfo()
+        
+        #Just for some other logic stuffs
+        return True
         
     def checkListChanges(self, list_object, check_dict):
         #This function will take a watchlist object as list_object and compare its items against the data stored in check_dict
@@ -801,6 +835,7 @@ class guiActions(object):
     #start_dir is a list because im lazy and didn't want to rewrite it the correct way. Nobody but me is going to be messing around this part of the code anyway.
     #The extra digit controls whether the start_dir should be returned if the user cancels the dialog instead of making a selection.
     
+    #I could replace most of these with partial'd functions
     def browse_button_mainSavepath(self):
         caption = "Choose location to save .torrent files..."
         if len(self.context.ggSavepathTextbox.text()) > 1:
@@ -831,12 +866,13 @@ class guiActions(object):
     def browse_button_cookieFile(self):
         start_dir = [self.context.globalCFBypassCookiefilePathTextbox.text(), 1]
         caption = "Location of cookie file..."
-        self.browse_button_master(self.context.globalCFBypassCookiefilePathTextbox, QtGui.QFileDialog.AcceptOpen, QtGui.QFileDialog.ExistingFile, caption, start_dir=start_dir)
+        filters = "Exported Cookies (*.txt);;All Files (*.*)"
+        self.browse_button_master(self.context.globalCFBypassCookiefilePathTextbox, QtGui.QFileDialog.AcceptOpen, QtGui.QFileDialog.ExistingFile, caption, start_dir=start_dir, filters=filters)
         
         
     def browse_button_mainExtProgram(self):
         start_dir = [self.context.extCmdExeLocation.text(), 1]
-        caption = "Choose Program..."
+        caption = "Choose A Program..."
         self.browse_button_master(self.context.extCmdExeLocation, QtGui.QFileDialog.AcceptOpen, QtGui.QFileDialog.ExistingFile, caption, start_dir=start_dir)
         
         
@@ -850,7 +886,7 @@ class guiActions(object):
         
     def browse_button_WLextProgram(self):
         start_dir = [self.context.WLSGexternalCommandTextbox.text(), 1]
-        caption = "Choose Program..."
+        caption = "Choose A Program..."
         self.browse_button_master(self.context.WLSGexternalCommandTextbox, QtGui.QFileDialog.AcceptOpen, QtGui.QFileDialog.ExistingFile, caption, start_dir=start_dir)
         #Update the data for the watch item manually
         self.saveAllWatchlistItems()
@@ -858,17 +894,19 @@ class guiActions(object):
     def browse_button_loadFile(self):
         start_dir = [self.context.SettingsManager.currentFile, 0]
         caption = "Location of scc.ini..."
-        filename = self.browse_button_master(None, QtGui.QFileDialog.AcceptOpen, QtGui.QFileDialog.ExistingFile, caption, alt_mode=True, start_dir=start_dir)
+        filters = "SCCwatcher Settings File (*.ini);;All Files (*.*)"
+        filename = self.browse_button_master(None, QtGui.QFileDialog.AcceptOpen, QtGui.QFileDialog.ExistingFile, caption, alt_mode=True, start_dir=start_dir, filters=filters)
         return filename
     
     def saveAsAction(self):
         start_dir = [self.context.SettingsManager.currentFile, 0]
         caption = "Choose location to save settings file..."
-        filename = self.browse_button_master(None, QtGui.QFileDialog.AcceptSave, QtGui.QFileDialog.AnyFile, caption, alt_mode=True, save_mode=True, start_dir=start_dir)
+        filters = "SCCwatcher Settings File (*.ini);;All Files (*.*)"
+        filename = self.browse_button_master(None, QtGui.QFileDialog.AcceptSave, QtGui.QFileDialog.AnyFile, caption, alt_mode=True, save_mode=True, start_dir=start_dir, filters=filters)
         return filename
     
     
-    def browse_button_master(self, access_object, main_mode, file_mode, dialog_caption, alt_mode=False, save_mode=False, start_dir=["", 0]):
+    def browse_button_master(self, access_object, main_mode, file_mode, dialog_caption, alt_mode=False, save_mode=False, start_dir=["", 0], filters="All Files (*.*)"):
         rtnstat = start_dir[1]
         start_dir = start_dir[0]
         
@@ -884,7 +922,7 @@ class guiActions(object):
         if file_mode == QtGui.QFileDialog.Directory:
             chosenFile = fileDialog.getExistingDirectory(caption=dialog_caption)
         elif file_mode == QtGui.QFileDialog.ExistingFile or file_mode == QtGui.QFileDialog.AnyFile:
-            chosenFile = fd_access(caption=dialog_caption)
+            chosenFile = fd_access(caption=dialog_caption, filter=filters)
         
         if len(chosenFile) < 1:
             if rtnstat == 1:
@@ -982,6 +1020,13 @@ class guiActions(object):
         self.context.ugServVerActual.setText(_translate("sccw_SettingsUI", "<html><head/><body><p><span style=\" font-weight:600; color:#0055ff;\">%s</span></p></body></html>" % (latest_version), None))
         self.context.ugCliVerActual.setText(_translate("sccw_SettingsUI", "<html><head/><body><p><span style=\" font-weight:600; color:%s;\">%s (%s)</span></p></body></html>" % (text_color, self.context.SettingsManager._CURRENT_GUI_VERSION_, comment), None))
         
+
+    def quitApp(self):
+        #Basially the same as new, except we then quit after that
+        if self.newSettingsFile():
+            #User wants to quit
+            self.context.MainWindow.close()
+            
 
     #Undo/Redo system.
     #Temporarily removed to restore my sanity

@@ -764,6 +764,8 @@ class Ui_sccw_SettingsUI(object):
         self.buttonBox.setStandardButtons(QtGui.QDialogButtonBox.Cancel|QtGui.QDialogButtonBox.Save)
         self.buttonBox.setObjectName(_fromUtf8("buttonBox"))
         sccw_SettingsUI.setCentralWidget(self.centralwidget)
+        #Change cancel to quit
+        self.buttonBox.button(QtGui.QDialogButtonBox.Cancel).setText("Quit")
        
        
         ## Menu Bar ##
@@ -869,11 +871,15 @@ class Ui_sccw_SettingsUI(object):
         self.tabWidget.setCurrentIndex(0)
         
         ## Slot connectors ##
-        QtCore.QObject.connect(self.action_Quit, QtCore.SIGNAL(_fromUtf8("triggered()")), sccw_SettingsUI.close)
+        #Menu actions
+        QtCore.QObject.connect(self.action_Quit, QtCore.SIGNAL(_fromUtf8("triggered()")), self.guiActions.quitApp)
         QtCore.QObject.connect(self.actionOpen, QtCore.SIGNAL(_fromUtf8("triggered()")), self.guiActions.loadUiState)
         QtCore.QObject.connect(self.actionSave, QtCore.SIGNAL(_fromUtf8("triggered()")), self.guiActions.saveUiToFile)
         QtCore.QObject.connect(self.actionSave_As, QtCore.SIGNAL(_fromUtf8("triggered()")), self.guiActions.saveAsDialog)
         QtCore.QObject.connect(self.action_New, QtCore.SIGNAL(_fromUtf8("triggered()")), self.guiActions.newSettingsFile)
+        #lower button box
+        QtCore.QObject.connect(self.buttonBox, QtCore.SIGNAL(_fromUtf8("accepted()")), self.guiActions.saveUiToFile)
+        QtCore.QObject.connect(self.buttonBox, QtCore.SIGNAL(_fromUtf8("rejected()")), self.guiActions.quitApp)
         
         QtCore.QObject.connect(self.WLGaddEntryButton, QtCore.SIGNAL(_fromUtf8("clicked()")), self.guiActions.addWatchListItem)
         QtCore.QObject.connect(self.WLGremoveEntryButton, QtCore.SIGNAL(_fromUtf8("clicked()")), self.guiActions.removeWatchListItem)
@@ -931,6 +937,7 @@ class Ui_sccw_SettingsUI(object):
         #QtCore.QObject.connect(self.ggVerboseTabTextbox, QtCore.SIGNAL(_fromUtf8("editingFinished()")), self.guiActions.deleteme)
         
         #This was supposed to make things easier, but im questioning things now
+        #These control the size-limit and regex validators.
         gen_lower_updated = partial(self.guiActions.checkSizeLimitBounds, "gen")
         gen_upper_updated = partial(self.guiActions.checkSizeLimitBounds, "gen")
         wlist_lower_updated = partial(self.guiActions.checkSizeLimitBounds, "wlist")
@@ -943,7 +950,16 @@ class Ui_sccw_SettingsUI(object):
         QtCore.QObject.connect(self.globalSizeLimitUpperSuffixSelector, QtCore.SIGNAL(_fromUtf8("currentIndexChanged(int)")), gen_upper_updated)
         QtCore.QObject.connect(self.WLSGsizeLimitLowerSuffixSelector, QtCore.SIGNAL(_fromUtf8("currentIndexChanged(int)")), wlist_lower_updated)
         QtCore.QObject.connect(self.WLSGsizeLimitUpperSuffixSelector, QtCore.SIGNAL(_fromUtf8("currentIndexChanged(int)")), wlist_upper_updated)
-        
+        #Regex validators
+        wlist_watch_regex_check = partial(self.guiActions.checkRegexContent, self.WLSGwatchFilterTextbox, self.WLSGwatchFilterRegexCheck)
+        wlist_avoid_regex_check = partial(self.guiActions.checkRegexContent, self.WLSGavoidFilterListTextbox, self.WLSGavoidFilterListRegexCheck)
+        alist_avoid_regex_check = partial(self.guiActions.checkRegexContent, self.avoidFilterTextbox, self.avoidFilterRegexCheck)
+        QtCore.QObject.connect(self.WLSGwatchFilterTextbox, QtCore.SIGNAL(_fromUtf8("editingFinished()")), wlist_watch_regex_check)
+        QtCore.QObject.connect(self.WLSGavoidFilterListTextbox, QtCore.SIGNAL(_fromUtf8("editingFinished()")), wlist_avoid_regex_check)
+        QtCore.QObject.connect(self.avoidFilterTextbox, QtCore.SIGNAL(_fromUtf8("editingFinished()")), alist_avoid_regex_check)
+        QtCore.QObject.connect(self.WLSGwatchFilterRegexCheck, QtCore.SIGNAL(_fromUtf8("toggled(bool)")), wlist_watch_regex_check)
+        QtCore.QObject.connect(self.WLSGavoidFilterListRegexCheck, QtCore.SIGNAL(_fromUtf8("toggled(bool)")), wlist_avoid_regex_check)
+        QtCore.QObject.connect(self.avoidFilterRegexCheck, QtCore.SIGNAL(_fromUtf8("toggled(bool)")), alist_avoid_regex_check)
         
         #Finally connect our slots
         QtCore.QMetaObject.connectSlotsByName(sccw_SettingsUI)

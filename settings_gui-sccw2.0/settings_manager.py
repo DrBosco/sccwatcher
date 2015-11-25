@@ -3,7 +3,7 @@ from collections import OrderedDict as OD
 from copy import deepcopy as DC
 
 #Tracking the current version from here only, making the change here updates everything.
-_CURRENT_GUI_VERSION_ = "2.0b1"
+_CURRENT_GUI_VERSION_ = "2.0b2"
 #GitHub API url for version infos
 _GITHUB_VERSION_URL_ = "https://api.github.com/repos/TheRealBanana/sccwatcher/releases/latest"
 
