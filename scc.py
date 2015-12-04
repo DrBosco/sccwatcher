@@ -22,7 +22,7 @@
 #                                                                            #
 ##############################################################################
 __module_name__ = "SCCwatcher"
-__module_version__ = "1.86"
+__module_version__ = "2.0a1"
 __module_description__ = "SCCwatcher"
 
 import xchat, os, re, string, urllib, ftplib, time, threading, base64, urllib2, smtplib, subprocess, platform, socket, cookielib
@@ -55,6 +55,75 @@ color = {"white":"\00300", "black":"\00301", "blue":"\00302", "green":"\00303", 
 class sccwDownloader(urllib.FancyURLopener):
         #This is where we adjust the useragent.
         version = "Mozilla/5.0 (compatible; Python urllib; SCCwatcher; v%s)" % (__module_version__)
+
+
+#This function takes the ini file as an argument, and returns the loaded options dict
+def loadSettingsFile(file_location):
+    #This makes it easier to track the current dict
+    cur_dict = None
+    option = {}
+    option["watchlist"] = {}
+    option["avoidlist"] = {}
+    option["global"] = {}
+    try:
+        inifile = open(file_location, 'r')
+    except:
+        LOADERROR = color["bpurple"] + "SCCwatcher encountered a problem loading your ini file. For more information enable debug mode."
+        verbose(LOADERROR)
+        logging(xchat.strip(LOADERROR), "LOAD_FAIL-INI")
+    
+    #Here's the business end of the function
+    for line in inifile:
+        #Ignore any commented out lines
+        if line[0] == "#":
+            continue
+        
+        #New group
+        if line[0] == "[":
+            groupreg = re.match("\[(-)?(.*?)\]", line)
+            grpname = groupreg.group(2)
+            
+            #If we don't have a minus sign then its a watch, otherwise its an avoid
+            if groupreg.group(1) is None:
+                if groupreg.group(2) == "GlobalSettings":
+                    clist = "global"
+                    grpname = clist
+                else:
+                    clist = "watchlist"
+            else:
+                clist = "avoidlist"
+            
+            #have to set up differently for global options
+            if clist == "global":
+                option[clist] = {}
+                cur_dict = option[clist]
+            else:
+                #Set up the dict for this entry
+                option[clist][grpname] = {}
+                #This makes it easier to work with later
+                cur_dict = option[clist][grpname]
+        
+        #Options
+        elif re.match("(.*?)(?:\s+)?=(?:\s+)?(.*)", line) is not None:
+            if cur_dict is not None:
+                option_line = re.match("(.*?)(?:\s+)?=(?:\s+)?(.*)", line)
+                cur_dict[str(option_line.group(1)).lower()] = option_line.group(2)
+            else:
+                dbgerror = color["bpurple"]+"SCCwatcher found a weird line in your ini: " + str(line)
+                verbose(dbgerror)
+                logging(dbgerror)
+        
+        #Some other line, who knows what
+        else:
+            if option["global"]["debug"] == "on":
+                dbgerror = color["bpurple"]+"SCCwatcher found a weird line in your ini: " + str(line)
+                verbose(dbgerror)
+                logging(dbgerror)
+    
+    
+    #Gotta close it before we quit
+    inifile.close()
+    return option
 
 def reload_vars():
     global option, has_tab_data, downloaderHeaders
