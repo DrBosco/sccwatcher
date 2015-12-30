@@ -25,7 +25,11 @@ __module_name__ = "SCCwatcher"
 __module_version__ = "2.0a1"
 __module_description__ = "SCCwatcher"
 
-import xchat, os, re, string, urllib, ftplib, time, threading, base64, urllib2, smtplib, subprocess, platform, socket, cookielib
+import xchat, os, re, string, urllib, ftplib, time, threading, thread, base64, urllib2, smtplib, subprocess, platform, socket, cookielib
+from multiprocessing.connection import Listener
+from uuid import getnode
+#Start the comServer. Our secret is our mac address.
+comServ(getnode())
 
 #Set the timeout for all network operations here. This value is in seconds. Default is 20 seconds.
 socket.setdefaulttimeout(20)
@@ -57,9 +61,61 @@ class sccwDownloader(urllib.FancyURLopener):
         version = "Mozilla/5.0 (compatible; Python urllib; SCCwatcher; v%s)" % (__module_version__)
 
 
+#Dear god please work. I know xchat/hexchat doesn't like threads anyway but now I'm really leaning on the threading module
+#Please don't break things
+#I looked online for quite a while before I arrived at this solution
+#There was something about full-duplex file pipes but my firefox crashed so I cba to find it again on google
+#If anyone knows the one Im talking about link me and I'll change this if its better
+#
+#This would all be better served from inside an object so that we can access and update its internal state from anywhere within the script without using globals.
+#Think about it
+def rec_worker(connection, callback):
+    while True:
+        data = connection.recv()
+        callback(connection, data)
+
+def con_worker(listener, callback):
+    while True:
+        con = listener.accept()
+        callback(con)
+                
+def receive_callback(connection):
+    print "Got connection from GUI!"
+    thread1 = threading.Thread(target=rec_worker, args=(connection, data_callback))
+    thread1.start()
+    #maybe we can thread1.join() on close or something, maybe its not necessary. I don't know.
+    
+def data_callback(connection, data):
+    #This is where the magic happens. We can receive commands from the GUI and react based on those commands
+    #We can also directly send data back to the GUI
+    
+    #Request for status
+    if data == "rqstatus":
+        try:
+                connection.send("everything's cool maaaaaan")
+        except:
+                pass
+
+    elif data == "DEBUG_TEST":
+        print "OH LAWDY ITZ WORKING!"
+        connection.send("TEEEEEEEEEEEEESTING MANG")
+    #And so on, maybe with restart or reload commands in the future
+
+
+#secret is always the box's active NIC card's MAC address
+def comServ(secret):
+    #We use port 36187, just because and no other reason. Change it if you want.
+    address = ('localhost', 36187)
+    listener = Listener(address, authkey=secret)
+    
+    #Now we start our con_worker thread and it will listen away for the GUI to connect.
+    thread.start_new_thread(con_worker, (listener, receive_callback))
+
+
+
 #This function takes the ini file as an argument, and returns the loaded options dict
 def loadSettingsFile(file_location):
-    #This makes it easier to track the current dict
+    #This makes it easier to track the current location within the option dict
     cur_dict = None
     option = {}
     option["watchlist"] = {}
@@ -124,6 +180,116 @@ def loadSettingsFile(file_location):
     #Gotta close it before we quit
     inifile.close()
     return option
+
+
+def setupMenus(general_options, rld=False):
+    #Simple function to set up the menus.
+    #If rld is True it won't erase some stuff.
+    
+    if rld is True:
+        #Have to delete the menus here 
+        pass
+    
+    #lots of ifs because we have to make sure the default values reflect whats in scc.ini
+    xchat.command('menu -p-1 add SCCwatcher')
+    xchat.command('menu add "SCCwatcher/Status" "sccwatcher status"')
+    xchat.command('menu add "SCCwatcher/-"')
+    
+    if option["service"] == "on":
+        xchat.command('menu -t1 add "SCCwatcher/Enable Autograbbing" "sccwatcher on" "sccwatcher off"')
+    else:
+        xchat.command('menu -t0 add "SCCwatcher/Enable Autograbbing" "sccwatcher on" "sccwatcher off"')
+    
+    
+    if option["download_ssl"] == "on":
+        xchat.command('menu -t1 add "SCCwatcher/SSL Downloading" "sccwatcher sslon" "sccwatcher ssloff"')
+    else:
+        xchat.command('menu -t0 add "SCCwatcher/SSL Downloading" "sccwatcher sslon" "sccwatcher ssloff"')
+    
+    
+    if option["smtp_emailer"] == "on":
+        xchat.command('menu -t1 add "SCCwatcher/E-Mail On Grab" "sccwatcher emailon" "sccwatcher emailoff"')
+    else:
+        xchat.command('menu -t0 add "SCCwatcher/E-Mail On Grab" "sccwatcher emailon" "sccwatcher emailoff"')
+
+        
+    if option["ftpenable"] == "on":
+        xchat.command('menu -t1 add "SCCwatcher/FTP Uploading" "sccwatcher ftpon" "sccwatcher ftpoff"')
+    else:
+        xchat.command('menu -t0 add "SCCwatcher/FTP Uploading" "sccwatcher ftpon" "sccwatcher ftpoff"')
+
+    if option["use_external_command"] == "on":
+        xchat.command('menu -t1 add "SCCwatcher/Use External Command" "sccwatcher cmdon" "sccwatcher cmdoff"')
+    else:
+        xchat.command('menu -t0 add "SCCwatcher/Use External Command" "sccwatcher cmdon" "sccwatcher cmdoff"')
+        
+    if option["verbose"] == "on":
+        xchat.command('menu -t1 add "SCCwatcher/Verbose Output" "sccwatcher loud" "sccwatcher quiet"')
+    else:
+        xchat.command('menu -t0 add "SCCwatcher/Verbose Output" "sccwatcher loud" "sccwatcher quiet"')
+
+        
+    if option["logenabled"] == "on":
+        xchat.command('menu -t1 add "SCCwatcher/Logging to File" "sccwatcher logon" "sccwatcher logoff"')
+    else:
+        xchat.command('menu -t0 add "SCCwatcher/Logging to File" "sccwatcher logon" "sccwatcher logoff"')
+    
+    if option["DEBUG"] == "on":
+        xchat.command('menu -t1 add "SCCwatcher/Debug output" "sccwatcher _guidebugon" "sccwatcher _guidebugoff"')
+    
+        
+    xchat.command('menu add SCCwatcher/-')
+    xchat.command('menu add SCCwatcher/Help "sccwatcher help"')
+    xchat.command('menu add "SCCwatcher/Reload scc.ini" "sccwatcher rehash"')
+    xchat.command('menu add "SCCwatcher/Re-Detect Network" "sccwatcher detectnetwork"')
+    xchat.command('menu add SCCwatcher/-')
+    xchat.command('menu add "SCCwatcher/Watchlist"')
+    xchat.command('menu add "SCCwatcher/Watchlist/Print Watchlist" "sccwatcher watchlist"')
+    xchat.command('menu add "SCCwatcher/Watchlist/-"')
+    xchat.command('menu add "SCCwatcher/Watchlist/Temporarily Add Watch" "sccwatcher _guiaddwatch"')
+    
+    xchat.command('menu add "SCCwatcher/Watchlist/Temporarily Remove Watch"')
+    for x in option["watchlist"]:
+        xchat.command('menu add "SCCwatcher/Watchlist/Temporarily Remove Watch/%s"' % str(x))
+        xchat.command('menu add "SCCwatcher/Watchlist/Temporarily Remove Watch/%s/Confirm Remove" "sccwatcher remwatch %s"' % (str(x), str(x)))
+    
+    
+    
+    xchat.command('menu add "SCCwatcher/Avoidlist"')
+    xchat.command('menu add "SCCwatcher/Avoidlist/Print Avoidlist" "sccwatcher avoidlist"')
+    xchat.command('menu add "SCCwatcher/Avoidlist/-"')
+    xchat.command('menu add "SCCwatcher/Avoidlist/Temporarily Add Avoid" "sccwatcher _guiaddavoid"')
+    
+    xchat.command('menu add "SCCwatcher/Avoidlist/Temporarily Remove Avoid"')
+    for x in option["avoidlist"]:
+        xchat.command('menu add "SCCwatcher/Avoidlist/Temporarily Remove Avoid/%s"' % str(x))
+        xchat.command('menu add "SCCwatcher/Avoidlist/Temporarily Remove Avoid/%s/Confirm Remove" "sccwatcher remavoid %s"' % (str(x), str(x)))
+    
+    
+    xchat.command('menu add "SCCwatcher/Recent Grab List"')
+    xchat.command('menu add "SCCwatcher/Recent Grab List/Print Recent List" "sccwatcher recent"')
+    xchat.command('menu add "SCCwatcher/Recent Grab List/Recent List"')
+    xchat.command('menu -e0 add "SCCwatcher/Recent Grab List/Recent List/Last 5 Grabs" "echo"')
+    xchat.command('menu add "SCCwatcher/Recent Grab List/Recent List/-')
+    xchat.command('menu -e0 add "SCCwatcher/Recent Grab List/Recent List/(none)" "echo"')
+    xchat.command('menu add "SCCwatcher/Recent Grab List/-"')
+    xchat.command('menu add "SCCwatcher/Recent Grab List/Clear Recent List" "sccwatcher recentclear"')
+    xchat.command('menu add "SCCwatcher/Verbose Output Settings"')
+    xchat.command('menu add "SCCwatcher/Verbose Output Settings/Default" "sccwatcher anytab"')
+    xchat.command('menu add "SCCwatcher/Verbose Output Settings/This Tab" "sccwatcher thistab"')
+    xchat.command('menu add "SCCwatcher/Verbose Output Settings/SCCwatcher Tab" "sccwatcher scctab"')
+    xchat.command('menu add "SCCwatcher/Verbose Output Settings/-"')
+    option["_extra_context_"] = "off"
+    xchat.command('menu -e0 -t0 add "SCCwatcher/Verbose Output Settings/Using Non-Default Output?" "echo"')
+    
+    about_box = '"SCCwatcher Version ' + __module_version__ + ' by TRB.'
+    xchat.command('menu add SCCwatcher/-')
+    xchat.command('menu add SCCwatcher/About "GUI MSGBOX "' + about_box + '""')
+    
+    if rld is True:
+        #Have to modify/update the menus here
+        #Put back recent list, etc
+        pass
 
 def reload_vars():
     global option, has_tab_data, downloaderHeaders
@@ -428,101 +594,7 @@ def load_vars():
         announce_regex = re.compile('(.*)NEW in (.*): -> ([^\s]*.) \((.*)\) - \(https?:\/\/(?:www\.)?sceneaccess\.(?:org|eu)\/details(?:\.php)?\?id=(\d+)\)(.*)')
         
         #Create the menus
-        #lots of ifs because we have to make sure the default values reflect whats in scc.ini
-        xchat.command('menu -p-1 add SCCwatcher')
-        xchat.command('menu add "SCCwatcher/Status" "sccwatcher status"')
-        xchat.command('menu add "SCCwatcher/-"')
         
-        if option["service"] == "on":
-            xchat.command('menu -t1 add "SCCwatcher/Enable Autograbbing" "sccwatcher on" "sccwatcher off"')
-        else:
-            xchat.command('menu -t0 add "SCCwatcher/Enable Autograbbing" "sccwatcher on" "sccwatcher off"')
-        
-        
-        if option["download_ssl"] == "on":
-            xchat.command('menu -t1 add "SCCwatcher/SSL Downloading" "sccwatcher sslon" "sccwatcher ssloff"')
-        else:
-            xchat.command('menu -t0 add "SCCwatcher/SSL Downloading" "sccwatcher sslon" "sccwatcher ssloff"')
-        
-        
-        if option["smtp_emailer"] == "on":
-            xchat.command('menu -t1 add "SCCwatcher/E-Mail On Grab" "sccwatcher emailon" "sccwatcher emailoff"')
-        else:
-            xchat.command('menu -t0 add "SCCwatcher/E-Mail On Grab" "sccwatcher emailon" "sccwatcher emailoff"')
-
-            
-        if option["ftpenable"] == "on":
-            xchat.command('menu -t1 add "SCCwatcher/FTP Uploading" "sccwatcher ftpon" "sccwatcher ftpoff"')
-        else:
-            xchat.command('menu -t0 add "SCCwatcher/FTP Uploading" "sccwatcher ftpon" "sccwatcher ftpoff"')
-
-        if option["use_external_command"] == "on":
-            xchat.command('menu -t1 add "SCCwatcher/Use External Command" "sccwatcher cmdon" "sccwatcher cmdoff"')
-        else:
-            xchat.command('menu -t0 add "SCCwatcher/Use External Command" "sccwatcher cmdon" "sccwatcher cmdoff"')
-            
-        if option["verbose"] == "on":
-            xchat.command('menu -t1 add "SCCwatcher/Verbose Output" "sccwatcher loud" "sccwatcher quiet"')
-        else:
-            xchat.command('menu -t0 add "SCCwatcher/Verbose Output" "sccwatcher loud" "sccwatcher quiet"')
-
-            
-        if option["logenabled"] == "on":
-            xchat.command('menu -t1 add "SCCwatcher/Logging to File" "sccwatcher logon" "sccwatcher logoff"')
-        else:
-            xchat.command('menu -t0 add "SCCwatcher/Logging to File" "sccwatcher logon" "sccwatcher logoff"')
-        
-        if option["DEBUG"] == "on":
-            xchat.command('menu -t1 add "SCCwatcher/Debug output" "sccwatcher _guidebugon" "sccwatcher _guidebugoff"')
-        
-            
-        xchat.command('menu add SCCwatcher/-')
-        xchat.command('menu add SCCwatcher/Help "sccwatcher help"')
-        xchat.command('menu add "SCCwatcher/Reload scc.ini" "sccwatcher rehash"')
-        xchat.command('menu add "SCCwatcher/Re-Detect Network" "sccwatcher detectnetwork"')
-        xchat.command('menu add SCCwatcher/-')
-        xchat.command('menu add "SCCwatcher/Watchlist"')
-        xchat.command('menu add "SCCwatcher/Watchlist/Print Watchlist" "sccwatcher watchlist"')
-        xchat.command('menu add "SCCwatcher/Watchlist/-"')
-        xchat.command('menu add "SCCwatcher/Watchlist/Temporarily Add Watch" "sccwatcher _guiaddwatch"')
-        
-        xchat.command('menu add "SCCwatcher/Watchlist/Temporarily Remove Watch"')
-        for x in option["watchlist"]:
-            xchat.command('menu add "SCCwatcher/Watchlist/Temporarily Remove Watch/%s"' % str(x))
-            xchat.command('menu add "SCCwatcher/Watchlist/Temporarily Remove Watch/%s/Confirm Remove" "sccwatcher remwatch %s"' % (str(x), str(x)))
-        
-        
-        
-        xchat.command('menu add "SCCwatcher/Avoidlist"')
-        xchat.command('menu add "SCCwatcher/Avoidlist/Print Avoidlist" "sccwatcher avoidlist"')
-        xchat.command('menu add "SCCwatcher/Avoidlist/-"')
-        xchat.command('menu add "SCCwatcher/Avoidlist/Temporarily Add Avoid" "sccwatcher _guiaddavoid"')
-        
-        xchat.command('menu add "SCCwatcher/Avoidlist/Temporarily Remove Avoid"')
-        for x in option["avoidlist"]:
-            xchat.command('menu add "SCCwatcher/Avoidlist/Temporarily Remove Avoid/%s"' % str(x))
-            xchat.command('menu add "SCCwatcher/Avoidlist/Temporarily Remove Avoid/%s/Confirm Remove" "sccwatcher remavoid %s"' % (str(x), str(x)))
-        
-        
-        xchat.command('menu add "SCCwatcher/Recent Grab List"')
-        xchat.command('menu add "SCCwatcher/Recent Grab List/Print Recent List" "sccwatcher recent"')
-        xchat.command('menu add "SCCwatcher/Recent Grab List/Recent List"')
-        xchat.command('menu -e0 add "SCCwatcher/Recent Grab List/Recent List/Last 5 Grabs" "echo"')
-        xchat.command('menu add "SCCwatcher/Recent Grab List/Recent List/-')
-        xchat.command('menu -e0 add "SCCwatcher/Recent Grab List/Recent List/(none)" "echo"')
-        xchat.command('menu add "SCCwatcher/Recent Grab List/-"')
-        xchat.command('menu add "SCCwatcher/Recent Grab List/Clear Recent List" "sccwatcher recentclear"')
-        xchat.command('menu add "SCCwatcher/Verbose Output Settings"')
-        xchat.command('menu add "SCCwatcher/Verbose Output Settings/Default" "sccwatcher anytab"')
-        xchat.command('menu add "SCCwatcher/Verbose Output Settings/This Tab" "sccwatcher thistab"')
-        xchat.command('menu add "SCCwatcher/Verbose Output Settings/SCCwatcher Tab" "sccwatcher scctab"')
-        xchat.command('menu add "SCCwatcher/Verbose Output Settings/-"')
-        option["_extra_context_"] = "off"
-        xchat.command('menu -e0 -t0 add "SCCwatcher/Verbose Output Settings/Using Non-Default Output?" "echo"')
-        
-        about_box = '"SCCwatcher Version ' + __module_version__ + ' by TRB.'
-        xchat.command('menu add SCCwatcher/-')
-        xchat.command('menu add SCCwatcher/About "GUI MSGBOX "' + about_box + '""')
         #Only log script load if logging is enabled
         if option["logenabled"] == "on":
             loadmsg = "\0034 "+__module_name__+" "+__module_version__+" has been loaded\003"
@@ -2159,5 +2231,5 @@ if (__name__ == "__main__"):
         main()
 
 #LICENSE GPL
-#Last modified 10-15-15 (MM/DD/YY)
+#Last modified 12-30-15 (MM/DD/YY)
 
