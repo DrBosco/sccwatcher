@@ -22,14 +22,13 @@
 #                                                                            #
 ##############################################################################
 __module_name__ = "SCCwatcher"
-__module_version__ = "2.0a1"
+__module_version__ = "2.0a2"
 __module_description__ = "SCCwatcher"
 
 import xchat, os, re, string, urllib, ftplib, time, threading, thread, base64, urllib2, smtplib, subprocess, platform, socket, cookielib
+from time import sleep
 from multiprocessing.connection import Listener
 from uuid import getnode
-#Start the comServer. Our secret is our mac address.
-comServ(getnode())
 
 #Set the timeout for all network operations here. This value is in seconds. Default is 20 seconds.
 socket.setdefaulttimeout(20)
@@ -69,52 +68,94 @@ class sccwDownloader(urllib.FancyURLopener):
 #
 #This would all be better served from inside an object so that we can access and update its internal state from anywhere within the script without using globals.
 #Think about it
-def rec_worker(connection, callback):
-    while True:
-        data = connection.recv()
-        callback(connection, data)
 
-def con_worker(listener, callback):
-    while True:
-        con = listener.accept()
-        callback(con)
-                
-def receive_callback(connection):
-    print "Got connection from GUI!"
-    thread1 = threading.Thread(target=rec_worker, args=(connection, data_callback))
-    thread1.start()
-    #maybe we can thread1.join() on close or something, maybe its not necessary. I don't know.
+class servMan(object):
+    def __init__(self):
+        self.connected = False
+        self.connection = None
+        self.data = None
+
+    def rec_worker(self):
+        while True:
+            if self.connected == True:
+                try:
+                    data = self.connection.recv()
+                    self.data_callback(data)
+                except:
+                    #no data yet, but its gonna come. Wait a few seconds
+                    sleep(5)
+            else:
+                sleep(10)
     
-def data_callback(connection, data):
-    #This is where the magic happens. We can receive commands from the GUI and react based on those commands
-    #We can also directly send data back to the GUI
+    def con_worker(self, listener):
+        print "Listening for connections...."
+        while True:
+            if self.connected == False:
+                print "LISTENING AGAIN"
+                con = listener.accept()
+                self.connected = True
+                self.receive_callback(con)
+            else:
+                sleep(30) #Deep sleep, we dont need this thread for now
+                #Send a keepalive message to be sure we are still connected
+                try:
+                    self.connection.send("_KEEPALIVE_")
+                except Exception as e:
+                    #REMOVEME
+                    print "con_worker error:  "
+                    print e
+                    print "+++++++++++++++++++++++++"
+                    self.connected = False
+                    self.connection = None
     
-    #Request for status
-    if data == "rqstatus":
-        try:
-                connection.send("everything's cool maaaaaan")
-        except:
+    
+    def receive_callback(self, connection):
+        print "Got connection from GUI!"
+        self.connection = connection
+        thread1 = threading.Thread(target=self.rec_worker)
+        thread1.start()
+        #maybe we can thread1.join() on close or something, maybe its not necessary. I don't know.
+    
+    def data_callback(self, data):
+        #This is where the magic happens. We can receive commands from the GUI and react based on those commands
+        #We can also directly send data back to the GUI
+        
+        #Request for status
+        if data == "rqstatus":
+            try:
+                self.connection.send("everything's cool maaaaaan")
+            except:
+                #TODO HANDLE CONNECTION FAILURE HERE
                 pass
-
-    elif data == "DEBUG_TEST":
-        print "OH LAWDY ITZ WORKING!"
-        connection.send("TEEEEEEEEEEEEESTING MANG")
-    #And so on, maybe with restart or reload commands in the future
-
-
-#secret is always the box's active NIC card's MAC address
-def comServ(secret):
-    #We use port 36187, just because and no other reason. Change it if you want.
-    address = ('localhost', 36187)
-    listener = Listener(address, authkey=secret)
     
-    #Now we start our con_worker thread and it will listen away for the GUI to connect.
-    thread.start_new_thread(con_worker, (listener, receive_callback))
+        elif data == "DEBUG_TEST":
+            print "OH LAWDY ITZ WORKING!"
+            self.connection.send("TEEEEEEEEEEEEESTING MANG")
+        else:
+            self.connection.send("Unknown command, here's a banana")
+            banana = {}
+            banana["banana"] = "me"
+            banana["asdf"] = "qwerty"
+            banana["LOL"] = "HEY"
+            banana["WUT"] = "YOU"
+            banana["AHHHH"] = "OK"
+            self.connection.send(banana)
+        #And so on, maybe with restart or reload commands in the future
+
+    #secret is always the box's active NIC card's MAC address
+    def comServ(self, secret):
+    #We use port 36187, just because and no other reason. Change it if you want.
+        address = ('localhost', 36187)
+        listener = Listener(address, authkey=str(secret))
+        #Now we start our con_worker thread and it will listen away for the GUI to connect.
+        thread.start_new_thread(self.con_worker, (listener,))
 
 
 
 #This function takes the ini file as an argument, and returns the loaded options dict
 def loadSettingsFile(file_location):
+    
+    
     #This makes it easier to track the current location within the option dict
     cur_dict = None
     option = {}
@@ -2228,8 +2269,11 @@ load_vars()
 
 # This gets the script movin
 if (__name__ == "__main__"):
+        #Start com server
+        serv = servMan()
+        serv.comServ(getnode())
         main()
 
 #LICENSE GPL
-#Last modified 12-30-15 (MM/DD/YY)
+#Last modified 01-03-16 (MM/DD/YY)
 
