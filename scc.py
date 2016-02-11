@@ -27,7 +27,9 @@ __module_description__ = "SCCwatcher"
 
 import xchat, os, re, string, urllib, ftplib, time, threading, thread, base64, urllib2, smtplib, subprocess, platform, socket, cookielib
 from time import sleep
+from copy import deepcopy as DC
 from multiprocessing.connection import Listener
+from multiprocessing import Manager
 from uuid import getnode
 
 #Set the timeout for all network operations here. This value is in seconds. Default is 20 seconds.
@@ -60,6 +62,16 @@ class sccwDownloader(urllib.FancyURLopener):
         version = "Mozilla/5.0 (compatible; Python urllib; SCCwatcher; v%s)" % (__module_version__)
 
 
+
+
+
+#Had an idea about the mess below. Its all caused by trying to work around xchat/hexchat's horrible handling of threads.
+#It would be super simple to just spawn the GUI from the script itself, then I could use the multiprocessing library for communication.
+#I want people to be able to run the app and the script separately however so thats a no-go. What if instead of launching the GUI,
+#we instead launch a multithreaded server (like the one we already made). The script will communicate with this spawned process through
+#the multiprocessing library (which should hopefully be safer than the threading library in xchat/hexchat), bypassing the issues entirely.
+#The only issue may be with synchronizing the communication between the script and the spawned process so that it doesn't block the script.
+
 #Dear god please work. I know xchat/hexchat doesn't like threads anyway but now I'm really leaning on the threading module
 #Please don't break things
 #I looked online for quite a while before I arrived at this solution
@@ -69,30 +81,115 @@ class sccwDownloader(urllib.FancyURLopener):
 #This would all be better served from inside an object so that we can access and update its internal state from anywhere within the script without using globals.
 #Think about it
 
-class servMan(object):
-    def __init__(self):
-        self.connected = False
-        self.connection = None
-        self.data = None
+#I had a bad feeling about these threads from the very start, and now I'm sure its going to be trouble.
+#The threaded script I've built here is like a house of cards, except instead of cards its like im using randomly shaped legos and I dont know how its all staying together and working.
+#Adding in even the very same thing I've been doing all along might just be the straw that broke the camel's back. I hate hexchat's handling of threads. Threading is so damn simple in python,
+#yet its a mystical pain in the ass in hexchat/xchat.
+#So toward the end of not-madness, I've split the servMan into servMan, conMan, and receiveMan
 
-    def rec_worker(self):
-        while True:
-            if self.connected == True:
-                try:
-                    data = self.connection.recv()
-                    self.data_callback(data)
-                except:
-                    #no data yet, but its gonna come. Wait a few seconds
-                    sleep(5)
-            else:
-                sleep(10)
+#Two separate classes for two separate threads
+
+#super dirty way to do this but I haven't found anything better to easily and safely share data between two threads (haven't looked much either tbh)
+
+class sharedData(object):
+    def __init__(self):
+        self.locked = False
+        self.data = {}
+        self.reset_data()
+        
+    def reset_data(self):
+        self.data = {}
+        self.data["CM_DATA_QUEUE"] = []
+        #self.data["ACTIVE_COMMAND_QUEUE"] = []
+        self.data["OTHER_DATA"] = {}
     
-    def con_worker(self, listener):
+    def check_lock(self):
+        if self.locked is True:
+            _tries = 0
+            while self.locked is True:
+                if _tries >= 20:
+                    #Let the calling function know we couldn't get a lock on the data
+                    return False
+                #Im wondering if this will work or not. At least it wont get stuck here forever.
+                _tries += 1
+                sleep(1)
+        return True
+    
+    #Can only get or set the entire dict
+    def set_data(self, new_data):
+        if self.check_lock() is False:
+            return False
+        #And now we can set the data
+        #Only set if we have a dict
+        if isinstance(new_data, dict) is True:
+            self.locked = True
+            self.data = new_data
+            self.locked = False
+            return True
+        else:
+            return False
+    
+    def get_data(self):
+        if self.check_lock() is False:
+            return False
+        #If we got this far we should be able to lock the data
+        self.locked = True
+        #We can't just straight return the data since we wont have an opportunity to set locked back to false. We also can't do a simple returndata=self.data 
+        #because that creates a reference instead of a copy. This reference could, in theory, change between setting locked to false and returning the reference.
+        returndata = DC(self.data)
+        self.locked = False
+        return returndata
+    
+    def del_data(self):
+        if self.check_lock() is False:
+            return False
+        #If we got this far we should be able to lock the data
+        self.locked = True
+        self.reset_data()
+        self.locked = False
+        return True
+        
+    #Oh boy I r so escited I finally get to use the property() built-in. Super bad-ass function but I never get to use it as much as I want to.
+    shared_data = property(get_data, set_data, del_data, "Wrapper for shared data object access")
+    #command_queue = property(get_command, set_command, reset_command_queue, "Wrapper for remote command access") #Reserved for future awesomeness ;)
+    
+
+ 
+#Receives connections
+class conMan(threading.Thread):
+    def __init__(self, ref, listener):
+        threading.Thread.__init__(self)
+        self.data = ref
+        self.listener = listener
+        self.ending = False #Cleanup duty
+    
+    
+    def update_data(self):
+        self.data = self.data_ref.shared_data
+        self.connected = self.data["OTHER_DATA"]["connected"]
+        if self.connected is True:
+            self.connection = self.data["OTHER_DATA"]["connection"]
+        else:
+            self.connection = None
+        self.ending = self.data["OTHER_DATA"]["ending"] #Cleanup duty
+        
+    
+    
+    def add_data(self, newdata):
+        self.update_data()
+        self.data["CM_DATA_QUEUE"].append()
+    
+    
+    def run(self):
         print "Listening for connections...."
         while True:
+            self.update_data()
+            
+            if self.ending is True:
+                break
             if self.connected == False:
                 print "LISTENING AGAIN"
-                con = listener.accept()
+                con = self.listener.accept()
                 self.connected = True
                 self.receive_callback(con)
             else:
@@ -107,7 +204,55 @@ class servMan(object):
                     print "+++++++++++++++++++++++++"
                     self.connected = False
                     self.connection = None
+        return True
+
+#Receives data
+class receiveMan(threading.Thread):
+    def __init__(self, ref):
+        threading.Thread.__init__(self)
+        self.data_ref = ref
+        self.data = None
+        self.connected = None
+        self.ending = False #Cleanup duty
+        
+    def update_data(self):
+        self.data = self.data_ref.shared_data
+        self.connected = self.data["OTHER_DATA"]["connected"]
+        if self.connected is True:
+            self.connection = self.data["OTHER_DATA"]["connection"]
+        else:
+            self.connection = None
+        self.ending = self.data["OTHER_DATA"]["ending"] #Cleanup duty
+        
+        
+    def add_data(self, newdata):
+        self.update_data()
+        self.data["CM_DATA_QUEUE"].append()
     
+    def run(self):
+        while True:
+            self.update_data()
+            if self.ending is True:
+                break
+            if self.connected is True and self.connection is not None:
+                try:
+                    data = self.connection.recv()
+                    self.add_data(data)
+                except:
+                    #no data yet, but its gonna come. Wait a few seconds
+                    sleep(5)
+            else:
+                sleep(10)
+        return True
+
+#and one silly class to manage it all, oy vey.
+#servMan will serve as our callback base of sorts. Instead of callbacks, servMan just loops over and
+#over checking for new data.
+class servMan(object):
+    def __init__(self):
+        self.connected = False
+        self.connection = None
+        self.data = None
     
     def receive_callback(self, connection):
         print "Got connection from GUI!"
@@ -1911,13 +2056,12 @@ def on_local(word, word_eol, userdata):
         #Before all text was being lower()'d but remwatch and remavoid are case sensitive, so this only turns the first arg to lower, leaving the other args intact
         arg1 = ftrigger.pop(1).lower()
         ftrigger.insert(1, arg1)
-        help(ftrigger)
+        sccwhelp(ftrigger)
     except:
         print "No argument given, for help type: /sccwatcher help"
-    #help(ftrigger)
     return xchat.EAT_ALL
 
-def help(trigger):
+def sccwhelp(trigger):
     global recent_list, option, last5recent_list
     #For use with custom tabs.
     sop_outtext = color["red"] + "SCCwatcher will now use this tab for all verbose output. Use /sccwatcher anytab to go back to the original way sccwatcher outputs."
