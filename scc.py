@@ -118,16 +118,18 @@ def loadSettingsFile(file_location):
     option["global"]["savepath"] = ""
     option["global"]["lower_sizelimit"] = ""
     option["global"]["upper_sizelimit"] = ""
+    option["global"]["max_dl_tries"] = "15"
+    option["global"]["retry_wait"] = "1"
     option["global"]["cfbypass_useragent"] = ""
     option["global"]["cfbypass_cookiefile"] = ""
-    option["global"]["ftpenable"] = "0"
-    option["global"]["ftpserverhostname"] = ""
-    option["global"]["ftpport"] = ""
-    option["global"]["ftpremotefolder"] = ""
-    option["global"]["ftpusername"] = ""
-    option["global"]["ftppassword"] = ""
-    option["global"]["ftppassive"] = "0"
-    option["global"]["ftpsecuremode"] = "0"
+    option["global"]["ftpEnable"] = "0"
+    option["global"]["ftpServerHostname"] = ""
+    option["global"]["ftpPort"] = ""
+    option["global"]["ftpRemoteFolder"] = ""
+    option["global"]["ftpUsername"] = ""
+    option["global"]["ftpPassword"] = ""
+    option["global"]["ftpPassive"] = "0"
+    option["global"]["ftpSecureMode"] = "0"
     option["global"]["utorrent_mode"] = "0"
     option["global"]["utorrent_username"] = ""
     option["global"]["utorrent_password"] = ""
@@ -146,9 +148,17 @@ def loadSettingsFile(file_location):
     option["global"]["use_external_command"] = "0"
     option["global"]["external_command"] = ""
     option["global"]["external_command_args"] = ""
-    option["global"]["debug"] = "0"
-    option["global"]["retry_wait"] = "TRB FAILZ"
-    option["global"]["max_dl_tries"] = "TRB FAILZ"
+    option["global"]["DEBUG"] = "0"
+    
+    
+    ##########################################
+    ########### REMOVEME YOU FOOL! ###########
+    ##########################################
+    option["global"]["ftpdetails"] = ""
+    ##########################################
+    ########### REMOVEME YOU FOOL! ###########
+    ##########################################
+    
     
     #Easy way to see if we loaded up a good config or not
     good_config_check = False
@@ -907,6 +917,7 @@ def on_text(word, word_eol, userdata):
                     ########### REMOVEME YOU FOOL! ###########
                     ##########################################
                     
+                    download_dir = None
                     
                     #do the check for the section and the release name. re.I means the search is case insensitive
                     if re.search(watchlist_splitted[0], matchedtext.group(3), re.I) and matchedtext.group(2).lower() in watchlist_splitted[1]:
