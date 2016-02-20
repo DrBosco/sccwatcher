@@ -22,7 +22,7 @@
 #                                                                            #
 ##############################################################################
 __module_name__ = "SCCwatcher"
-__module_version__ = "2.0a4"
+__module_version__ = "2.0a5"
 __module_description__ = "SCCwatcher"
 
 import xchat, os, re, string, urllib, ftplib, time, threading, base64, urllib2, smtplib, subprocess, platform, socket, cookielib, cPickle
@@ -100,10 +100,64 @@ def loadSettingsFile(file_location):
     option["global"]["watchlist"] = []
     option["global"]["avoidlist"] = []
     
+    #These are the defaults here. I thought laying them out flat, while taking up more lines, would make it easier to understand the defaults.
+    #Compared to a one-liner that is, and nobody wants those. So here are all of the default general settings. Some are blank while some are set.
+    #Zeros are off, Two's are on, and One's are half-ticked boxes (only uTorrent mode does this)
+    #We set service by default here to off because we by default don't have a passkey. This just prevents any weird problems associated with running
+    #without customizing the config. Really the program should detect no passkey and not do anything.
+    option["global"]["service"] = "0"
+    option["global"]["verbose"] = "2"
+    option["global"]["verbose_tab"] = ""
+    option["global"]["printalert"] = "0"
+    option["global"]["logenabled"] = "0"
+    option["global"]["logpath"] = ""
+    option["global"]["startdelay"] = "20"
+    option["global"]["passkey"] = ""
+    option["global"]["dupecheck"] = "2"
+    option["global"]["download_ssl"] = "2"
+    option["global"]["savepath"] = ""
+    option["global"]["lower_sizelimit"] = ""
+    option["global"]["upper_sizelimit"] = ""
+    option["global"]["cfbypass_useragent"] = ""
+    option["global"]["cfbypass_cookiefile"] = ""
+    option["global"]["ftpenable"] = "0"
+    option["global"]["ftpserverhostname"] = ""
+    option["global"]["ftpport"] = ""
+    option["global"]["ftpremotefolder"] = ""
+    option["global"]["ftpusername"] = ""
+    option["global"]["ftppassword"] = ""
+    option["global"]["ftppassive"] = "0"
+    option["global"]["ftpsecuremode"] = "0"
+    option["global"]["utorrent_mode"] = "0"
+    option["global"]["utorrent_username"] = ""
+    option["global"]["utorrent_password"] = ""
+    option["global"]["utorrent_hostname"] = ""
+    option["global"]["utorrent_port"] = ""
+    option["global"]["smtp_emailer"] = "0"
+    option["global"]["smtp_server"] = ""
+    option["global"]["smtp_port"] = ""
+    option["global"]["smtp_tls"] = "0"
+    option["global"]["smtp_username"] = ""
+    option["global"]["smtp_password"] = ""
+    option["global"]["smtp_from"] = ""
+    option["global"]["smtp_to"] = ""
+    option["global"]["smtp_subject"] = ""
+    option["global"]["smtp_message"] = ""
+    option["global"]["use_external_command"] = "0"
+    option["global"]["external_command"] = ""
+    option["global"]["external_command_args"] = ""
+    option["global"]["debug"] = "0"
+    option["global"]["retry_wait"] = "TRB FAILZ"
+    option["global"]["max_dl_tries"] = "TRB FAILZ"
+    
+    #Easy way to see if we loaded up a good config or not
+    good_config_check = False
+    
     try:
         inifile = open(file_location, 'r')
     except:
-        LOADERROR = color["bpurple"] + "SCCwatcher encountered a problem loading your ini file. For more information enable debug mode."
+        
+        LOADERROR = color["bpurple"] + "Could not open scc2.ini! Put it in "+xchatdir+" !"
         verbose(LOADERROR)
         logging(xchat.strip(LOADERROR), "LOAD_FAIL-INI")
         return False
@@ -122,6 +176,7 @@ def loadSettingsFile(file_location):
             #If we don't have a minus sign then its a watch, otherwise its an avoid
             if groupreg.group(1) is None:
                 if groupreg.group(2) == "GlobalSettings":
+                    good_config_check = True #If we have a GlobalSettings group we definitely have a good config, so we update the check
                     clist = "global"
                     grpname = clist
                 else:
@@ -144,7 +199,7 @@ def loadSettingsFile(file_location):
         elif re.match("(.*?)(?:\s+)?=(?:\s+)?(.*)", line) is not None:
             if cur_dict is not None:
                 option_line = re.match("(.*?)(?:\s+)?=(?:\s+)?(.*)", line)
-                cur_dict[str(option_line.group(1)).lower()] = option_line.group(2)
+                cur_dict[str(option_line.group(1)).lower()] = str(option_line.group(2))
             else:
                 dbgerror = color["bpurple"]+"SCCwatcher found a weird line in your ini: " + str(line)
                 verbose(dbgerror)
@@ -160,7 +215,23 @@ def loadSettingsFile(file_location):
     
     #Gotta close it before we quit
     inifile.close()
-    return option
+    
+    #Fix some stuff
+    fixdict = {"0": "off", "1": "_MIDWAY_", "2": "on"}
+    fixdict2 = {"0": "off", "1": "_MIDWAY_", "2": "autodetect"}
+    if len(str(option["global"]["service"])) > 0: option["global"]["service"] = fixdict2[str(option["global"]["service"])]
+    if len(str(option["global"]["dupecheck"])) > 0: option["global"]["dupecheck"] = fixdict[str(option["global"]["dupecheck"])]
+    if len(str(option["global"]["verbose"])) > 0: option["global"]["verbose"] = fixdict[str(option["global"]["verbose"])]
+    if len(str(option["global"]["logenabled"])) > 0: option["global"]["logenabled"] = fixdict[str(option["global"]["logenabled"])]
+    if len(str(option["global"]["ftpenable"])) > 0: option["global"]["ftpenable"] = fixdict[str(option["global"]["ftpenable"])]
+    if len(str(option["global"]["smtp_emailer"])) > 0: option["global"]["smtp_emailer"] = fixdict[str(option["global"]["smtp_emailer"])]
+    if len(str(option["global"]["external_command"])) > 0: option["global"]["external_command"] = fixdict[str(option["global"]["external_command"])]
+    if len(str(option["global"]["download_ssl"])) > 0: option["global"]["download_ssl"] = fixdict[str(option["global"]["download_ssl"])]
+    
+    if good_config_check is True:
+        return option
+    else:
+        return False
 
 
 def reload_vars():
@@ -218,7 +289,7 @@ def setupMenus(global_option, rld=False):
     else:
         xchat.command('menu -t0 add "SCCwatcher/Logging to File" "sccwatcher logon" "sccwatcher logoff"')
     
-    if global_option["DEBUG"] == "on":
+    if global_option["debug"] == "on":
         xchat.command('menu -t1 add "SCCwatcher/Debug output" "sccwatcher _guidebugon" "sccwatcher _guidebugoff"')
     
         
@@ -287,7 +358,7 @@ def setupMenus(global_option, rld=False):
 
 
 def load_vars(rld=False):
-    global option, announce_regex, sccnet, has_tab_data, downloaderHeaders
+    global option, announce_regex, sccnet, has_tab_data, downloaderHeaders, starttimerhook
     
     if rld is True:
         #backup some values we want to keep, if they exist
@@ -299,6 +370,12 @@ def load_vars(rld=False):
             ec = "off"
             
     if loadSettingsFile(os.path.join(xchatdir,"scc2.ini")) is not False:
+        
+        if len(option["global"]["passkey"]) < 32: #Passkeys are 32 chars long
+            print color["red"]+"There is a problem with your passkey, it seems to be invalid. Please double check your the passkey you entered is correct and try again. Disabling autodownloading..."
+            print color["red"]+"If this problem persists, it may be a bug. Please contact TRB about the issue for a fix."
+            option["global"]["service"] = "off"
+            return False
         
         if option["global"]["ftpenable"] == 'on':
             detailscheck = re.match("ftp:\/\/(.*):(.*)@(.*):([^\/]*.)/(.*)", option["global"]["ftpdetails"])
@@ -332,19 +409,6 @@ def load_vars(rld=False):
         ##########################################
         
         
-        
-        #Fix some stuff
-        fixdict = {"0": "off", "1": "_MIDWAY_", "2": "on"}
-        fixdict2 = {"0": "off", "1": "_MIDWAY_", "2": "autodetect"}
-        if len(option["global"]["service"]) > 0: option["global"]["service"] = fixdict2[option["global"]["service"]]
-        if len(option["global"]["dupecheck"]) > 0: option["global"]["dupecheck"] = fixdict[option["global"]["dupecheck"]]
-        if len(option["global"]["verbose"]) > 0: option["global"]["verbose"] = fixdict[option["global"]["verbose"]]
-        if len(option["global"]["logenabled"]) > 0: option["global"]["logenabled"] = fixdict[option["global"]["logenabled"]]
-        if len(option["global"]["ftpenable"]) > 0: option["global"]["ftpenable"] = fixdict[option["global"]["ftpenable"]]
-        if len(option["global"]["smtp_emailer"]) > 0: option["global"]["smtp_emailer"] = fixdict[option["global"]["smtp_emailer"]]
-        if len(option["global"]["external_command"]) > 0: option["global"]["external_command"] = fixdict[option["global"]["external_command"]]
-        if len(option["global"]["download_ssl"]) > 0: option["global"]["download_ssl"] = fixdict[option["global"]["download_ssl"]]
-        
         try:
             option["global"]["external_command"]
         except:
@@ -352,9 +416,9 @@ def load_vars(rld=False):
         
         #Set up debug var. If it exists use it, if not set it to false
         try:
-            option["global"]["DEBUG"]
+            option["global"]["debug"]
         except:
-            option["global"]["DEBUG"] = "off"
+            option["global"]["debug"] = "off"
         
         #convert sizelimit to bytes
         try:
@@ -457,7 +521,8 @@ def load_vars(rld=False):
     
     
     else:
-        print color["red"], "Could not open scc2.ini! Put it in "+xchatdir+" !"
+        print color["red"], "There was an error while reading your config. The GlobalSettings group couldn't be located within your scc2.ini. Please recheck your config. Autodownloading is disabled."
+        return False
     
 #detectet the network only 30seconds after the start
 def starttimer(userdata):
@@ -516,9 +581,13 @@ def starttimer(userdata):
 starttimerhook = None
 def main():
     global starttimerhook
-    #How does it get the option when we haven't even loaded yet?
-    sdelay=int(option["global"]["startdelay"]+"000")
-    starttimerhook = xchat.hook_timer(sdelay, starttimer)
+    if load_vars() is True:
+        sdelay=int(option["global"]["startdelay"]+"000")
+        starttimerhook = xchat.hook_timer(sdelay, starttimer)
+    else:
+        #Still build the menus just to make it look good, and so the user can load a good config when ready
+        setupMenus(option["global"], False)
+    
     
 def verbose(text):
     global option
@@ -766,7 +835,7 @@ def on_text(word, word_eol, userdata):
             matchedtext = announce_regex.match(xchat.strip(word[1]))
         #the bot wrote something we can understand, we can proceed with the parsing
         if matchedtext is not None:
-            if option["global"]["DEBUG"] == "on":
+            if option["global"]["debug"] == "on":
                 DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Got good announce line, starting download. LINE: " + color["dgrey"] + str(word[1])
                 verbose(DEBUG_MESSAGE)
                 logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
@@ -816,6 +885,9 @@ def on_text(word, word_eol, userdata):
                     #This whole feature might be removed in the future before release
                     #Or it may get integrated into the GUI, but I dunno yet
                     
+                    #Tags are depreciated. Now the watch title will take its place. %tag% might stay for historical use if anyone has it in their configs already.
+                    
+                    
                     #Here we're going to search the watch for anything extra like a tag or a download dir
                     #Using a try incase someone entered a watch with no colon at all (no watchlist_splitted[1]
 #                    dldir_extra = None
@@ -862,14 +934,14 @@ def on_text(word, word_eol, userdata):
                         else:
                             download_dir = option["global"]["savepath"]
                             
-                        if option["global"]["DEBUG"] == "on":
+                        if option["global"]["debug"] == "on":
                             DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Matched release to watch. Matched watchlist entry: " + color["dgrey"] + str(watch_entry)
                             verbose(DEBUG_MESSAGE)
                             logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
                         break
                     else:
                         #This 'else' is only really here for debug purposes.
-                        if option["global"]["DEBUG"] == "on":
+                        if option["global"]["debug"] == "on":
                             DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Failed to match watchlist entry. Failed watchlist entry: " + color["dgrey"] + str(watch_entry)
                             verbose(DEBUG_MESSAGE)
                             logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
@@ -892,13 +964,13 @@ def on_text(word, word_eol, userdata):
                     #do the check only on the release name
                     if re.search(avoid_filter, matchedtext.group(3), re.I):
                         counter = 0
-                        if option["global"]["DEBUG"] == "on":
+                        if option["global"]["debug"] == "on":
                             DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Matched rls to entry in avoidlist. Download operation stopped. Matched avoidlist entry: " + color["dgrey"] + str(avoid_filter)
                             verbose(DEBUG_MESSAGE)
                             logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
                         break
                     else:
-                        if option["global"]["DEBUG"] == "on":
+                        if option["global"]["debug"] == "on":
                             DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Failed to match avoidlist entry with rls. Avoidlist entry: " + color["dgrey"] + str(avoid_filter)
                             verbose(DEBUG_MESSAGE)
                             logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
@@ -915,13 +987,13 @@ def on_text(word, word_eol, userdata):
                         
                     if re.search(avoid_entry, matchedtext.group(3), re.I):
                         counter = 0
-                        if option["global"]["DEBUG"] == "on":
+                        if option["global"]["debug"] == "on":
                             DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Matched rls to entry in avoidlist. Download operation stopped. Matched avoidlist entry: " + color["dgrey"] + str(avoid_entry)
                             verbose(DEBUG_MESSAGE)
                             logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
                         break
                     else:
-                        if option["global"]["DEBUG"] == "on":
+                        if option["global"]["debug"] == "on":
                             DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Failed to match avoidlist entry with rls. Avoidlist entry: " + color["dgrey"] + str(avoid_entry)
                             verbose(DEBUG_MESSAGE)
                             logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
@@ -979,7 +1051,7 @@ def on_text(word, word_eol, userdata):
                         logging(xchat.strip(dupeavoid), "DUPE")
                     #if its not a dupe, rabblerabblerabble do nothing.
                     except:
-                        if option["global"]["DEBUG"] == "on":
+                        if option["global"]["debug"] == "on":
                             DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Release was not found in dupe list."
                             verbose(DEBUG_MESSAGE)
                             logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
@@ -988,7 +1060,7 @@ def on_text(word, word_eol, userdata):
             if (counter > 0 or userdata == "BYPASS") and userdata != "TESTING":
                 #Now that we're downloading for sure, add the release name to the dupecheck list.
                 update_dupe(matchedtext.group(3))
-                if option["global"]["DEBUG"] == "on":
+                if option["global"]["debug"] == "on":
                     DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Added the following release to dupe list: " + color["dgrey"] + str(matchedtext.group(3))
                     verbose(DEBUG_MESSAGE)
                     logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
@@ -998,7 +1070,7 @@ def on_text(word, word_eol, userdata):
                     #downloadurl = "https://www.sceneaccess.org/downloadbig2.php/" + matchedtext.group(5) + "/" + option["global"]["passkey"] + "/" + matchedtext.group(3) + ".torrent"
                     downloadurl = "https://www.sceneaccess.eu/download/" + matchedtext.group(5) + "/" + option["global"]["passkey"] + "/" + matchedtext.group(3) + ".torrent"
                     
-                    if option["global"]["DEBUG"] == "on":
+                    if option["global"]["debug"] == "on":
                         DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Using the following SSL download url: " + color["dgrey"] + str(downloadurl)
                         verbose(DEBUG_MESSAGE)
                         logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
@@ -1007,7 +1079,7 @@ def on_text(word, word_eol, userdata):
                     #downloadurl = "http://www.sceneaccess.org/downloadbig2.php/" + matchedtext.group(5) + "/" + option["global"]["passkey"] + "/" + matchedtext.group(3) + ".torrent"
                     downloadurl = "http://www.sceneaccess.eu/download/" + matchedtext.group(5) + "/" + option["global"]["passkey"] + "/" + matchedtext.group(3) + ".torrent"
                     
-                    if option["global"]["DEBUG"] == "on":
+                    if option["global"]["debug"] == "on":
                         DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Using the following non-SSL download url: " + color["dgrey"] + str(downloadurl)
                         verbose(DEBUG_MESSAGE)
                         logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
@@ -1291,7 +1363,7 @@ class download(threading.Thread):
         if thread_data.filesize < 100:
             thread_data.torrent_is_valid = False
             
-            if option["global"]["DEBUG"] == "on":
+            if option["global"]["debug"] == "on":
                 DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Downloaded torrent is smaller than 100 bytes. Actual file size: " + color["dgrey"] + str(thread_data.filesize)
                 verbose(DEBUG_MESSAGE)
                 logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
@@ -1308,7 +1380,7 @@ class download(threading.Thread):
             except:
                 thread_data.torrent_is_valid = False  # A thown exception means this .torrent isn't valid for one reason or another.
                 
-                if option["global"]["DEBUG"] == "on":
+                if option["global"]["debug"] == "on":
                     DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Torrent file failed bencode check. Checking for cloudflare interference..."
                     verbose(DEBUG_MESSAGE)
                     logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
@@ -1320,7 +1392,7 @@ class download(threading.Thread):
                 if cf_req_reg is not None:
                     #We got some cloudflare business so we need to do the bypass to get it working.
                     thread_data.need_cf_bypass = True
-                    if option["global"]["DEBUG"] == "on":
+                    if option["global"]["debug"] == "on":
                         DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Cloudflare interference verified. Using cloudflare workaround next try..."
                         verbose(DEBUG_MESSAGE)
                         logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
@@ -1344,7 +1416,7 @@ class download(threading.Thread):
     def download(self, stime, req=False):
         thread_data = threading.local()
         
-        if option["global"]["DEBUG"] == "on":
+        if option["global"]["debug"] == "on":
             DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Starting download process."
             verbose(DEBUG_MESSAGE)
             logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
@@ -1357,7 +1429,7 @@ class download(threading.Thread):
             if option["global"].has_key("cookiefile") and len(option["global"]["cookiefile"]) > 2 and option["global"].has_key("useragent") and len(option["global"]["useragent"]) > 5 and req is True:
                 
                 #DBG
-                if option["global"]["DEBUG"] == "on":
+                if option["global"]["debug"] == "on":
                     DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Found cookiefile and useragent option, length checks good."
                     verbose(DEBUG_MESSAGE)
                     logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
@@ -1377,7 +1449,7 @@ class download(threading.Thread):
                 thread_data.connection.close()
                 
                 #DBG
-                if option["global"]["DEBUG"] == "on":
+                if option["global"]["debug"] == "on":
                     DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Finished downloading and saved to file."
                     verbose(DEBUG_MESSAGE)
                     logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
@@ -1386,7 +1458,7 @@ class download(threading.Thread):
             else:
                 
                 #DBG
-                if option["global"]["DEBUG"] == "on":
+                if option["global"]["debug"] == "on":
                     DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: No cookiefile or useragent option or length checks failed."
                     verbose(DEBUG_MESSAGE)
                     logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
@@ -1399,7 +1471,7 @@ class download(threading.Thread):
                 
                 
                 #DBG
-                if option["global"]["DEBUG"] == "on":
+                if option["global"]["debug"] == "on":
                     DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: finished normal download"
                     verbose(DEBUG_MESSAGE)
                     logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
@@ -1465,7 +1537,7 @@ class upload(threading.Thread):
         threading.Thread.__init__(self)
     #Uploading tiem nao!!!!
     def run(self):
-        if option["global"]["DEBUG"] == "on":
+        if option["global"]["debug"] == "on":
             DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: FTP Upload operation has started."
             verbose(DEBUG_MESSAGE)
             logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
@@ -1557,7 +1629,7 @@ class webui_upload(threading.Thread):
         threading.Thread.__init__(self)    
         
     def run(self):
-        if option["global"]["DEBUG"] == "on":
+        if option["global"]["debug"] == "on":
             DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: uTorrent WebUI upload operation has started."
             verbose(DEBUG_MESSAGE)
             logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
@@ -1615,7 +1687,7 @@ class email(threading.Thread):
         threading.Thread.__init__(self)    
     #Send tiem nao
     def run(self):
-        if option["global"]["DEBUG"] == "on":
+        if option["global"]["debug"] == "on":
             DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Email operation has started."
             verbose(DEBUG_MESSAGE)
             logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
@@ -1749,7 +1821,7 @@ class do_cmd(threading.Thread):
         threading.Thread.__init__(self)    
     #Send tiem nao
     def run(self):
-        if option["global"]["DEBUG"] == "on":
+        if option["global"]["debug"] == "on":
             DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: External command operation has started."
             verbose(DEBUG_MESSAGE)
             logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
@@ -1884,7 +1956,7 @@ def sccwhelp(trigger):
         option["global"]["verbose"] = 'off'
         xchat.command('menu -t0 add "SCCwatcher/Verbose Output" "sccwatcher loud" "sccwatcher quiet"')
 
-    elif trigger[1] == 'rehash':
+    elif trigger[1] == 'rehash' or trigger[1] == "reload":
         print color["blue"], "Reloading scc2.ini...."
         reload_vars()
 
@@ -1929,8 +2001,8 @@ def sccwhelp(trigger):
 
     elif trigger[1] == 'status':
         print color["bpurple"], "SCCwatcher version " +color["blue"] + __module_version__
-        if option["global"]["DEBUG"] == "on":
-            print color["bpurple"], "Debug output is: " + color["blue"] + option["global"]["DEBUG"]
+        if option["global"]["debug"] == "on":
+            print color["bpurple"], "Debug output is: " + color["blue"] + option["global"]["debug"]
         print color["bpurple"], "Auto downloading is: " + color["blue"] + option["global"]["service"]
         print color["bpurple"], "SSL downloading is: " + color["blue"] + option["global"]["download_ssl"]
         if option["global"].has_key("cookiefile") and len(option["global"]["cookiefile"]) > 2 and option["global"].has_key("useragent") and len(option["global"]["useragent"]) > 5:
@@ -1978,15 +2050,20 @@ def sccwhelp(trigger):
     elif trigger[1] == 'on':
         if option["global"]["service"] == 'notdetected':
             xchat.command('menu -t0 add "SCCwatcher/Enable Autograbbing" "sccwatcher on" "sccwatcher off"')
-            print color["red"], " Didn't detected the correct network infos! Autodownloading is disabled. Make sure you have joined #announce channel and then redetect the network through the SCCwatcher toolbar menu."      
+            print color["red"] + "Didn't detected the correct network infos! Autodownloading is disabled. Make sure you have joined #announce channel and then redetect the network through the SCCwatcher toolbar menu."      
         else:
-            if xchat.find_context(channel='#announce') is not None:
-                option["global"]["service"] = 'on'
-                xchat.command('menu -t1 add "SCCwatcher/Enable Autograbbing" "sccwatcher on" "sccwatcher off"')
-                print color["dgreen"], "Autodownloading has been turned on"
+            if len(option["global"]["passkey"]) == 32:
+                if xchat.find_context(channel='#announce') is not None:
+                        option["global"]["service"] = 'on'
+                        xchat.command('menu -t1 add "SCCwatcher/Enable Autograbbing" "sccwatcher on" "sccwatcher off"')
+                        print color["dgreen"] + "Autodownloading has been turned on"
+                else:
+                        option["global"]["service"] = 'off'
+                        print color["red"] + "Didn't detected the correct network infos! Autodownloading is disabled. Make sure you have joined #announce channel and then redetect the network through the SCCwatcher toolbar menu."      
+                        xchat.command('menu -t0 add "SCCwatcher/Enable Autograbbing" "sccwatcher on" "sccwatcher off"')
             else:
                 option["global"]["service"] = 'off'
-                print color["red"], " Didn't detected the correct network infos! Autodownloading is disabled. Make sure you have joined #announce channel and then redetect the network through the SCCwatcher toolbar menu."      
+                print color["red"] + "Your passkey is incomplete, please double check it and try again."
                 xchat.command('menu -t0 add "SCCwatcher/Enable Autograbbing" "sccwatcher on" "sccwatcher off"')
     
     elif trigger[1] == 'emailoff':
@@ -2056,7 +2133,7 @@ def sccwhelp(trigger):
         pass
         
     elif trigger[1] == "_guidebugoff":
-        option["global"]["DEBUG"] = "off"
+        option["global"]["debug"] = "off"
         xchat.command('menu DEL "SCCwatcher/Debug output"')
         
         
@@ -2134,12 +2211,12 @@ def announce_line_tester(word, word_eol, userdata):
             option["global"]["__verbose"] = "off"
         
         #We are also going to turn debugging output on just because when testing you might want extra info
-        option["global"]["DEBUG"] = "on"
+        option["global"]["debug"] = "on"
         
         on_text(manual_matchedtext, None, "TESTING")
         
         #now turn debug output off
-        option["global"]["DEBUG"] = "off"
+        option["global"]["debug"] = "off"
         
         #Now reset settings back to what they were.
         try:
@@ -2176,12 +2253,12 @@ xchat.hook_command('manualadd', manual_torrent_add, help="Manually grab torrents
 xchat.hook_command('test_line', announce_line_tester, help="This will test a line to see if it would be downloaded by your current settings in scc2.ini")
 xchat.hook_unload(unload_cb)
 #load scc2.ini
-load_vars()
+
 
 # This gets the script movin
 if (__name__ == "__main__"):
     main()
 
 #LICENSE GPL
-#Last modified 02-17-16 (MM/DD/YY)
+#Last modified 02-19-16 (MM/DD/YY)
 
