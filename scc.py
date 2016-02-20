@@ -377,7 +377,7 @@ def load_vars(rld=False):
             option["global"]["service"] = "off"
             return False
         
-        if option["global"]["ftpenable"] == 'on':
+        if option["global"]["ftpenable"] == 'on' and option["global"].has_key("ftpdetails") is True:
             detailscheck = re.match("ftp:\/\/(.*):(.*)@(.*):([^\/]*.)/(.*)", option["global"]["ftpdetails"])
             if detailscheck is None:
                 print color["red"]+"There is a problem with your ftp details, please double check scc2.ini and make sure you have entered them properly. Temporarily disabling FTP uploading, you can reenable it by using /sccwatcher ftpon"
@@ -1014,12 +1014,13 @@ def on_text(word, word_eol, userdata):
                     torrent_size = int(return_bytes_from_sizedetail(nicesize))
                     
                     #Check if it's too big or small
-                    if torrent_size > upper_limit_bytes or torrent_size < lower_limit_bytes:
-                        # Print/Log this if needed
-                        sizeavoid = color["bpurple"]+"SCCwatcher has avoided "+color["dgrey"]+matchedtext.group(3)+color["bpurple"]+" due to size constraints. "+color["blue"]+"Torrent size: "+color["dgrey"]+nicesize+color["blue"]+", Limit (lower/upper): " + color["dgrey"] + "%s/%s" % (str(lower_size_limit), str(upper_size_limit))
-                        verbose(sizeavoid)
-                        logging(xchat.strip(sizeavoid), "AVOID")
-                        counter = 0
+                    if upper_limit_bytes > lower_limit_bytes: #zero means no limit. Also make sure upper is larger than lower. If upper is bigger than lower, we know its at least not 0.
+                        if torrent_size > upper_limit_bytes or torrent_size < lower_limit_bytes:
+                            # Print/Log this if needed
+                            sizeavoid = color["bpurple"]+"SCCwatcher has avoided "+color["dgrey"]+matchedtext.group(3)+color["bpurple"]+" due to size constraints. "+color["blue"]+"Torrent size: "+color["dgrey"]+nicesize+color["blue"]+", Limit (lower/upper): " + color["dgrey"] + "%s/%s" % (str(lower_size_limit), str(upper_size_limit))
+                            verbose(sizeavoid)
+                            logging(xchat.strip(sizeavoid), "AVOID")
+                            counter = 0
             
             #And here's the dupe check
             #only if we're about to download should we do a dupe check
@@ -1116,6 +1117,8 @@ def on_text(word, word_eol, userdata):
 def return_bytes_from_sizedetail(sizedetail):
     multi = 1
     sizedetail = re.search("([0-9]{1,6}(?:\.[0-9]{1,2})?)(.*)(M|m|K|k|G|g)B?(.*)", sizedetail)
+    if sizedetail is None:
+        return(0)
     if sizedetail.group(3) == "K" or sizedetail.group(3) == "k":
         multi=int(1024)
     if sizedetail.group(3) == "M" or sizedetail.group(3) == "m":
