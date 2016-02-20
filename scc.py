@@ -22,7 +22,7 @@
 #                                                                            #
 ##############################################################################
 __module_name__ = "SCCwatcher"
-__module_version__ = "2.0a5"
+__module_version__ = "2.0a6"
 __module_description__ = "SCCwatcher"
 
 import xchat, os, re, string, urllib, ftplib, time, threading, base64, urllib2, smtplib, subprocess, platform, socket, cookielib, cPickle
@@ -392,23 +392,6 @@ def load_vars(rld=False):
             option["global"]["logpath"] = str(option["global"]["logpath"]) + os.sep
         
         
-        
-        
-        
-        
-        ##########################################
-        ########### REMOVEME YOU FOOL! ###########
-        ##########################################
-        if option["global"].has_key("max_dl_tries") is False:
-                option["global"]["max_dl_tries"] = "TRB FAILZ"
-                
-        if option["global"].has_key("retry_wait") is False:
-                option["global"]["retry_wait"] = "TRB FAILZ"
-        ##########################################
-        ########### REMOVEME YOU FOOL! ###########
-        ##########################################
-        
-        
         try:
             option["global"]["external_command"]
         except:
@@ -518,8 +501,7 @@ def load_vars(rld=False):
             
         #Build the menus
         setupMenus(option["global"], rld)
-    
-    
+        return True
     else:
         print color["red"], "There was an error while reading your config. The GlobalSettings group couldn't be located within your scc2.ini. Please recheck your config. Autodownloading is disabled."
         return False
@@ -586,6 +568,7 @@ def main():
         starttimerhook = xchat.hook_timer(sdelay, starttimer)
     else:
         #Still build the menus just to make it look good, and so the user can load a good config when ready
+        print color["red"] + "SCCwatcher encountered an error while loading your scc2.ini. Please double check your ini and then do /sccwatcher reload"
         setupMenus(option["global"], False)
     
     
@@ -2260,5 +2243,5 @@ if (__name__ == "__main__"):
     main()
 
 #LICENSE GPL
-#Last modified 02-19-16 (MM/DD/YY)
+#Last modified 02-20-16 (MM/DD/YY)
 
