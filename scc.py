@@ -975,7 +975,21 @@ def on_text(word, word_eol, userdata):
 #                                        DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Overwrote global option with watch option. Key: %s%s  %sValue: %s%s " % (color["dgrey"], str(key), color["bpurple"], color["dgrey"], value2)
 #                                        verbose(DEBUG_MESSAGE)
 #                                        logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
-
+                                
+                                #Quickly clean up any weirdness with the sizelimits
+                                #convert upper and lower sizelimits to bytes
+                                try:
+                                    option["global"]["lower_sizelimit"]
+                                except:
+                                    option["global"]["lower_sizelimit"] = ""
+                                try:
+                                    option["global"]["upper_sizelimit"]
+                                except:
+                                    option["global"]["upper_sizelimit"] = ""
+                                #Ok so now we can convert our sizelimits to bytes and store them in similarly named variables, just with _bytes suffix.
+                                option["global"]["lower_sizelimit_bytes"] = return_bytes_from_sizedetail(option["global"]["lower_sizelimit"])
+                                option["global"]["upper_sizelimit_bytes"] = return_bytes_from_sizedetail(option["global"]["upper_sizelimit"])
+                                
                                 if counter > 0: break #Breaking out of cat search
                         if counter > 0: break #break out of watchlist search
                     else:
@@ -1026,11 +1040,17 @@ def on_text(word, word_eol, userdata):
             # Only if we're about to download should we check size
             if counter > 0 and userdata != "BYPASS":
                 #Convert lower and upper size limits to raw bytes if we have them
-                if option["global"]["lower_sizelimit_bytes"] > 0 and option["global"]["upper_sizelimit_bytes"] > 0:
+                over_size_limit = False
+                if option["global"]["lower_sizelimit_bytes"] > 0 or option["global"]["upper_sizelimit_bytes"] > 0:
                     torrent_size = int(return_bytes_from_sizedetail(nicesize))
                     #Check if it's too big or small
-                    if option["global"]["upper_sizelimit_bytes"] > option["global"]["lower_sizelimit_bytes"]: #zero means no limit. Also make sure upper is larger than lower. If upper is bigger than lower, we know its at least not 0.
-                        if torrent_size > option["global"]["upper_sizelimit_bytes"] or torrent_size < option["global"]["lower_sizelimit_bytes"]:
+                    if (option["global"]["upper_sizelimit_bytes"] == 0) or (option["global"]["upper_sizelimit_bytes"] > option["global"]["lower_sizelimit_bytes"]): #zero means no limit. Also make sure upper is larger than lower. If upper is bigger than lower, we know its at least not 0.
+                        if option["global"]["upper_sizelimit_bytes"] != 0 and torrent_size > option["global"]["upper_sizelimit_bytes"]:
+                                over_size_limit = True
+                        if option["global"]["lower_sizelimit_bytes"] != 0 and torrent_size < option["global"]["lower_sizelimit_bytes"]:
+                                over_size_limit = True
+                        
+                        if over_size_limit is True:
                             # Print/Log this if needed
                             sizeavoid = color["bpurple"]+"SCCwatcher has avoided "+color["dgrey"]+matchedtext.group(3)+color["bpurple"]+" due to size constraints. "+color["blue"]+"Torrent size: "+color["dgrey"]+nicesize+color["blue"]+", Limit (lower/upper): " + color["dgrey"] + "%s/%s" % (str(option["global"]["lower_sizelimit"]), str(option["global"]["upper_sizelimit"]))
                             verbose(sizeavoid)
@@ -1131,14 +1151,18 @@ def on_text(word, word_eol, userdata):
 
 def return_bytes_from_sizedetail(sizedetail):
     multi = 1
-    sizedetail = re.search("([0-9]{1,6}(?:\.[0-9]{1,2})?)(.*)(M|m|K|k|G|g)B?(.*)", sizedetail)
-    if sizedetail is None:
-        print color["dgrey"] + str(sizedetail) + color["red"] + " is not a valid entry for sizelimit. Valid examples: 150K, 150M, 150G."
+    if sizedetail == "" or sizedetail is None or len(sizedetail) < 2:
+        return (0)
+    sizedetail_reg = re.search("([0-9]{1,6}(?:\.[0-9]{1,2})?)(?:(.*)(M|m|K|k|G|g)B?)?(.*)", sizedetail)
+    if sizedetail_reg is None:
+        print color["dgrey"] + str(sizedetail) + color["red"] + " is not a valid entry for sizelimit. Valid examples: 150K, 150M, 150G. Ignoring set size limit."
         return(0)
-    nicesize = str(sizedetail.group(3)).lower()
+    nicesize = str(sizedetail_reg.group(3)).lower()
     
-    if nicesize == "k":
-        multi=(1024)
+    if nicesize == "":
+        multi=1
+    elif nicesize == "k":
+        multi=1024
     elif nicesize == "m":
         multi=(1024**2)
     elif nicesize == "g":
@@ -1146,7 +1170,7 @@ def return_bytes_from_sizedetail(sizedetail):
     elif nicesize == "t":
         multi=(1024**4)
 
-    return_size = float(sizedetail.group(1)) * multi
+    return_size = float(sizedetail_reg.group(1)) * multi
     return int(return_size)
         
 
