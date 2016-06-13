@@ -5,7 +5,7 @@
 #    exclusively written for scc                                             #
 #    some code from reality and cancel's bot                                 #
 #                                                                            #
-#    Copyright (C) 2008-2015  TRB                                            #
+#    Copyright (C) 2008-2016  TRB                                            #
 #                                                                            #
 #    This program is free software; you can redistribute it and/or modify    #
 #    it under the terms of the GNU General Public License as published by    #
@@ -22,10 +22,28 @@
 #                                                                            #
 ##############################################################################
 __module_name__ = "SCCwatcher"
-__module_version__ = "2.0a7"
+__module_version__ = "2.0a13"
 __module_description__ = "SCCwatcher"
 
-import xchat, os, re, string, urllib, ftplib, time, threading, base64, urllib2, smtplib, subprocess, platform, socket, cookielib, cPickle
+import xchat
+import os
+import re
+import string
+import urllib
+import ftplib
+import time
+import threading
+import base64
+import urllib2
+import smtplib
+import subprocess
+import platform
+import socket
+import cookielib
+import cPickle
+from copy import deepcopy as DC
+from tempfile import gettempdir
+
 
 #from copy import deepcopy as DC
 
@@ -39,9 +57,9 @@ print loadmsg
 #the globals go here
 xchat.command('menu DEL SCCwatcher')
 extra_paths = "no"
-recent_list = ""
+recent_list = []
 last5recent_list = {}
-dupelist = ""
+dupelist = []
 full_xpath = ""
 option = {}
 has_tab_data = False
@@ -58,33 +76,41 @@ color = {"white":"\00300", "black":"\00301", "blue":"\00302", "green":"\00303", 
 class sccwDownloader(urllib.FancyURLopener):
         #This is where we adjust the useragent.
         version = "Mozilla/5.0 (compatible; Python urllib; SCCwatcher; v%s)" % (__module_version__)
-
-
-shared_data = {}
-
-#I really don't know what i'm doing anymore here, I give up for now. Will circle around and give this a whack again in the future.
-class dataGatherer(threading.Thread):
-    def __init__(self, filepath, shared_data):
-        self.filepath = filepath
-        self.last_modified = 0
-        self.ending = False #cleanup var
-        self.shared_data = shared_data
+        
     
-    def run(self):
-        while True:
-            if self.ending is True:
-                break
-            if os.access(self.filepath, os.W_OK) is True:
-                #Simple idea really, we just read a file and return its picked dict into a real dict.
-                file_handle = open(self.filepath, 'r')
-                file_data = cPickle.load()
-                file_handle.close()
-                #Check if we have new data
-                if int(file_data["last_modified"]) > int(self.last_modified):
-                    self.last_modified = file_data["last_modified"]
-                    self.shared_data = file_data
-                
-        return True
+def scriptStatusUpdater(userdata):
+    #Man this hook_timer is broken, its supposed to repeat but it doesnt for some reason
+    xchat.hook_timer(10000, scriptStatusUpdater)
+    if starttimerhook is not None:
+        return
+    #So dirty, I hate myself lol
+    #We're just going to output our status to a file every 30 seconds or so
+    tmpname = gettempdir() + os.sep + "sccw_temp.txt"
+    tempfile = open(tmpname, 'w')
+    pickledata = getCurrentStatus()
+    tempfile.write(pickledata)
+    tempfile.close()
+    
+
+def getCurrentStatus():
+        data = {}
+        data["version"] = __module_version__
+        data["autodlstatus"] = option["global"]["service"]
+        data["ssl"] = option["global"]["download_ssl"]
+        data["max_dl_tries"] = option["global"]["max_dl_tries"]
+        data["retry_wait"] = option["global"]["retry_wait"]
+        if option["global"].has_key("cookiefile") and len(option["global"]["cookiefile"]) > 2 and option["global"].has_key("useragent") and len(option["global"]["useragent"]) > 5:
+                data["cf_workaround"] = "on"
+        else:
+                data["cf_workaround"] = "off"
+        data["dupecheck"] = option["global"]["dupecheck"]
+        data["logging"] = option["global"]["logenabled"]
+        data["verbose"] = option["global"]["verbose"]
+        data["recent_list_size"] = str(len(recent_list))
+        data["wl_al_size"] = "%s/%s" % (str(len(option["global"]["watchlist"])), str(len(option["global"]["avoidlist"])))
+        #Ok we have our data, lets pickle it and return
+        rtn_data = cPickle.dumps(data)
+        return rtn_data
 
 #This function takes the ini file as an argument, and returns the loaded options dict
 def loadSettingsFile(file_location):
@@ -718,12 +744,9 @@ def update_recent(file, dldir, size, dduration):
     time_now = time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())
     
     formatted = color["bpurple"] + entry_number + color["black"] + " - " + color["dgrey"] + time_now + color["black"] + " - " + color["bpurple"] + file + color["black"] + " - " + color["dgrey"] + size + color["black"] + " - " + color["dgrey"] + dduration+" Seconds" + color["black"] + " - " + color["dgrey"] + os.path.normcase(dldir)
-    #recent list update or initial creation
-    if len(string.join(recent_list, ' ')) > 0:
-        recent_list.append(formatted)
-    else:
-        recent_list = [formatted]
-    
+    #recent list update
+    recent_list.append(formatted)
+
     #And heres where we update the menu items
     #Check the size of the menu so far
     menu_size = len(last5recent_list)
@@ -749,15 +772,10 @@ def update_recent(file, dldir, size, dduration):
     
 
 
-def update_dupe(file):
+def update_dupe(release_name):
     global dupelist
-    #Dupe list update or initial creation
-    if len(string.join(dupelist, ' ')) > 0:
-        dupelist.append(file)
-    else:
-        dupelist = [file]
-        
-    
+    #Dupe list update
+    dupelist.append(release_name)
 
 def on_text(word, word_eol, userdata):
     # word[0] = The username of the person who sent the message
@@ -830,7 +848,7 @@ def on_text(word, word_eol, userdata):
         #the bot wrote something we can understand, we can proceed with the parsing
         if matchedtext is not None:
             if option["global"]["debug"] == "on":
-                DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Got good announce line, starting download. LINE: " + color["dgrey"] + str(word[1])
+                DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Got good announce line! Testing line against watchlist... LINE: " + color["dgrey"] + str(word[1])
                 verbose(DEBUG_MESSAGE)
                 logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
             
@@ -858,6 +876,18 @@ def on_text(word, word_eol, userdata):
                     #Now the fun part, we have to match against the new scc2.ini
                     check_filter = watch_data["watch_filter"]
                     
+                    if watch_data.has_key("debug"):
+                        dbg = watch_data["debug"]
+                    elif option["global"].has_key("debug"):
+                        dbg = option["global"]["debug"]
+
+#Remove these for super debug mode. Too annoying even for normal users.                    
+#                    if dbg == "on":
+#                            DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Checking watchlist entry: " + color["dgrey"] + str(watch_entry)
+#                            verbose(DEBUG_MESSAGE)
+#                            logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
+                    
+                    
                     #We only do this replacement when the user doesn't want regexes enabled.
                     if int(watch_data["watch_regex"]) == 0:
                         check_filter = check_filter.replace('.','\.')
@@ -866,12 +896,16 @@ def on_text(word, word_eol, userdata):
                         check_filter = '^' + check_filter + '$'
                         #Keeping this around, makes it easier to convert to 2.0
                         #Lowercase everything first
-                    categories = [str(x).lower() for x in watch_data["watch_categories"].split(" ")]
+                    #No regex stuff in the category list...... for now
+                    categories = watch_data["watch_categories"].replace("/", "\/")
+                    categories = categories.replace(".", "\.")
+                    categories = categories.replace("*", "(.*)")
+                    categories = categories.lower()
+                    categories = categories.split(" ")
                     watchlist_splitted = [check_filter, categories]
                         
-
-                    
-                    
+                    '''
+                    #using triple commas allows me to fold this section up in my IDE. Thats all :p
                     ##########################################
                     ########### REMOVEME YOU FOOL! ###########
                     ##########################################
@@ -883,52 +917,60 @@ def on_text(word, word_eol, userdata):
                     
                     #Here we're going to search the watch for anything extra like a tag or a download dir
                     #Using a try incase someone entered a watch with no colon at all (no watchlist_splitted[1]
-#                    dldir_extra = None
-#                    tag_extra = None
-#                    nice_tag_extra = None
-#                    download_dir = None
-#                    try:
-#                        watchlist_splitted[1]
-#                        dldir_extra = re.search(";(.*)", watchlist_splitted[1])
-#                        tag_extra = re.search("\[(.*)\]", watchlist_splitted[1])
-#                   except:
-#                       pass
-#                    #Now lets see if we found anything
-#                    if dldir_extra is not None:
-#                        #we got a dl dir for sure, lets make sure theres no tag in it too.
-#                        if tag_extra is not None:
-#                            #ok so we have a tag stuck in there too, lets cut the tag out and set the downloaddir var.
-#                            download_dir =  dldir_extra.group(1).replace(tag_extra.group(0), "")
-#                            nice_tag_extra = tag_extra.group(1)
-#                        else:
-#                            #ok so we don't have a tag, so just set the var to dldir_extra
-#                            download_dir = dldir_extra.group(1)
-#                        #Now we clean up watchlist_splitted[1]
-#                        watchlist_splitted[1] = watchlist_splitted[1].replace(dldir_extra.group(0), "")
-#                    #No extra download dir so check if there is a tag
-#                    elif tag_extra is not None:
-#                        #Ok we gots a tag at least, so set the tag var and clean up watchlist_splitted[1]
-#                        nice_tag_extra = tag_extra.group(1)
-#                        watchlist_splitted[1] = watchlist_splitted[1].replace(tag_extra.group(0), "")
+                    dldir_extra = None
+                    tag_extra = None
+                    nice_tag_extra = None
+                    download_dir = None
+                    try:
+                        watchlist_splitted[1]
+                        dldir_extra = re.search(";(.*)", watchlist_splitted[1])
+                        tag_extra = re.search("\[(.*)\]", watchlist_splitted[1])
+                    except:
+                       pass
+                    #Now lets see if we found anything
+                    if dldir_extra is not None:
+                        #we got a dl dir for sure, lets make sure theres no tag in it too.
+                        if tag_extra is not None:
+                            #ok so we have a tag stuck in there too, lets cut the tag out and set the downloaddir var.
+                            download_dir =  dldir_extra.group(1).replace(tag_extra.group(0), "")
+                            nice_tag_extra = tag_extra.group(1)
+                        else:
+                            #ok so we don't have a tag, so just set the var to dldir_extra
+                            download_dir = dldir_extra.group(1)
+                        #Now we clean up watchlist_splitted[1]
+                        watchlist_splitted[1] = watchlist_splitted[1].replace(dldir_extra.group(0), "")
+                    #No extra download dir so check if there is a tag
+                    elif tag_extra is not None:
+                        #Ok we gots a tag at least, so set the tag var and clean up watchlist_splitted[1]
+                        nice_tag_extra = tag_extra.group(1)
+                        watchlist_splitted[1] = watchlist_splitted[1].replace(tag_extra.group(0), "")
                     #Now after the above we should have 2 vars with nicely formatted data inside. 
                     # download_dir is either None if no dldir, or is a string containing the extra dir(s)
                     # nice_tag_extra is either None if no tag, or is a string of the tag
                     ##########################################
                     ########### REMOVEME YOU FOOL! ###########
                     ##########################################
+                    '''
                     
                     download_dir = option["global"]["savepath"]
+                    watch_specific_options = DC(option["global"])
                     
                     #do the check for release name. re.I means the search is case insensitive
                     if re.search(watchlist_splitted[0], matchedtext.group(3), re.I):
+                        if dbg == "on":
+                            DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Matched release name to watch entry: " + color["dgrey"] + str(watch_entry)
+                            verbose(DEBUG_MESSAGE)
+                            logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
+                        
                         for cat in watchlist_splitted[1]:
                             if re.search(cat, matchedtext.group(2).lower(), re.I):
                                 counter += 1
                                 #We got a good match!
-                                if option["global"]["debug"] == "on":
-                                    DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Matched release to watch. Matched watchlist entry: " + color["dgrey"] + str(watch_entry)
+                                if dbg == "on":
+                                    DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Matched categoty and release name for watch entry: " + color["dgrey"] + str(watch_entry)
                                     verbose(DEBUG_MESSAGE)
                                     logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
+                                
                                 
                                 #Fist we check the watch-specific avoidlist to be sure we want this watch
                                 for avoid_entry in watch_data["avoid_filter"].split(" "):
@@ -943,7 +985,7 @@ def on_text(word, word_eol, userdata):
                                         
                                     if re.search(avoid_entry, matchedtext.group(3), re.I):
                                         counter = 0
-                                        if option["global"]["debug"] == "on":
+                                        if dbg == "on":
                                             DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Ignoring match. Matched rls to entry in watch-specific avoidlist. Matched avoidlist entry: " + color["dgrey"] + str(avoid_entry)
                                             verbose(DEBUG_MESSAGE)
                                             logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
@@ -960,13 +1002,14 @@ def on_text(word, word_eol, userdata):
                                         download_dir = str(download_dir) + os.sep
                                 
                                 #Then everything else.
+                                #watch_specific_options = DC(option["global"])
                                 #If there is a better, more pythonic way to merge two dictionaries then I'm all ears. I didn't know any better way when I did this.
                                 for key, value in option["watchlist"][watch_entry].iteritems():
                                         #We can safely do this because we haven't used the global built-in on options in this function.
                                         #Any changes made to options dict here will not be propagated to the rest of the app.
-                                        option["global"][key] = value
-                                #Might need this for future fixing, who knows. I already had it so no reason to delete it now.
-#                                if option["global"]["debug"] == "on":
+                                        watch_specific_options[key] = value
+                                                   #Might need this for future fixing, who knows. I already had it so no reason to delete it now.
+#                                if watch_specific_options["debug"] == "on":
 #                                        #Cut off long values so we don't flood our output window.
 #                                        if len(str(value)) > 100:
 #                                                value2 = str(value[0:100]) + "..."
@@ -979,22 +1022,28 @@ def on_text(word, word_eol, userdata):
                                 #Quickly clean up any weirdness with the sizelimits
                                 #convert upper and lower sizelimits to bytes
                                 try:
-                                    option["global"]["lower_sizelimit"]
+                                    watch_specific_options["lower_sizelimit"]
                                 except:
-                                    option["global"]["lower_sizelimit"] = ""
+                                    watch_specific_options["lower_sizelimit"] = ""
                                 try:
-                                    option["global"]["upper_sizelimit"]
+                                    watch_specific_options["upper_sizelimit"]
                                 except:
-                                    option["global"]["upper_sizelimit"] = ""
+                                    watch_specific_options["upper_sizelimit"] = ""
                                 #Ok so now we can convert our sizelimits to bytes and store them in similarly named variables, just with _bytes suffix.
-                                option["global"]["lower_sizelimit_bytes"] = return_bytes_from_sizedetail(option["global"]["lower_sizelimit"])
-                                option["global"]["upper_sizelimit_bytes"] = return_bytes_from_sizedetail(option["global"]["upper_sizelimit"])
+                                watch_specific_options["lower_sizelimit_bytes"] = return_bytes_from_sizedetail(watch_specific_options["lower_sizelimit"])
+                                watch_specific_options["upper_sizelimit_bytes"] = return_bytes_from_sizedetail(watch_specific_options["upper_sizelimit"])
                                 
                                 if counter > 0: break #Breaking out of cat search
-                        if counter > 0: break #break out of watchlist search
-                    else:
-                        #This 'else' is only really here for debug purposes, to notify when a watchlist entry doesnt match.
-                        if option["global"]["debug"] == "on":
+                            else:
+                                if dbg == "on":
+                                    DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Category match failed. Release category: " + str(matchedtext.group(2).lower())
+                                    verbose(DEBUG_MESSAGE)
+                                    logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
+                        if counter > 0:
+                            break #break out of watchlist search
+                    if counter == 0:
+                        #This is only really here for debug purposes, to notify when a watchlist entry doesnt match. 
+                        if dbg == "on":
                             DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Failed to match watchlist entry. Failed watchlist entry: " + color["dgrey"] + str(watch_entry)
                             verbose(DEBUG_MESSAGE)
                             logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
@@ -1018,13 +1067,13 @@ def on_text(word, word_eol, userdata):
                     #do the check only on the release name
                     if re.search(avoid_filter, matchedtext.group(3), re.I):
                         counter = 0
-                        if option["global"]["debug"] == "on":
+                        if watch_specific_options["debug"] == "on":
                             DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Matched rls to entry in avoidlist. Download operation stopped. Matched avoidlist entry: " + color["dgrey"] + str(avoid_filter)
                             verbose(DEBUG_MESSAGE)
                             logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
                         break
                     else:
-                        if option["global"]["debug"] == "on":
+                        if watch_specific_options["debug"] == "on":
                             DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Failed to match avoidlist entry with rls. Avoidlist entry: " + color["dgrey"] + str(avoid_filter)
                             verbose(DEBUG_MESSAGE)
                             logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
@@ -1033,7 +1082,7 @@ def on_text(word, word_eol, userdata):
             #Size details
             sizedetail = matchedtext.group(4).replace(')', '')
             sizedetail = sizedetail.replace('(', '')
-            sizedetail = re.search(" - ([0-9]{1,6}(?:\.[0-9]{1,2})?)\s+(M|m|K|k|G|g)B?(?:.*)", sizedetail) #I hate this regex
+            sizedetail = re.search("(?:([0-9]{1,6}\.[0-9]{1,2}|[0-9]{1,6})(?:\s+)?(M|m|K|k|G|g)B?)$", sizedetail) #I hate this regex
             #sizedetail.group(1) = 541.34
             #sizedetail.group(2) = M
             nicesize = sizedetail.group(1)+sizedetail.group(2)
@@ -1041,18 +1090,18 @@ def on_text(word, word_eol, userdata):
             if counter > 0 and userdata != "BYPASS":
                 #Convert lower and upper size limits to raw bytes if we have them
                 over_size_limit = False
-                if option["global"]["lower_sizelimit_bytes"] > 0 or option["global"]["upper_sizelimit_bytes"] > 0:
+                if watch_specific_options["lower_sizelimit_bytes"] > 0 or watch_specific_options["upper_sizelimit_bytes"] > 0:
                     torrent_size = int(return_bytes_from_sizedetail(nicesize))
                     #Check if it's too big or small
-                    if (option["global"]["upper_sizelimit_bytes"] == 0) or (option["global"]["upper_sizelimit_bytes"] > option["global"]["lower_sizelimit_bytes"]): #zero means no limit. Also make sure upper is larger than lower. If upper is bigger than lower, we know its at least not 0.
-                        if option["global"]["upper_sizelimit_bytes"] != 0 and torrent_size > option["global"]["upper_sizelimit_bytes"]:
+                    if (watch_specific_options["upper_sizelimit_bytes"] == 0) or (watch_specific_options["upper_sizelimit_bytes"] > watch_specific_options["lower_sizelimit_bytes"]): #zero means no limit. Also make sure upper is larger than lower. If upper is bigger than lower, we know its at least not 0.
+                        if watch_specific_options["upper_sizelimit_bytes"] != 0 and torrent_size > watch_specific_options["upper_sizelimit_bytes"]:
                                 over_size_limit = True
-                        if option["global"]["lower_sizelimit_bytes"] != 0 and torrent_size < option["global"]["lower_sizelimit_bytes"]:
+                        if watch_specific_options["lower_sizelimit_bytes"] != 0 and torrent_size < watch_specific_options["lower_sizelimit_bytes"]:
                                 over_size_limit = True
                         
                         if over_size_limit is True:
                             # Print/Log this if needed
-                            sizeavoid = color["bpurple"]+"SCCwatcher has avoided "+color["dgrey"]+matchedtext.group(3)+color["bpurple"]+" due to size constraints. "+color["blue"]+"Torrent size: "+color["dgrey"]+nicesize+color["blue"]+", Limit (lower/upper): " + color["dgrey"] + "%s/%s" % (str(option["global"]["lower_sizelimit"]), str(option["global"]["upper_sizelimit"]))
+                            sizeavoid = color["bpurple"]+"SCCwatcher has avoided "+color["dgrey"]+matchedtext.group(3)+color["bpurple"]+" due to size constraints. "+color["blue"]+"Torrent size: "+color["dgrey"]+nicesize+color["blue"]+", Limit (lower/upper): " + color["dgrey"] + "%s/%s" % (str(watch_specific_options["lower_sizelimit"]), str(watch_specific_options["upper_sizelimit"]))
                             verbose(sizeavoid)
                             logging(xchat.strip(sizeavoid), "AVOID")
                             counter = 0
@@ -1060,7 +1109,7 @@ def on_text(word, word_eol, userdata):
             #And here's the dupe check
             #only if we're about to download should we do a dupe check
             if counter > 0:
-                if option["global"]["dupecheck"] == "on" and userdata != "BYPASS":
+                if int(watch_specific_options["dupecheck"]) > 0 and userdata != "BYPASS":
                     #Check for the release name in the dupe list
                     try:
                         dupelist.index(matchedtext.group(3))
@@ -1070,7 +1119,7 @@ def on_text(word, word_eol, userdata):
                         logging(xchat.strip(dupeavoid), "DUPE")
                     #if its not a dupe, rabblerabblerabble do nothing.
                     except:
-                        if option["global"]["debug"] == "on":
+                        if watch_specific_options["debug"] == "on":
                             DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Release was not found in dupe list."
                             verbose(DEBUG_MESSAGE)
                             logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
@@ -1079,26 +1128,26 @@ def on_text(word, word_eol, userdata):
             if (counter > 0 or userdata == "BYPASS") and userdata != "TESTING":
                 #Now that we're downloading for sure, add the release name to the dupecheck list.
                 update_dupe(matchedtext.group(3))
-                if option["global"]["debug"] == "on":
+                if watch_specific_options["debug"] == "on":
                     DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Added the following release to dupe list: " + color["dgrey"] + str(matchedtext.group(3))
                     verbose(DEBUG_MESSAGE)
                     logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
                         
                 #And set the download url. If download_ssl is on, generate an ssl url instead.
-                if option["global"]["download_ssl"] == "on":
-                    #downloadurl = "https://www.sceneaccess.org/downloadbig2.php/" + matchedtext.group(5) + "/" + option["global"]["passkey"] + "/" + matchedtext.group(3) + ".torrent"
-                    downloadurl = "https://www.sceneaccess.eu/download/" + matchedtext.group(5) + "/" + option["global"]["passkey"] + "/" + matchedtext.group(3) + ".torrent"
+                if watch_specific_options["download_ssl"] == "on":
+                    #downloadurl = "https://www.sceneaccess.org/downloadbig2.php/" + matchedtext.group(5) + "/" + watch_specific_options["passkey"] + "/" + matchedtext.group(3) + ".torrent"
+                    downloadurl = "https://www.sceneaccess.eu/download/" + matchedtext.group(5) + "/" + watch_specific_options["passkey"] + "/" + matchedtext.group(3) + ".torrent"
                     
-                    if option["global"]["debug"] == "on":
+                    if watch_specific_options["debug"] == "on":
                         DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Using the following SSL download url: " + color["dgrey"] + str(downloadurl)
                         verbose(DEBUG_MESSAGE)
                         logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
                     
                 else:
-                    #downloadurl = "http://www.sceneaccess.org/downloadbig2.php/" + matchedtext.group(5) + "/" + option["global"]["passkey"] + "/" + matchedtext.group(3) + ".torrent"
-                    downloadurl = "http://www.sceneaccess.eu/download/" + matchedtext.group(5) + "/" + option["global"]["passkey"] + "/" + matchedtext.group(3) + ".torrent"
+                    #downloadurl = "http://www.sceneaccess.org/downloadbig2.php/" + matchedtext.group(5) + "/" + watch_specific_options["passkey"] + "/" + matchedtext.group(3) + ".torrent"
+                    downloadurl = "http://www.sceneaccess.eu/download/" + matchedtext.group(5) + "/" + watch_specific_options["passkey"] + "/" + matchedtext.group(3) + ".torrent"
                     
-                    if option["global"]["debug"] == "on":
+                    if watch_specific_options["debug"] == "on":
                         DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Using the following non-SSL download url: " + color["dgrey"] + str(downloadurl)
                         verbose(DEBUG_MESSAGE)
                         logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
@@ -1106,7 +1155,7 @@ def on_text(word, word_eol, userdata):
                 #And make the nice_tag_extra a string, since later it will be needed in string format, and we wont be needing its boolean type anymore anyway.
 #                nice_tag_extra = str(nice_tag_extra)
                 #Utorrent is either disabled or is working in tandom with normal download.
-                if option["global"]["utorrent_mode"] == "0" or option["global"]["utorrent_mode"] == "1":
+                if watch_specific_options["utorrent_mode"] == "0" or watch_specific_options["utorrent_mode"] == "1":
                     # If theres a specified directory, run through the directory checker to make sure the dir exists and is accessable
                     if download_dir is not None:
                         # Because full_xpath is no longer global, we assign zxfpath to dir_checks return value (full_xpath)
@@ -1131,14 +1180,14 @@ def on_text(word, word_eol, userdata):
                     # The upload will be cascaded from the download thread to prevent a train wreck.
                     
                 # If utorrent adding is enabled, perform those operations
-                if option["global"]["utorrent_mode"] == "1" or option["global"]["utorrent_mode"] == "2":
-                    verbtext = color["bpurple"]+"SCCwatcher is adding torrent for " + color["dgrey"] + matchedtext.group(3) + color["bpurple"] + " to the uTorrent WebUI at " + color["dgrey"] + option["global"]["utorrent_hostname"]
+                if watch_specific_options["utorrent_mode"] == "1" or watch_specific_options["utorrent_mode"] == "2":
+                    verbtext = color["bpurple"]+"SCCwatcher is adding torrent for " + color["dgrey"] + matchedtext.group(3) + color["bpurple"] + " to the uTorrent WebUI at " + color["dgrey"] + watch_specific_options["utorrent_hostname"]
                     verbose(verbtext)
                     verbtext3 = xchat.strip(verbtext)
                     logging(verbtext3, "START_UTOR_ADD")
                     webui_upload(downloadurl, matchedtext, nicesize, "DELETEME-nice_tag_extra").start()
-                if option["global"]["utorrent_mode"] != "0" and option["global"]["utorrent_mode"] != "1" and option["global"]["utorrent_mode"] != "2":
-                    verbtext = color["bpurple"]+"SCCwatcher cannot download because you have set utorrent_mode to an invalid number. Please check your scc2.ini and fix this error. utorrent_mode is currently set to: " + color["dgrey"] + option["global"]["utorrent_mode"]
+                if watch_specific_options["utorrent_mode"] != "0" and watch_specific_options["utorrent_mode"] != "1" and watch_specific_options["utorrent_mode"] != "2":
+                    verbtext = color["bpurple"]+"SCCwatcher cannot download because you have set utorrent_mode to an invalid number. Please check your scc2.ini and fix this error. utorrent_mode is currently set to: " + color["dgrey"] + watch_specific_options["utorrent_mode"]
                     verbose(verbtext)
             
             elif userdata == "TESTING" and counter > 0:
@@ -1147,7 +1196,7 @@ def on_text(word, word_eol, userdata):
             elif userdata == "TESTING" and counter == 0:
                 verbose_text = color["bpurple"] + "SCCwatcher would NOT have downloaded that release."
                 verbose(verbose_text)
-                    
+ 
 
 def return_bytes_from_sizedetail(sizedetail):
     multi = 1
@@ -1939,10 +1988,6 @@ def sccwhelp(trigger):
     except:
         option["global"]["sizelimit"] = ""
         
-    if len(option["global"]["sizelimit"]) > 0:
-        tmp_limit_text = str(option["global"]["sizelimit"])
-    else:
-        tmp_limit_text = "No Limit"
     if trigger[1] == 'help':
         try:
             trigger[2]
@@ -2043,7 +2088,18 @@ def sccwhelp(trigger):
         print color["bpurple"], "Maximum redownload tries is : " + color["blue"] + option["global"]["max_dl_tries"]
         print color["bpurple"], "Delay (in seconds) between download retry is: " + color["blue"] + option["global"]["retry_wait"]
         print color["bpurple"], "Dupechecking is: " + color["blue"] + option["global"]["dupecheck"]
-        print color["bpurple"], "Torrent size limit: " + color["blue"] + tmp_limit_text
+        
+        #Shorthand to make the code cleaner
+        ul = option["global"]["upper_sizelimit"] # Upper Limit
+        ll = option["global"]["lower_sizelimit"] # Lower Limit
+        if ul is None or ul == "" or ul == 0 or len(ul) < 2:
+                ul = "No Upper Limit"
+        if ll is None or ll == "" or ll == 0 or len(ll) < 2:
+                ll = "No Lower Limit"
+        
+        print color["bpurple"], "Torrent size limit (lower): " + color["blue"] + ll
+        print color["bpurple"], "Torrent size limit (upper): " + color["blue"] + ul
+        
         print color["bpurple"], "Recent list size: " + color["blue"] + str(len(recent_list)) + color["bpurple"] + " items."
         print color["bpurple"], "Start delay is set to:" + color["blue"],option["global"]["startdelay"]+ " seconds"
         print color["bpurple"], "Verbose output is: " + color["blue"] + option["global"]["verbose"]
@@ -2065,7 +2121,8 @@ def sccwhelp(trigger):
         
         print color["lblue"], "Current watchlist: " + color["dgreen"] + str(option["global"]["watchlist"])
         print color["lblue"], "Current avoidlist: " + color["dred"] + str(option["global"]["avoidlist"])
-    
+        
+        
     elif trigger[1] == 'watchlist':
         print color["lblue"] + "Current watchlist: " + color["dgreen"] + str(option["global"]["watchlist"])
         
@@ -2296,6 +2353,8 @@ def announce_line_tester(word, word_eol, userdata):
 
 def unload_cb(userdata):
     quitmsg = "\0034 "+__module_name__+" "+__module_version__+" has been unloaded\003"
+    #Remove our status file
+    os.remove(gettempdir() + os.sep + "sccw_temp.txt")
     print quitmsg
     xchat.command('menu DEL SCCwatcher')
     #Only log script unload if logging is enabled
@@ -2311,6 +2370,8 @@ xchat.hook_command('manualadd', manual_torrent_add, help="Manually grab torrents
 xchat.hook_command('manualadd_special', manual_torrent_add_special, help="Manually grab torrents by pasting lines from #announce")
 xchat.hook_command('test_line', announce_line_tester, help="This will test a line to see if it would be downloaded by your current settings in scc2.ini")
 xchat.hook_unload(unload_cb)
+#Now that we have everything loaded, start up our status updater thread
+xchat.hook_timer(1000, scriptStatusUpdater)
 #load scc2.ini
 
 
@@ -2319,5 +2380,5 @@ if (__name__ == "__main__"):
     main()
 
 #LICENSE GPL
-#Last modified 02-22-16 (MM/DD/YY)
+#Last modified 06-13-16 (MM/DD/YY)
 
