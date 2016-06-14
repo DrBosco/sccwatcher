@@ -22,7 +22,7 @@
 #                                                                            #
 ##############################################################################
 __module_name__ = "SCCwatcher"
-__module_version__ = "2.0a13"
+__module_version__ = "2.0a14"
 __module_description__ = "SCCwatcher"
 
 import xchat
@@ -99,7 +99,7 @@ def getCurrentStatus():
         data["ssl"] = option["global"]["download_ssl"]
         data["max_dl_tries"] = option["global"]["max_dl_tries"]
         data["retry_wait"] = option["global"]["retry_wait"]
-        if option["global"].has_key("cookiefile") and len(option["global"]["cookiefile"]) > 2 and option["global"].has_key("useragent") and len(option["global"]["useragent"]) > 5:
+        if option["global"].has_key("cfbypass_cookiefile") and len(option["global"]["cfbypass_cookiefile"]) > 2 and option["global"].has_key("cfbypass_useragent") and len(option["global"]["cfbypass_useragent"]) > 5:
                 data["cf_workaround"] = "on"
         else:
                 data["cf_workaround"] = "off"
@@ -148,14 +148,15 @@ def loadSettingsFile(file_location):
     option["global"]["retry_wait"] = "1"
     option["global"]["cfbypass_useragent"] = ""
     option["global"]["cfbypass_cookiefile"] = ""
-    option["global"]["ftpEnable"] = "0"
-    option["global"]["ftpServerHostname"] = ""
-    option["global"]["ftpPort"] = ""
-    option["global"]["ftpRemoteFolder"] = ""
-    option["global"]["ftpUsername"] = ""
-    option["global"]["ftpPassword"] = ""
-    option["global"]["ftpPassive"] = "0"
-    option["global"]["ftpSecureMode"] = "0"
+    option["global"]["ftpenable"] = "0"
+    option["global"]["ftpserverhostname"] = ""
+    option["global"]["ftpport"] = ""
+    option["global"]["ftpremotefolder"] = ""
+    option["global"]["ftpusername"] = ""
+    option["global"]["ftppassword"] = ""
+    option["global"]["ftppassive"] = "0"
+    option["global"]["ftpsecuremode"] = "0"
+    option["global"]["ftpdetails"] = ""
     option["global"]["utorrent_mode"] = "0"
     option["global"]["utorrent_username"] = ""
     option["global"]["utorrent_password"] = ""
@@ -175,15 +176,6 @@ def loadSettingsFile(file_location):
     option["global"]["external_command"] = ""
     option["global"]["external_command_args"] = ""
     option["global"]["DEBUG"] = "0"
-    
-    
-    ##########################################
-    ########### REMOVEME YOU FOOL! ###########
-    ##########################################
-    option["global"]["ftpdetails"] = ""
-    ##########################################
-    ########### REMOVEME YOU FOOL! ###########
-    ##########################################
     
     
     #Easy way to see if we loaded up a good config or not
@@ -251,6 +243,13 @@ def loadSettingsFile(file_location):
     
     #Gotta close it before we quit
     inifile.close()
+    
+    #Build ftpdetails from the various ftp options
+    if option["global"]["ftpenable"] > 0:
+        option["global"]["ftpdetails"] = "ftp://%s:%s@%s:%s%s" % (option["global"]["ftpusername"], option["global"]["ftppassword"], option["global"]["ftpserverhostname"], option["global"]["ftpport"], option["global"]["ftpremotefolder"])
+        #option["global"]["ftppassive"] = "0"
+        #option["global"]["ftpsecuremode"] = "0"
+        
     
     #Fix some stuff
     fixdict = {"0": "off", "1": "_MIDWAY_", "2": "on"}
@@ -473,9 +472,9 @@ def load_vars(rld=False):
           
         #Set the needed headers if the user wants to bypass cloudflare
         #Headers for our downloader. Most of them I just copied from a normal browser to ensure compatibility with browser-checkers
-        if option["global"].has_key("cookiefile") and option["global"].has_key("useragent"):
+        if option["global"].has_key("cfbypass_cookiefile") and option["global"].has_key("cfbypass_useragent"):
             downloaderHeaders = {
-            "User-Agent": option["global"]["useragent"],
+            "User-Agent": option["global"]["cfbypass_useragent"],
             "Accept": "application/xml,application/xhtml+xml,text/html;q=0.9,text/plain;q=0.8,image/png,*/*;q=0.5",
             "Accept-Language": "en-US,en;q=0.8",
             "Accept-Charset": "ISO-8859-1,utf-8;q=0.7,*;q=0.3"
@@ -649,7 +648,7 @@ def logging(text, operation):
         if logdir_is_available is False:
             os.mkdir(option["global"]["logpath"])
         
-        fullpath = option["global"]["logpath"] + "sccwatcher.log"
+        fullpath = option["global"]["logpath"] + os.sep +  "sccwatcher.log"
         current_time = time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())
         text = current_time+" - "+operation+":"+text+"\n"
         scclog = open(fullpath, 'a')
@@ -888,8 +887,31 @@ def on_text(word, word_eol, userdata):
 #                            logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
                     
                     
+                    #Generate an up-to-date representation of the default settings. These will then be overriden by watch-specific options.
+                    #We do this so that if a watch entry has no options but the basics it won't fail.
+                    watch_specific_defaults = {}
+                    watch_specific_defaults["savepath"] = option["global"]["savepath"]
+                    watch_specific_defaults["avoid_filter"] = ""
+                    watch_specific_defaults["watch_categories"] = ""
+                    watch_specific_defaults["watch_regex"] = "0"
+                    watch_specific_defaults["avoid_regex"] = "0"
+                    watch_specific_defaults["use_utorrent_webui"] = "0"
+                    watch_specific_defaults["use_external_command"] = "0"
+                    watch_specific_defaults["use_ftp_upload"] = option["global"]["ftpenable"]
+                    watch_specific_defaults["use_emailer"] = option["global"]["smtp_emailer"]
+                    watch_specific_options = DC(option["global"])
+                    for key, value in watch_specific_defaults.iteritems():
+                        if watch_specific_options.has_key(key) is False:
+                                watch_specific_options[key] = value
+                    #Convert on's and off's to ints, im too lazy to just design it right in the first place. If it works, it works!
+                    for key, value in watch_specific_options.iteritems():
+                        if str(value).lower() == "off": watch_specific_options[key] = "0"
+                        elif str(value).lower() == "_midway_": watch_specific_options[key] = "1"
+                        elif str(value).lower() == "on": watch_specific_options[key] = "2"
+                    
+                    
                     #We only do this replacement when the user doesn't want regexes enabled.
-                    if int(watch_data["watch_regex"]) == 0:
+                    if int(watch_specific_options["watch_regex"]) == 0:
                         check_filter = check_filter.replace('.','\.')
                         check_filter = check_filter.replace('*','(.*)')
                         check_filter = check_filter.replace('/','\/')
@@ -897,63 +919,14 @@ def on_text(word, word_eol, userdata):
                         #Keeping this around, makes it easier to convert to 2.0
                         #Lowercase everything first
                     #No regex stuff in the category list...... for now
-                    categories = watch_data["watch_categories"].replace("/", "\/")
+                    categories = watch_specific_options["watch_categories"].replace("/", "\/")
                     categories = categories.replace(".", "\.")
                     categories = categories.replace("*", "(.*)")
                     categories = categories.lower()
                     categories = categories.split(" ")
                     watchlist_splitted = [check_filter, categories]
-                        
-                    '''
-                    #using triple commas allows me to fold this section up in my IDE. Thats all :p
-                    ##########################################
-                    ########### REMOVEME YOU FOOL! ###########
-                    ##########################################
-                    #This whole feature might be removed in the future before release
-                    #Or it may get integrated into the GUI, but I dunno yet
-                    
-                    #Tags are depreciated. Now the watch title will take its place. %tag% might stay for historical use if anyone has it in their configs already.
-                    
-                    
-                    #Here we're going to search the watch for anything extra like a tag or a download dir
-                    #Using a try incase someone entered a watch with no colon at all (no watchlist_splitted[1]
-                    dldir_extra = None
-                    tag_extra = None
-                    nice_tag_extra = None
-                    download_dir = None
-                    try:
-                        watchlist_splitted[1]
-                        dldir_extra = re.search(";(.*)", watchlist_splitted[1])
-                        tag_extra = re.search("\[(.*)\]", watchlist_splitted[1])
-                    except:
-                       pass
-                    #Now lets see if we found anything
-                    if dldir_extra is not None:
-                        #we got a dl dir for sure, lets make sure theres no tag in it too.
-                        if tag_extra is not None:
-                            #ok so we have a tag stuck in there too, lets cut the tag out and set the downloaddir var.
-                            download_dir =  dldir_extra.group(1).replace(tag_extra.group(0), "")
-                            nice_tag_extra = tag_extra.group(1)
-                        else:
-                            #ok so we don't have a tag, so just set the var to dldir_extra
-                            download_dir = dldir_extra.group(1)
-                        #Now we clean up watchlist_splitted[1]
-                        watchlist_splitted[1] = watchlist_splitted[1].replace(dldir_extra.group(0), "")
-                    #No extra download dir so check if there is a tag
-                    elif tag_extra is not None:
-                        #Ok we gots a tag at least, so set the tag var and clean up watchlist_splitted[1]
-                        nice_tag_extra = tag_extra.group(1)
-                        watchlist_splitted[1] = watchlist_splitted[1].replace(tag_extra.group(0), "")
-                    #Now after the above we should have 2 vars with nicely formatted data inside. 
-                    # download_dir is either None if no dldir, or is a string containing the extra dir(s)
-                    # nice_tag_extra is either None if no tag, or is a string of the tag
-                    ##########################################
-                    ########### REMOVEME YOU FOOL! ###########
-                    ##########################################
-                    '''
                     
                     download_dir = option["global"]["savepath"]
-                    watch_specific_options = DC(option["global"])
                     
                     #do the check for release name. re.I means the search is case insensitive
                     if re.search(watchlist_splitted[0], matchedtext.group(3), re.I):
@@ -973,10 +946,10 @@ def on_text(word, word_eol, userdata):
                                 
                                 
                                 #Fist we check the watch-specific avoidlist to be sure we want this watch
-                                for avoid_entry in watch_data["avoid_filter"].split(" "):
+                                for avoid_entry in watch_specific_options["avoid_filter"].split(" "):
                                     if len(avoid_entry) < 1:
                                         continue
-                                    if int(watch_data["avoid_regex"]) == 0:
+                                    if int(watch_specific_options["avoid_regex"]) == 0:
                                         avoid_entry = avoid_entry.replace('.','\.')
                                         avoid_entry = avoid_entry.replace('*','')
                                         avoid_entry = avoid_entry.replace('/','\/')
@@ -993,8 +966,8 @@ def on_text(word, word_eol, userdata):
                                 
                                 #Let's copy over our watch-specific options before we do anything else
                                 #First the savepath
-                                if len(watch_data["savepath"]) > 2:
-                                    download_dir = watch_data["savepath"]
+                                if len(watch_specific_options["savepath"]) > 2:
+                                    download_dir = watch_specific_options["savepath"]
                                 else:
                                     download_dir = option["global"]["savepath"]
                                 
@@ -1002,13 +975,12 @@ def on_text(word, word_eol, userdata):
                                         download_dir = str(download_dir) + os.sep
                                 
                                 #Then everything else.
-                                #watch_specific_options = DC(option["global"])
                                 #If there is a better, more pythonic way to merge two dictionaries then I'm all ears. I didn't know any better way when I did this.
                                 for key, value in option["watchlist"][watch_entry].iteritems():
                                         #We can safely do this because we haven't used the global built-in on options in this function.
                                         #Any changes made to options dict here will not be propagated to the rest of the app.
                                         watch_specific_options[key] = value
-                                                   #Might need this for future fixing, who knows. I already had it so no reason to delete it now.
+                                 #Might need this for future fixing, who knows. I already had it so no reason to delete it now.
 #                                if watch_specific_options["debug"] == "on":
 #                                        #Cut off long values so we don't flood our output window.
 #                                        if len(str(value)) > 100:
@@ -1018,7 +990,6 @@ def on_text(word, word_eol, userdata):
 #                                        DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Overwrote global option with watch option. Key: %s%s  %sValue: %s%s " % (color["dgrey"], str(key), color["bpurple"], color["dgrey"], value2)
 #                                        verbose(DEBUG_MESSAGE)
 #                                        logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
-                                
                                 #Quickly clean up any weirdness with the sizelimits
                                 #convert upper and lower sizelimits to bytes
                                 try:
@@ -1126,8 +1097,6 @@ def on_text(word, word_eol, userdata):
                             
             #got a match!! let's download
             if (counter > 0 or userdata == "BYPASS") and userdata != "TESTING":
-                #Now that we're downloading for sure, add the release name to the dupecheck list.
-                update_dupe(matchedtext.group(3))
                 if watch_specific_options["debug"] == "on":
                     DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Added the following release to dupe list: " + color["dgrey"] + str(matchedtext.group(3))
                     verbose(DEBUG_MESSAGE)
@@ -1256,7 +1225,7 @@ def more_help(command):
     elif command == 'ftpoff':
         print color["bpurple"], "Ftpoff: " + color["blue"] + "Disables FTP upload"
     elif command == 'updateftp':
-        print color["bpurple"], "Updateftp: " + color["blue"] + "Allows you to update your ftpdetails, must be in the format of:"+color["dgrey"]+" /sccwatcher ftp://user:password@server:port/directory "
+        print color["bpurple"], "Updateftp: " + color["blue"] + "Allows you to update your ftpdetails, must be in the format of:"+color["dgrey"]+" ftp://user:password@server:port/directory "
     elif command == 'detectnetwork':
         print color["bpurple"], "Detectnetwork: " + color["blue"] + "Re-detects the network settings, incase when SCCwatcher couldn't detect them when it first loaded."
     elif command == 'ftpdetails':
@@ -1505,7 +1474,7 @@ class download(threading.Thread):
         #Using a try-except here incase urlretrieve has problems
         try:
             #If we have the option, use the cookiefile and bypass the cloudflare protection.
-            if option["global"].has_key("cookiefile") and len(option["global"]["cookiefile"]) > 2 and option["global"].has_key("useragent") and len(option["global"]["useragent"]) > 5 and req is True:
+            if option["global"].has_key("cfbypass_cookiefile") and len(option["global"]["cfbypass_cookiefile"]) > 2 and option["global"].has_key("cfbypass_useragent") and len(option["global"]["cfbypass_useragent"]) > 5 and req is True:
                 
                 #DBG
                 if option["global"]["debug"] == "on":
@@ -1515,7 +1484,7 @@ class download(threading.Thread):
                 #END DBG
                 
                 
-                thread_data.cookie_path = option["global"]["savepath"] + option["global"]["cookiefile"]
+                thread_data.cookie_path = option["global"]["savepath"] + option["global"]["cfbypass_cookiefile"]
                 thread_data.cookie_jar = cookielib.MozillaCookieJar()
                 thread_data.cookie_jar.load(thread_data.cookie_path)
                 thread_data.opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(thread_data.cookie_jar))
@@ -1586,6 +1555,9 @@ class download(threading.Thread):
             thread_data.verbtext3 = xchat.strip(thread_data.verbtext3) +" - "+ os.path.normcase(self.disp_path)
             logging(thread_data.verbtext3, "END_GRAB")
             
+            #Download definitely succeeded, now we can add to the dupe list
+            update_dupe(self.matchedtext.group(3))
+            
             #Ok now that we have the file, we can do the upload if necessary:
             #If we're doing an upload, then dont do an email or external command, as that will be handled by the upload class.
             if option["global"]["ftpenable"] == 'on':
@@ -1638,11 +1610,23 @@ class upload(threading.Thread):
             #thread_data.ftpdetails.group(4) # port
             #thread_data.ftpdetails.group(5) # directory/torrents/
             thread_data.s = ftplib.FTP() # Create the ftp object
-            thread_data.s.connect(thread_data.ftpdetails.group(3), thread_data.ftpdetails.group(4)) # Connect
+            try:
+                thread_data.s.connect(thread_data.ftpdetails.group(3), thread_data.ftpdetails.group(4)) # Connect
+            except:
+                thread_data.vtext = color["bpurple"] + "SCCwatcher encountered an error while attempting to connect to the ftp server at " + color["dgrey"] + thread_data.ftpdetails.group(3) + ":" + thread_data.ftpdetails.group(4) + ". " + color["bpurple"] + "Skipping FTP Upload. Please check your configuration and be sure your user has access to the directory on the remote server."
+                verbose(thread_data.vtext)
+                logging(xchat.strip(thread_data.vtext), "UPLOAD_FAIL-CONNECT_FAIL")
+                return False
             thread_data.s.login(thread_data.ftpdetails.group(1), thread_data.ftpdetails.group(2)) # Login
             if option["global"]["ftppassive"] == 'on':
                 thread_data.s.set_pasv(True) # Set passive-mode 
-            thread_data.s.cwd(thread_data.ftpdetails.group(5)) # Change directory
+            try:
+                thread_data.s.cwd("/" + thread_data.ftpdetails.group(5)) # Change directory
+            except:
+                thread_data.vtext = color["bpurple"] + "SCCwatcher encountered an error while changing the directory to " + color["dgrey"] + thread_data.ftpdetails.group(5) + ". " + color["bpurple"] + "Skipping FTP Upload. Please check your configuration and be sure your user has access to the directory on the remote server."
+                verbose(thread_data.vtext)
+                logging(xchat.strip(thread_data.vtext), "UPLOAD_FAIL-CHDIR_FAIL")
+                return False
             if self.extra_paths == "yes":
                 thread_data.f = open(self.zxfpath + self.matchedtext.group(3) + ".torrent",'rb') # Open file to send
             else:
@@ -1658,15 +1642,15 @@ class upload(threading.Thread):
                         thread_data.uploaded = True
                         break
                     except:
-                        thread_data.vtext1 = color["bpurple"] + "SCCwatcher encountered an error while uploading " + color["dgrey"] + self.matchedtext.group(3) + ".torrent." + color["bpurple"] + " Retrying...."
-                        verbose(thread_data.vtext1)
-                        logging(xchat.strip(thread_data.vtext1), "UPLOAD_FAIL-RETRYING")
+                        thread_data.vtext = color["bpurple"] + "SCCwatcher encountered an error while uploading " + color["dgrey"] + self.matchedtext.group(3) + ".torrent." + color["bpurple"] + " Retrying...."
+                        verbose(thread_data.vtext)
+                        logging(xchat.strip(thread_data.vtext), "UPLOAD_FAIL-RETRYING")
                         thread_data.uc += 1
                         time.sleep(int(option["global"]["retry_wait"]))
                 else:
-                    thread_data.vtext2 = color["bpurple"] + "SCCwatcher cannot upload " + color["dgrey"] + self.matchedtext.group(3) + ".torrent" + color["bpurple"] + " to the specified FTP server. Please make sure the server is functioning properly."
-                    verbose(thread_data.vtext2)
-                    logging(xchat.strip(thread_data.vtext2), "UPLOAD_FAIL_FINAL")
+                    thread_data.vtext = color["bpurple"] + "SCCwatcher cannot upload " + color["dgrey"] + self.matchedtext.group(3) + ".torrent" + color["bpurple"] + " to the specified FTP server. Please make sure the server is functioning properly."
+                    verbose(thread_data.vtext)
+                    logging(xchat.strip(thread_data.vtext), "UPLOAD_FAIL_FINAL")
                     break
                 
             thread_data.f.close() # Close file
@@ -1699,6 +1683,7 @@ class upload(threading.Thread):
         logging(thread_data.verbtext4, "END_UPLOAD")
         
 #Threaded upload class. Thanks to backdraft for providing most of the code. Sure made my life easier. :)
+#Had to update a lot of this code in June 2016 due to not using token auth. 
 class webui_upload(threading.Thread):
     def __init__(self, turl, matchedtext, nicesize, nice_tag_extra):
         self.turl = turl
@@ -1716,19 +1701,26 @@ class webui_upload(threading.Thread):
         #create thread-local data to further prevent var overwrites under high load
         thread_data = threading.local()
         thread_data.torrent_url = urllib.quote(self.turl) # Escape the url
-        thread_data.http_url = 'http://' + option["global"]["utorrent_hostname"] +':'+ option["global"]["utorrent_port"] + '/gui/?action=add-url&s=' + thread_data.torrent_url # Make the url
-        thread_data.base64string = base64.encodestring('%s:%s' % (option["global"]["utorrent_username"], option["global"]["utorrent_password"]))[:-1] 
+        #Generate our authentication details
+        thread_data.base64string = base64.encodestring('%s:%s' % (option["global"]["utorrent_username"], option["global"]["utorrent_password"])).strip() 
         thread_data.authheader =  "Basic %s" % thread_data.base64string
+        #Before we can add a torrent we need to generate a token
+        thread_data.token_url = 'http://' + option["global"]["utorrent_hostname"] +':'+ option["global"]["utorrent_port"] + "/gui/token.html"
+        thread_data.token_req = urllib2.Request(thread_data.token_url)
+        thread_data.token_req.add_header("Authorization", thread_data.authheader)
+        thread_data.token_html = urllib2.urlopen(thread_data.token_req).read()
+        thread_data.auth_token = re.search("'>(.*?)</div>", thread_data.token_html).group(1)
+        #Ok now that we have our token, we can add the torrent to the WebUI
+        thread_data.http_url = 'http://' + option["global"]["utorrent_hostname"] +':'+ option["global"]["utorrent_port"] + '/gui/?token=%s&action=add-url&s=%s' % (thread_data.auth_token, thread_data.torrent_url) # Make the url
         # Basic Auth using base64
         #start timer
         thread_data.start_time = time.time()
         thread_data.http_data = urllib2.Request(thread_data.http_url)
         thread_data.http_data.add_header("Authorization", thread_data.authheader)
         thread_data.http_data.add_header('User-Agent','Mozilla/4.0 (compatible; MSIE 5.5; Windows NT 5.0)') # Pretend we are Internet Explorer
-        thread_data.opener_web = urllib2.build_opener()
         thread_data.good = 0
         try:
-            thread_data.text = thread_data.opener_web.open(thread_data.http_data).read() # get the data
+            thread_data.text = urllib2.urlopen(thread_data.http_data).read() # get the data
             thread_data.good = 1
         except:
             thread_data.error = color["bpurple"]+"SCCwatcher encountered an HTTP error while connecting to the uTorrent WebUI at " + color["dgrey"] + option["global"]["utorrent_hostname"] + color["bpurple"] + ". Please double check the uTorrent WebUI settings in scc2.ini are correct."
@@ -2080,7 +2072,7 @@ def sccwhelp(trigger):
             print color["bpurple"], "Debug output is: " + color["blue"] + option["global"]["debug"]
         print color["bpurple"], "Auto downloading is: " + color["blue"] + option["global"]["service"]
         print color["bpurple"], "SSL downloading is: " + color["blue"] + option["global"]["download_ssl"]
-        if option["global"].has_key("cookiefile") and len(option["global"]["cookiefile"]) > 2 and option["global"].has_key("useragent") and len(option["global"]["useragent"]) > 5:
+        if option["global"].has_key("cfbypass_cookiefile") and len(option["global"]["cfbypass_cookiefile"]) > 2 and option["global"].has_key("cfbypass_useragent") and len(option["global"]["cfbypass_useragent"]) > 5:
             print color["bpurple"], "Cloudflare workaround is " + color["blue"] + "Enabled"
         else:
             print color["bpurple"], "Cloudflare workaround is " + color["blue"] + "Disabled"
@@ -2106,7 +2098,12 @@ def sccwhelp(trigger):
         print color["bpurple"], "Using custom tab for verbose output is: " + color["blue"] + option["global"]["_extra_context_"]
         print color["bpurple"], "Logging to file is: " + color["blue"] + option["global"]["logenabled"]
         print color["bpurple"], "Uploading to ftp is: " + color["blue"] + option["global"]["ftpenable"]
-        print color["bpurple"], "uTorrent WebUI Mode is: " + color["blue"] + option["global"]["utorrent_mode"]
+        
+        if int(option["global"]["utorrent_mode"]) == 0: ut_mode = "Disabled"
+        elif int(option["global"]["utorrent_mode"]) == 1: ut_mode = "Normal DL and WebUI Upload"
+        elif int(option["global"]["utorrent_mode"]) == 2: ut_mode = "WebUI Uploading Only"
+        else: ut_mode = "Disabled"
+        print color["bpurple"], "uTorrent WebUI Mode: " + color["blue"] + ut_mode
         print color["bpurple"], "Savepath is set to: " + color["blue"] + option["global"]["savepath"]
         print color["bpurple"], "Logpath is set to: " + color["blue"] + option["global"]["logpath"]
         print color["bpurple"], "Emailing is set to: " + color["blue"] + option["global"]["smtp_emailer"]
