@@ -1410,7 +1410,7 @@ class download(threading.Thread):
         threading.Thread.__init__(self)
     def run(self):
         if self.specific_options["debug"] == "on":
-                DEBUG_MESSAGE = "DEBUG_OUTPUT: Started download process..."
+                DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Entered download thread."
                 verbose(DEBUG_MESSAGE)
                 logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
         #create thread-local data to further prevent var overwrites under high load
@@ -1533,7 +1533,7 @@ class download(threading.Thread):
             else:
                 
                 #DBG
-                if self.specific_options["debug"] == "on":
+                if self.specific_options["debug"] == "on" and req is True:
                     DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: No cookiefile or useragent option or length checks failed."
                     verbose(DEBUG_MESSAGE)
                     logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
@@ -1588,7 +1588,7 @@ class download(threading.Thread):
                 verbose(DEBUG_MESSAGE)
                 logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
             update_dupe(self.matchedtext.group(3))
-            
+
             #Ok now that we have the file, we can do the upload if necessary:
             #If we're doing an upload, then dont do an email or external command, as that will be handled by the upload class.
             if self.specific_options["ftpenable"] == 'on':
@@ -1860,7 +1860,7 @@ class email(threading.Thread):
                     thread_data.verbtext = xchat.strip(thread_data.verbtext)
                     logging(xchat.strip(thread_data.verbtext), "SMTP_FAIL")
         if option["global"]["use_external_command"] == "on":
-            do_cmd(self.matchedtext, self.disp_path, self.nicesize, self.nice_tag_extra).start()
+            do_cmd(self.matchedtext, self.disp_path, self.nicesize, self.nice_tag_extra, self.specific_options).start()
 
     #Here we build our email message
     def message_builder(self):
