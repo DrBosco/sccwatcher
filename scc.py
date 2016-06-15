@@ -22,7 +22,7 @@
 #                                                                            #
 ##############################################################################
 __module_name__ = "SCCwatcher"
-__module_version__ = "2.0a14"
+__module_version__ = "2.0b1"
 __module_description__ = "SCCwatcher"
 
 import xchat
@@ -175,7 +175,7 @@ def loadSettingsFile(file_location):
     option["global"]["use_external_command"] = "0"
     option["global"]["external_command"] = ""
     option["global"]["external_command_args"] = ""
-    option["global"]["DEBUG"] = "0"
+    option["global"]["debug"] = "0"
     
     
     #Easy way to see if we loaded up a good config or not
@@ -252,16 +252,21 @@ def loadSettingsFile(file_location):
         
     
     #Fix some stuff
-    fixdict = {"0": "off", "1": "_MIDWAY_", "2": "on"}
-    fixdict2 = {"0": "off", "1": "_MIDWAY_", "2": "autodetect"}
+    fixdict = {"0": "off", "1": "on", "2": "on"}
+    fixdict2 = {"0": "off", "1": "on", "2": "autodetect"}
     if len(str(option["global"]["service"])) > 0: option["global"]["service"] = fixdict2[str(option["global"]["service"])]
     if len(str(option["global"]["dupecheck"])) > 0: option["global"]["dupecheck"] = fixdict[str(option["global"]["dupecheck"])]
     if len(str(option["global"]["verbose"])) > 0: option["global"]["verbose"] = fixdict[str(option["global"]["verbose"])]
     if len(str(option["global"]["logenabled"])) > 0: option["global"]["logenabled"] = fixdict[str(option["global"]["logenabled"])]
     if len(str(option["global"]["ftpenable"])) > 0: option["global"]["ftpenable"] = fixdict[str(option["global"]["ftpenable"])]
     if len(str(option["global"]["smtp_emailer"])) > 0: option["global"]["smtp_emailer"] = fixdict[str(option["global"]["smtp_emailer"])]
-    if len(str(option["global"]["external_command"])) > 0: option["global"]["external_command"] = fixdict[str(option["global"]["external_command"])]
+    if len(str(option["global"]["use_external_command"])) > 0: option["global"]["use_external_command"] = fixdict[str(option["global"]["use_external_command"])]
     if len(str(option["global"]["download_ssl"])) > 0: option["global"]["download_ssl"] = fixdict[str(option["global"]["download_ssl"])]
+    if len(str(option["global"]["printalert"])) > 0: option["global"]["printalert"] = fixdict[str(option["global"]["printalert"])]
+    if len(str(option["global"]["ftppassive"])) > 0: option["global"]["ftppassive"] = fixdict[str(option["global"]["ftppassive"])]
+    if len(str(option["global"]["ftpsecuremode"])) > 0: option["global"]["ftpsecuremode"] = fixdict[str(option["global"]["ftpsecuremode"])]
+    if len(str(option["global"]["smtp_tls"])) > 0: option["global"]["smtp_tls"] = fixdict[str(option["global"]["smtp_tls"])]
+    if len(str(option["global"]["debug"])) > 0: option["global"]["debug"] = fixdict[str(option["global"]["debug"])]
     
     if good_config_check is True:
         return option
@@ -787,7 +792,6 @@ def on_text(word, word_eol, userdata):
     # Userdata contains any special flags for bypassing and testing
     
     can_continue = False
-    
     # Make sure sccnet is valid if this isn't a manual download request
     if userdata == "BYPASS" or userdata == "TESTING" or userdata == "SPECIAL":
         pass
@@ -869,19 +873,13 @@ def on_text(word, word_eol, userdata):
             #length checks to make sure theres something in the list first
             wlistcheck = string.join(option["watchlist"].keys(), '')
             
-            
             if len(wlistcheck) is not 0:    
                 for watch_entry, watch_data in option["watchlist"].iteritems():
                     #Now the fun part, we have to match against the new scc2.ini
                     check_filter = watch_data["watch_filter"]
-                    
-                    if watch_data.has_key("debug"):
-                        dbg = watch_data["debug"]
-                    elif option["global"].has_key("debug"):
-                        dbg = option["global"]["debug"]
 
 #Remove these for super debug mode. Too annoying even for normal users.                    
-#                    if dbg == "on":
+#                    if watch_specific_options["debug"] == "on":
 #                            DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Checking watchlist entry: " + color["dgrey"] + str(watch_entry)
 #                            verbose(DEBUG_MESSAGE)
 #                            logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
@@ -899,19 +897,64 @@ def on_text(word, word_eol, userdata):
                     watch_specific_defaults["use_external_command"] = "0"
                     watch_specific_defaults["use_ftp_upload"] = option["global"]["ftpenable"]
                     watch_specific_defaults["use_emailer"] = option["global"]["smtp_emailer"]
-                    watch_specific_options = DC(option["global"])
+                    watch_specific_options = DC(watch_data)
+                    #Fill in any options the watch was missing using defaults, then global options
                     for key, value in watch_specific_defaults.iteritems():
                         if watch_specific_options.has_key(key) is False:
                                 watch_specific_options[key] = value
-                    #Convert on's and off's to ints, im too lazy to just design it right in the first place. If it works, it works!
-                    for key, value in watch_specific_options.iteritems():
-                        if str(value).lower() == "off": watch_specific_options[key] = "0"
-                        elif str(value).lower() == "_midway_": watch_specific_options[key] = "1"
-                        elif str(value).lower() == "on": watch_specific_options[key] = "2"
+                    for key, value in option["global"].iteritems():
+                        if watch_specific_options.has_key(key) is False:
+                                watch_specific_options[key] = value
                     
+                    #Fix external command stuff
+                    if len(watch_specific_options["external_command"].strip()) < 2: watch_specific_options["external_command"] = option["global"]["external_command"]
+                    if len(watch_specific_options["external_command_args"].strip()) == 0: watch_specific_options["external_command_args"] = option["global"]["external_command_args"]
+                    
+                    
+                    #now convert certain items to on and off if needed
+                    change_items = []
+                    change_items.append("service")
+                    change_items.append("dupecheck")
+                    change_items.append("verbose")
+                    change_items.append("logenabled")
+                    change_items.append("ftpenable")
+                    change_items.append("use_ftp_upload")
+                    change_items.append("smtp_emailer")
+                    change_items.append("use_emailer")
+                    change_items.append("download_ssl")
+                    change_items.append("printalert")
+                    change_items.append("ftppassive")
+                    change_items.append("ftpsecuremode")
+                    change_items.append("smtp_tls")
+                    change_items.append("debug")
+                    change_items.append("watch_regex")
+                    change_items.append("avoid_regex")
+                    change_items.append("use_utorrent_webui")
+                    change_items.append("use_external_command")
+                    change_items.append("utorrent_mode")
+                    for item in change_items:
+                        if watch_specific_options.has_key(item):
+                            try:
+                                int(watch_specific_options[item])
+                                if int(watch_specific_options[item]) == 0: watch_specific_options[item] = "off"
+                                elif item == "utorrent_mode":
+                                        if int(watch_specific_options[item]) == 0:
+                                                watch_specific_options[item] = "off"
+                                        elif int(watch_specific_options[item]) == 1:
+                                                watch_specific_options[item] = "_MIDWAY_"
+                                        elif int(watch_specific_options[item]) == 2:
+                                                watch_specific_options[item] = "on"
+                                elif int(watch_specific_options[item]) > 0: watch_specific_options[item] = "on"
+                            except:
+                                pass
+                    
+                    #Yeah, I could just program this thing correctly in the first place, but fuck it! I'm in a band-aid kinda mood today.
+                    watch_specific_options["utorrent_mode"] = watch_specific_options["use_utorrent_webui"]
+                    watch_specific_options["ftpenable"] = watch_specific_options["use_ftp_upload"]
+                    watch_specific_options["smtp_emailer"] = watch_specific_options["use_emailer"]
                     
                     #We only do this replacement when the user doesn't want regexes enabled.
-                    if int(watch_specific_options["watch_regex"]) == 0:
+                    if watch_specific_options["watch_regex"] == "off":
                         check_filter = check_filter.replace('.','\.')
                         check_filter = check_filter.replace('*','(.*)')
                         check_filter = check_filter.replace('/','\/')
@@ -930,7 +973,7 @@ def on_text(word, word_eol, userdata):
                     
                     #do the check for release name. re.I means the search is case insensitive
                     if re.search(watchlist_splitted[0], matchedtext.group(3), re.I):
-                        if dbg == "on":
+                        if watch_specific_options["debug"] == "on":
                             DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Matched release name to watch entry: " + color["dgrey"] + str(watch_entry)
                             verbose(DEBUG_MESSAGE)
                             logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
@@ -939,8 +982,8 @@ def on_text(word, word_eol, userdata):
                             if re.search(cat, matchedtext.group(2).lower(), re.I):
                                 counter += 1
                                 #We got a good match!
-                                if dbg == "on":
-                                    DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Matched categoty and release name for watch entry: " + color["dgrey"] + str(watch_entry)
+                                if watch_specific_options["debug"] == "on":
+                                    DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Matched category and release name for watch entry: " + color["dgrey"] + str(watch_entry)
                                     verbose(DEBUG_MESSAGE)
                                     logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
                                 
@@ -958,7 +1001,7 @@ def on_text(word, word_eol, userdata):
                                         
                                     if re.search(avoid_entry, matchedtext.group(3), re.I):
                                         counter = 0
-                                        if dbg == "on":
+                                        if watch_specific_options["debug"] == "on":
                                             DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Ignoring match. Matched rls to entry in watch-specific avoidlist. Matched avoidlist entry: " + color["dgrey"] + str(avoid_entry)
                                             verbose(DEBUG_MESSAGE)
                                             logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
@@ -974,22 +1017,6 @@ def on_text(word, word_eol, userdata):
                                 if download_dir is not None and len(download_dir) > 0 and download_dir[-1] != os.sep:
                                         download_dir = str(download_dir) + os.sep
                                 
-                                #Then everything else.
-                                #If there is a better, more pythonic way to merge two dictionaries then I'm all ears. I didn't know any better way when I did this.
-                                for key, value in option["watchlist"][watch_entry].iteritems():
-                                        #We can safely do this because we haven't used the global built-in on options in this function.
-                                        #Any changes made to options dict here will not be propagated to the rest of the app.
-                                        watch_specific_options[key] = value
-                                 #Might need this for future fixing, who knows. I already had it so no reason to delete it now.
-#                                if watch_specific_options["debug"] == "on":
-#                                        #Cut off long values so we don't flood our output window.
-#                                        if len(str(value)) > 100:
-#                                                value2 = str(value[0:100]) + "..."
-#                                        else:
-#                                                value2 = str(value)
-#                                        DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Overwrote global option with watch option. Key: %s%s  %sValue: %s%s " % (color["dgrey"], str(key), color["bpurple"], color["dgrey"], value2)
-#                                        verbose(DEBUG_MESSAGE)
-#                                        logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
                                 #Quickly clean up any weirdness with the sizelimits
                                 #convert upper and lower sizelimits to bytes
                                 try:
@@ -1006,7 +1033,7 @@ def on_text(word, word_eol, userdata):
                                 
                                 if counter > 0: break #Breaking out of cat search
                             else:
-                                if dbg == "on":
+                                if watch_specific_options["debug"] == "on":
                                     DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Category match failed. Release category: " + str(matchedtext.group(2).lower())
                                     verbose(DEBUG_MESSAGE)
                                     logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
@@ -1014,7 +1041,7 @@ def on_text(word, word_eol, userdata):
                             break #break out of watchlist search
                     if counter == 0:
                         #This is only really here for debug purposes, to notify when a watchlist entry doesnt match. 
-                        if dbg == "on":
+                        if watch_specific_options["debug"] == "on":
                             DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Failed to match watchlist entry. Failed watchlist entry: " + color["dgrey"] + str(watch_entry)
                             verbose(DEBUG_MESSAGE)
                             logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
@@ -1030,7 +1057,7 @@ def on_text(word, word_eol, userdata):
                     if len(avoid_filter) < 1:
                         continue
                     
-                    if int(avoid_data["avoid_regex"]) == 0:
+                    if avoid_data["avoid_regex"] == "off":
                         avoid_filter = avoid_filter.replace('.','\.')
                         avoid_filter = avoid_filter.replace('*','')
                         avoid_filter = avoid_filter.replace('/','\/')
@@ -1080,7 +1107,7 @@ def on_text(word, word_eol, userdata):
             #And here's the dupe check
             #only if we're about to download should we do a dupe check
             if counter > 0:
-                if int(watch_specific_options["dupecheck"]) > 0 and userdata != "BYPASS":
+                if watch_specific_options["dupecheck"] == "on" and userdata != "BYPASS":
                     #Check for the release name in the dupe list
                     try:
                         dupelist.index(matchedtext.group(3))
@@ -1097,10 +1124,6 @@ def on_text(word, word_eol, userdata):
                             
             #got a match!! let's download
             if (counter > 0 or userdata == "BYPASS") and userdata != "TESTING":
-                if watch_specific_options["debug"] == "on":
-                    DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Added the following release to dupe list: " + color["dgrey"] + str(matchedtext.group(3))
-                    verbose(DEBUG_MESSAGE)
-                    logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
                         
                 #And set the download url. If download_ssl is on, generate an ssl url instead.
                 if watch_specific_options["download_ssl"] == "on":
@@ -1124,7 +1147,7 @@ def on_text(word, word_eol, userdata):
                 #And make the nice_tag_extra a string, since later it will be needed in string format, and we wont be needing its boolean type anymore anyway.
 #                nice_tag_extra = str(nice_tag_extra)
                 #Utorrent is either disabled or is working in tandom with normal download.
-                if watch_specific_options["utorrent_mode"] == "0" or watch_specific_options["utorrent_mode"] == "1":
+                if watch_specific_options["utorrent_mode"] == "off" or watch_specific_options["utorrent_mode"] == "_MIDWAY_":
                     # If theres a specified directory, run through the directory checker to make sure the dir exists and is accessable
                     if download_dir is not None:
                         # Because full_xpath is no longer global, we assign zxfpath to dir_checks return value (full_xpath)
@@ -1145,19 +1168,19 @@ def on_text(word, word_eol, userdata):
                     #Set the tray text
                     xchat.command('TRAY -t "SCCwatcher has grabbed a new torrent"')
                     #The number of passed vars has gone up in an effort to alleviate var overwrites under high load.
-                    download(downloadurl, filename, zxfpath, matchedtext, disp_path, nicesize, extra_paths, "DELETEME-nice_tag_extra").start()
-                    # The upload will be cascaded from the download thread to prevent a train wreck.
-                    
+                    download(downloadurl, filename, zxfpath, matchedtext, disp_path, nicesize, extra_paths, "DELETEME-nice_tag_extra", watch_specific_options).start()
+                    # The upload will be cascaded from the download thread to prevent a train wreck.   
                 # If utorrent adding is enabled, perform those operations
-                if watch_specific_options["utorrent_mode"] == "1" or watch_specific_options["utorrent_mode"] == "2":
-                    verbtext = color["bpurple"]+"SCCwatcher is adding torrent for " + color["dgrey"] + matchedtext.group(3) + color["bpurple"] + " to the uTorrent WebUI at " + color["dgrey"] + watch_specific_options["utorrent_hostname"]
-                    verbose(verbtext)
-                    verbtext3 = xchat.strip(verbtext)
-                    logging(verbtext3, "START_UTOR_ADD")
-                    webui_upload(downloadurl, matchedtext, nicesize, "DELETEME-nice_tag_extra").start()
-                if watch_specific_options["utorrent_mode"] != "0" and watch_specific_options["utorrent_mode"] != "1" and watch_specific_options["utorrent_mode"] != "2":
-                    verbtext = color["bpurple"]+"SCCwatcher cannot download because you have set utorrent_mode to an invalid number. Please check your scc2.ini and fix this error. utorrent_mode is currently set to: " + color["dgrey"] + watch_specific_options["utorrent_mode"]
-                    verbose(verbtext)
+                if watch_specific_options["use_utorrent_webui"] == "on":
+                    if watch_specific_options["utorrent_mode"] == "_MIDWAY_" or watch_specific_options["utorrent_mode"] == "on":
+                        verbtext = color["bpurple"]+"SCCwatcher is adding torrent for " + color["dgrey"] + matchedtext.group(3) + color["bpurple"] + " to the uTorrent WebUI at " + color["dgrey"] + watch_specific_options["utorrent_hostname"]
+                        verbose(verbtext)
+                        verbtext3 = xchat.strip(verbtext)
+                        logging(verbtext3, "START_UTOR_ADD")
+                        webui_upload(downloadurl, matchedtext, nicesize, "DELETEME-nice_tag_extra", watch_specific_options).start()
+                    if watch_specific_options["utorrent_mode"] != "off" and watch_specific_options["utorrent_mode"] != "_MIDWAY_" and watch_specific_options["utorrent_mode"] != "on":
+                        verbtext = color["bpurple"]+"SCCwatcher cannot download because you have set utorrent_mode to an invalid number. Please check your scc2.ini and fix this error. utorrent_mode is currently set to: " + color["dgrey"] + watch_specific_options["utorrent_mode"]
+                        verbose(verbtext)
             
             elif userdata == "TESTING" and counter > 0:
                 verbose_text = color["bpurple"] + "SCCwatcher would have downloaded that release."
@@ -1165,7 +1188,6 @@ def on_text(word, word_eol, userdata):
             elif userdata == "TESTING" and counter == 0:
                 verbose_text = color["bpurple"] + "SCCwatcher would NOT have downloaded that release."
                 verbose(verbose_text)
- 
 
 def return_bytes_from_sizedetail(sizedetail):
     multi = 1
@@ -1375,7 +1397,7 @@ class Decoder:
 
 #Threaded download class.
 class download(threading.Thread):
-    def __init__(self, dlurl, flname, zxfpath, matchedtext, disp_path, nicesize, extra_paths, nice_tag_extra):
+    def __init__(self, dlurl, flname, zxfpath, matchedtext, disp_path, nicesize, extra_paths, nice_tag_extra, specific_options):
         self.dlurl = dlurl
         self.flname = flname
         self.zxfpath = zxfpath
@@ -1384,8 +1406,13 @@ class download(threading.Thread):
         self.nicesize = nicesize
         self.extra_paths = extra_paths
         self.nice_tag_extra = "" #DELETEME
+        self.specific_options = specific_options
         threading.Thread.__init__(self)
     def run(self):
+        if self.specific_options["debug"] == "on":
+                DEBUG_MESSAGE = "DEBUG_OUTPUT: Started download process..."
+                verbose(DEBUG_MESSAGE)
+                logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
         #create thread-local data to further prevent var overwrites under high load
         thread_data = threading.local()
         # I'm adding in some timer things just for the hell of it
@@ -1464,7 +1491,7 @@ class download(threading.Thread):
     def download(self, stime, req=False):
         thread_data = threading.local()
         
-        if option["global"]["debug"] == "on":
+        if self.specific_options["debug"] == "on":
             DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Starting download process."
             verbose(DEBUG_MESSAGE)
             logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
@@ -1477,7 +1504,7 @@ class download(threading.Thread):
             if option["global"].has_key("cfbypass_cookiefile") and len(option["global"]["cfbypass_cookiefile"]) > 2 and option["global"].has_key("cfbypass_useragent") and len(option["global"]["cfbypass_useragent"]) > 5 and req is True:
                 
                 #DBG
-                if option["global"]["debug"] == "on":
+                if self.specific_options["debug"] == "on":
                     DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Found cookiefile and useragent option, length checks good."
                     verbose(DEBUG_MESSAGE)
                     logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
@@ -1497,7 +1524,7 @@ class download(threading.Thread):
                 thread_data.connection.close()
                 
                 #DBG
-                if option["global"]["debug"] == "on":
+                if self.specific_options["debug"] == "on":
                     DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Finished downloading and saved to file."
                     verbose(DEBUG_MESSAGE)
                     logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
@@ -1506,7 +1533,7 @@ class download(threading.Thread):
             else:
                 
                 #DBG
-                if option["global"]["debug"] == "on":
+                if self.specific_options["debug"] == "on":
                     DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: No cookiefile or useragent option or length checks failed."
                     verbose(DEBUG_MESSAGE)
                     logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
@@ -1519,7 +1546,7 @@ class download(threading.Thread):
                 
                 
                 #DBG
-                if option["global"]["debug"] == "on":
+                if self.specific_options["debug"] == "on":
                     DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: finished normal download"
                     verbose(DEBUG_MESSAGE)
                     logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
@@ -1556,19 +1583,23 @@ class download(threading.Thread):
             logging(thread_data.verbtext3, "END_GRAB")
             
             #Download definitely succeeded, now we can add to the dupe list
+            if self.specific_options["debug"] == "on":
+                DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Added the following release to dupe list: " + color["dgrey"] + str(self.matchedtext.group(3))
+                verbose(DEBUG_MESSAGE)
+                logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
             update_dupe(self.matchedtext.group(3))
             
             #Ok now that we have the file, we can do the upload if necessary:
             #If we're doing an upload, then dont do an email or external command, as that will be handled by the upload class.
-            if option["global"]["ftpenable"] == 'on':
-                upload(self.flname, self.zxfpath, self.matchedtext, self.disp_path, self.extra_paths, self.nicesize, self.nice_tag_extra).start()
+            if self.specific_options["ftpenable"] == 'on':
+                upload(self.flname, self.zxfpath, self.matchedtext, self.disp_path, self.extra_paths, self.nicesize, self.nice_tag_extra, self.specific_options).start()
             else:
                 #If emailing is enabled, dont do external command as that will be handled by the email class.
-                if option["global"]["smtp_emailer"] == "on":
-                    email(self.matchedtext, self.disp_path, self.nicesize, self.nice_tag_extra).start()
+                if self.specific_options["smtp_emailer"] == "on":
+                    email(self.matchedtext, self.disp_path, self.nicesize, self.nice_tag_extra, self.specific_options).start()
                 else:
-                    if option["global"]["use_external_command"] == "on":
-                        do_cmd(self.matchedtext, self.disp_path, self.nicesize, self.nice_tag_extra).start()
+                    if self.specific_options["use_external_command"] == "on":
+                        do_cmd(self.matchedtext, self.disp_path, self.nicesize, self.nice_tag_extra, self.specific_options).start()
         else:
             thread_data.verbtext3 = color["bpurple"]+"SCCwatcher failed to downloaded torrent for "+color["dgrey"] + self.matchedtext.group(3) + color["bpurple"]+" after " +color["dgrey"]+ option["global"]["max_dl_tries"] + color["bpurple"]+" tries. Manually download at: " +color["dgrey"]+ self.dlurl
             verbose(thread_data.verbtext3)
@@ -1577,7 +1608,7 @@ class download(threading.Thread):
     
 #threaded upload class
 class upload(threading.Thread):
-    def __init__(self, torrentname, zxfpath, matchedtext, disp_path, extra_paths, nicesize, nice_tag_extra):
+    def __init__(self, torrentname, zxfpath, matchedtext, disp_path, extra_paths, nicesize, nice_tag_extra, specific_options):
         self.torrentname = torrentname
         self.zxfpath = zxfpath
         self.matchedtext = matchedtext        
@@ -1585,10 +1616,11 @@ class upload(threading.Thread):
         self.extra_paths = extra_paths
         self.nicesize = nicesize
         self.nice_tag_extra = nice_tag_extra
+        self.specific_options = specific_options
         threading.Thread.__init__(self)
     #Uploading tiem nao!!!!
     def run(self):
-        if option["global"]["debug"] == "on":
+        if self.specific_options["debug"] == "on":
             DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: FTP Upload operation has started."
             verbose(DEBUG_MESSAGE)
             logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
@@ -1685,15 +1717,17 @@ class upload(threading.Thread):
 #Threaded upload class. Thanks to backdraft for providing most of the code. Sure made my life easier. :)
 #Had to update a lot of this code in June 2016 due to not using token auth. 
 class webui_upload(threading.Thread):
-    def __init__(self, turl, matchedtext, nicesize, nice_tag_extra):
+    def __init__(self, turl, matchedtext, nicesize, nice_tag_extra, specific_options):
         self.turl = turl
         self.matchedtext = matchedtext
         self.nicesize = nicesize
         self.nice_tag_extra = "" #DELETEME
+        self.specific_options = specific_options
         threading.Thread.__init__(self)    
         
     def run(self):
-        if option["global"]["debug"] == "on":
+        print self.specific_options["debug"]
+        if self.specific_options["debug"] == "on":
             DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: uTorrent WebUI upload operation has started."
             verbose(DEBUG_MESSAGE)
             logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
@@ -1708,7 +1742,16 @@ class webui_upload(threading.Thread):
         thread_data.token_url = 'http://' + option["global"]["utorrent_hostname"] +':'+ option["global"]["utorrent_port"] + "/gui/token.html"
         thread_data.token_req = urllib2.Request(thread_data.token_url)
         thread_data.token_req.add_header("Authorization", thread_data.authheader)
-        thread_data.token_html = urllib2.urlopen(thread_data.token_req).read()
+        try:
+            thread_data.token_html = urllib2.urlopen(thread_data.token_req).read()
+        except Exception as e:
+            if "401" in e:
+                thread_data.error = color["bpurple"]+"DEBUG_OUTPUT: Failed to authenticate with the remote uTorrent WebUI. Please check your username/password combination."
+            else:
+                thread_data.error = color["bpurple"]+"SCCwatcher encountered an HTTP error while connecting to the uTorrent WebUI at " + color["dgrey"] + option["global"]["utorrent_hostname"] + ":" + option["global"]["utorrent_port"] + color["bpurple"] + ". Please double check the uTorrent WebUI settings in scc2.ini are correct."
+            verbose(thread_data.error)
+            logging(xchat.strip(thread_data.error), "END_UTOR_ADD_FAIL")
+            return False
         thread_data.auth_token = re.search("'>(.*?)</div>", thread_data.token_html).group(1)
         #Ok now that we have our token, we can add the torrent to the WebUI
         thread_data.http_url = 'http://' + option["global"]["utorrent_hostname"] +':'+ option["global"]["utorrent_port"] + '/gui/?token=%s&action=add-url&s=%s' % (thread_data.auth_token, thread_data.torrent_url) # Make the url
@@ -1732,7 +1775,7 @@ class webui_upload(threading.Thread):
             thread_data.duration = thread_data.end_time - thread_data.start_time
             thread_data.duration = str(round(thread_data.duration, 3))
             # If only uTorrent uploading is active, update the recent using WEBUI as the disp_path
-            if option["global"]["utorrent_mode"] == "2":
+            if option["global"]["utorrent_mode"] == "on":
                 thread_data.webuiloc = "WEBUI-" + option["global"]["utorrent_hostname"]
                 update_recent(self.matchedtext.group(3), thread_data.webuiloc, self.nicesize, thread_data.duration)
                 if option["global"]["smtp_emailer"] == "on":
@@ -1741,7 +1784,7 @@ class webui_upload(threading.Thread):
                     if option["global"]["use_external_command"] == "on":
                         do_cmd(self.matchedtext, "NONE", self.nicesize, self.nice_tag_extra).start()
                 
-            thread_data.verbtext = color["bpurple"]+"SCCwatcher successfully added torrent for " + color["dgrey"] + self.matchedtext.group(3) + color["bpurple"] + " to the uTorrent WebUI at " + color["dgrey"] + option["global"]["utorrent_hostname"] + color["bpurple"] + " in " + color["dgrey"] + thread_data.duration + color["bpurple"] + " seconds."
+            thread_data.verbtext = color["bpurple"]+"SCCwatcher successfully added torrent for " + color["dgrey"] + self.matchedtext.group(3) + color["bpurple"] + " to the uTorrent WebUI at " + color["dgrey"] + option["global"]["utorrent_hostname"] + ":" + option["global"]["utorrent_port"] + color["bpurple"] + " in " + color["dgrey"] + thread_data.duration + color["bpurple"] + " seconds."
             verbose(thread_data.verbtext)
             thread_data.verbtext3 = xchat.strip(thread_data.verbtext)
             logging(thread_data.verbtext3, "END_UTOR_ADD")
@@ -1750,15 +1793,16 @@ class webui_upload(threading.Thread):
             logging(thread_data.verbtext3, "END_UTOR_ADD")
         
 class email(threading.Thread):
-    def __init__(self, matchedtext, disp_path, nicesize, nice_tag_extra):
+    def __init__(self, matchedtext, disp_path, nicesize, nice_tag_extra, specific_options):
         self.matchedtext = matchedtext
         self.disp_path = disp_path
         self.nicesize = nicesize
         self.nice_tag_extra = nice_tag_extra
+        self.specific_options = specific_options
         threading.Thread.__init__(self)    
     #Send tiem nao
     def run(self):
-        if option["global"]["debug"] == "on":
+        if self.specific_options["debug"] == "on":
             DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Email operation has started."
             verbose(DEBUG_MESSAGE)
             logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
@@ -1884,15 +1928,16 @@ Content-Type: text/html; charset=ISO-8859-1
         return thread_data.message
 
 class do_cmd(threading.Thread):
-    def __init__(self, matchedtext, disp_path, nicesize, nice_tag_extra):
+    def __init__(self, matchedtext, disp_path, nicesize, nice_tag_extra, specific_options):
         self.matchedtext = matchedtext
         self.disp_path = disp_path
         self.nicesize = nicesize
         self.nice_tag_extra = nice_tag_extra
+        self.specific_options = specific_options
         threading.Thread.__init__(self)    
     #Send tiem nao
     def run(self):
-        if option["global"]["debug"] == "on":
+        if self.specific_options["debug"] == "on":
             DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: External command operation has started."
             verbose(DEBUG_MESSAGE)
             logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
@@ -1918,18 +1963,20 @@ class do_cmd(threading.Thread):
             thread_data.ftpstring = "BAD_FTP_DETAILS"
         thread_data.utstring = option["global"]["utorrent_hostname"] + ":" + option["global"]["utorrent_port"]
         thread_data.nice_cat = self.matchedtext.group(2).replace('/','-')
-        thread_data.command_string = option["global"]["external_command"].replace('%torrent%', self.matchedtext.group(3))
-        thread_data.command_string = thread_data.command_string.replace('%category%', thread_data.nice_cat)
-        thread_data.command_string = thread_data.command_string.replace('%size%', self.nicesize)
-        thread_data.command_string = thread_data.command_string.replace('%time%', thread_data.current_time)
-        thread_data.command_string = thread_data.command_string.replace('%dlpath%', self.disp_path)
-        thread_data.command_string = thread_data.command_string.replace('%ulpath%', thread_data.ftpstring)
-        thread_data.command_string = thread_data.command_string.replace('%utserver%', thread_data.utstring)
-        thread_data.command_string = thread_data.command_string.replace('%tag%', self.nice_tag_extra)
-        thread_data.command_string = thread_data.command_string.replace('%torrentpath%', thread_data.fulltpath)
-        thread_data.command_string = thread_data.command_string.replace('%sccgrptree%', thread_data.sccgrptree)
-        thread_data.command_string = thread_data.command_string.replace('%sccgrp%', thread_data.sccgrp)
-        thread_data.command_string = thread_data.command_string.replace('%sccdate%', thread_data.sccdate)
+        thread_data.command_args =  self.specific_options["external_command_args"].replace('%torrent%', self.matchedtext.group(3))
+        thread_data.command_args = thread_data.command_args.replace('%category%', thread_data.nice_cat)
+        thread_data.command_args = thread_data.command_args.replace('%size%', self.nicesize)
+        thread_data.command_args = thread_data.command_args.replace('%time%', thread_data.current_time)
+        thread_data.command_args = thread_data.command_args.replace('%dlpath%', self.disp_path)
+        thread_data.command_args = thread_data.command_args.replace('%ulpath%', thread_data.ftpstring)
+        thread_data.command_args = thread_data.command_args.replace('%utserver%', thread_data.utstring)
+        thread_data.command_args = thread_data.command_args.replace('%tag%', self.nice_tag_extra)
+        thread_data.command_args = thread_data.command_args.replace('%torrentpath%', thread_data.fulltpath)
+        thread_data.command_args = thread_data.command_args.replace('%sccgrptree%', thread_data.sccgrptree)
+        thread_data.command_args = thread_data.command_args.replace('%sccgrp%', thread_data.sccgrp)
+        thread_data.command_args = thread_data.command_args.replace('%sccdate%', thread_data.sccdate)
+        
+        thread_data.command_string =  self.specific_options["external_command"] + " " + thread_data.command_args
         
         #Check what OS we are on so we know if we need to use 'shell=True' with subprocess.Popen
         thread_data.osver = platform.system()
@@ -1948,11 +1995,17 @@ class do_cmd(threading.Thread):
             verbose(thread_data.verbtext)
             thread_data.verbtext = xchat.strip(thread_data.verbtext)
             logging(xchat.strip(thread_data.verbtext), "EXT_CMD_SUCCESS")
-        except:
+        except Exception as e:
             thread_data.verbtext=color["bpurple"]+"SCCwatcher encountered an error running: " + color["dgrey"] + thread_data.command_string
             verbose(thread_data.verbtext)
             thread_data.verbtext = xchat.strip(thread_data.verbtext)
             logging(xchat.strip(thread_data.verbtext), "EXT_CMD_FAIL")
+            if self.specific_options["debug"] == "on":
+                verbose("The specific error was: ")
+                verbose(str(e))
+                e = "The specific error was: %s" % str(e)
+                logging(xchat.strip(e), "EXT_CMD_FAIL-DEBUG")
+            
 
 
 # I had to split up the on_local and the ifs because using try on all of it was causing problems
@@ -2111,7 +2164,7 @@ def sccwhelp(trigger):
             print color["bpurple"], "Email server is: " + color["blue"] + str(option["global"]["smtp_server"]) + ":" + option["global"]["smtp_port"]
             print color["bpurple"], "Email TLS is set to: " + color["blue"] + str(option["global"]["smtp_tls"])
         if option["global"]["use_external_command"] == "on":
-            print color["bpurple"], "External command is: " + color["blue"] + option["global"]["external_command"].strip()
+            print color["bpurple"], "External command is: " + color["blue"] + option["global"]["use_external_command"].strip()
         else:
             print color["bpurple"], "External command is: " + color["blue"] + "Off"
             
@@ -2351,7 +2404,10 @@ def announce_line_tester(word, word_eol, userdata):
 def unload_cb(userdata):
     quitmsg = "\0034 "+__module_name__+" "+__module_version__+" has been unloaded\003"
     #Remove our status file
-    os.remove(gettempdir() + os.sep + "sccw_temp.txt")
+    try:
+        os.remove(gettempdir() + os.sep + "sccw_temp.txt")
+    except:
+        pass
     print quitmsg
     xchat.command('menu DEL SCCwatcher')
     #Only log script unload if logging is enabled
@@ -2377,5 +2433,5 @@ if (__name__ == "__main__"):
     main()
 
 #LICENSE GPL
-#Last modified 06-13-16 (MM/DD/YY)
+#Last modified 06-15-16 (MM/DD/YY)
 
