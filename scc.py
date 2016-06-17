@@ -22,7 +22,7 @@
 #                                                                            #
 ##############################################################################
 __module_name__ = "SCCwatcher"
-__module_version__ = "2.0b1"
+__module_version__ = "2.0b2"
 __module_description__ = "SCCwatcher"
 
 import xchat
@@ -781,6 +781,46 @@ def update_dupe(release_name):
     #Dupe list update
     dupelist.append(release_name)
 
+#Simple function that converts ints to their corresponding words
+def convert_int_opts_to_word(options_dict):
+    change_items = []
+    change_items.append("service")
+    change_items.append("dupecheck")
+    change_items.append("verbose")
+    change_items.append("logenabled")
+    change_items.append("ftpenable")
+    change_items.append("use_ftp_upload")
+    change_items.append("smtp_emailer")
+    change_items.append("use_emailer")
+    change_items.append("download_ssl")
+    change_items.append("printalert")
+    change_items.append("ftppassive")
+    change_items.append("ftpsecuremode")
+    change_items.append("smtp_tls")
+    change_items.append("debug")
+    change_items.append("watch_regex")
+    change_items.append("avoid_regex")
+    change_items.append("use_utorrent_webui")
+    change_items.append("use_external_command")
+    change_items.append("utorrent_mode")
+    for item in change_items:
+        if options_dict.has_key(item):
+            try:
+                int(options_dict[item])
+                if int(options_dict[item]) == 0: options_dict[item] = "off"
+                elif item == "utorrent_mode":
+                        if int(options_dict[item]) == 0:
+                                options_dict[item] = "off"
+                        elif int(options_dict[item]) == 1:
+                                options_dict[item] = "_MIDWAY_"
+                        elif int(options_dict[item]) == 2:
+                                options_dict[item] = "on"
+                elif int(options_dict[item]) > 0: options_dict[item] = "on"
+            except:
+                pass
+    #Prolly dont need to return actually since python passes dicts as pointers, but meh it wont hurt.
+    return options_dict
+
 def on_text(word, word_eol, userdata):
     # word[0] = The username of the person who sent the message
     # word[1] = The text of the message
@@ -875,6 +915,7 @@ def on_text(word, word_eol, userdata):
             
             if len(wlistcheck) is not 0:    
                 for watch_entry, watch_data in option["watchlist"].iteritems():
+                    
                     #Now the fun part, we have to match against the new scc2.ini
                     check_filter = watch_data["watch_filter"]
 
@@ -912,41 +953,7 @@ def on_text(word, word_eol, userdata):
                     
                     
                     #now convert certain items to on and off if needed
-                    change_items = []
-                    change_items.append("service")
-                    change_items.append("dupecheck")
-                    change_items.append("verbose")
-                    change_items.append("logenabled")
-                    change_items.append("ftpenable")
-                    change_items.append("use_ftp_upload")
-                    change_items.append("smtp_emailer")
-                    change_items.append("use_emailer")
-                    change_items.append("download_ssl")
-                    change_items.append("printalert")
-                    change_items.append("ftppassive")
-                    change_items.append("ftpsecuremode")
-                    change_items.append("smtp_tls")
-                    change_items.append("debug")
-                    change_items.append("watch_regex")
-                    change_items.append("avoid_regex")
-                    change_items.append("use_utorrent_webui")
-                    change_items.append("use_external_command")
-                    change_items.append("utorrent_mode")
-                    for item in change_items:
-                        if watch_specific_options.has_key(item):
-                            try:
-                                int(watch_specific_options[item])
-                                if int(watch_specific_options[item]) == 0: watch_specific_options[item] = "off"
-                                elif item == "utorrent_mode":
-                                        if int(watch_specific_options[item]) == 0:
-                                                watch_specific_options[item] = "off"
-                                        elif int(watch_specific_options[item]) == 1:
-                                                watch_specific_options[item] = "_MIDWAY_"
-                                        elif int(watch_specific_options[item]) == 2:
-                                                watch_specific_options[item] = "on"
-                                elif int(watch_specific_options[item]) > 0: watch_specific_options[item] = "on"
-                            except:
-                                pass
+                    watch_specific_options = convert_int_opts_to_word(watch_specific_options)
                     
                     #Yeah, I could just program this thing correctly in the first place, but fuck it! I'm in a band-aid kinda mood today.
                     watch_specific_options["utorrent_mode"] = watch_specific_options["use_utorrent_webui"]
@@ -992,7 +999,7 @@ def on_text(word, word_eol, userdata):
                                 for avoid_entry in watch_specific_options["avoid_filter"].split(" "):
                                     if len(avoid_entry) < 1:
                                         continue
-                                    if int(watch_specific_options["avoid_regex"]) == 0:
+                                    if watch_specific_options["avoid_regex"] == "off":
                                         avoid_entry = avoid_entry.replace('.','\.')
                                         avoid_entry = avoid_entry.replace('*','')
                                         avoid_entry = avoid_entry.replace('/','\/')
@@ -1124,6 +1131,14 @@ def on_text(word, word_eol, userdata):
                             
             #got a match!! let's download
             if (counter > 0 or userdata == "BYPASS") and userdata != "TESTING":
+                if counter == 0 and userdata == "BYPASS":
+                    #Manual add, don't use any of the watch-specific settings we just set up
+                    del(watch_specific_options)
+                    watch_specific_options = DC(option["global"])
+                    for key, value in watch_specific_defaults.iteritems():
+                        if watch_specific_options.has_key(key) is False:
+                            watch_specific_options[key] = value
+                    watch_specific_options = convert_int_opts_to_word(watch_specific_options)
                         
                 #And set the download url. If download_ssl is on, generate an ssl url instead.
                 if watch_specific_options["download_ssl"] == "on":
@@ -1588,7 +1603,7 @@ class download(threading.Thread):
                 verbose(DEBUG_MESSAGE)
                 logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
             update_dupe(self.matchedtext.group(3))
-
+            
             #Ok now that we have the file, we can do the upload if necessary:
             #If we're doing an upload, then dont do an email or external command, as that will be handled by the upload class.
             if self.specific_options["ftpenable"] == 'on':
@@ -2433,5 +2448,5 @@ if (__name__ == "__main__"):
     main()
 
 #LICENSE GPL
-#Last modified 06-15-16 (MM/DD/YY)
+#Last modified 06-17-16 (MM/DD/YY)
 
