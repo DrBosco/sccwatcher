@@ -22,7 +22,7 @@
 #                                                                            #
 ##############################################################################
 __module_name__ = "SCCwatcher"
-__module_version__ = "2.0b2"
+__module_version__ = "2.0rc1"
 __module_description__ = "SCCwatcher"
 
 import xchat
@@ -200,6 +200,8 @@ def loadSettingsFile(file_location):
         if line[0] == "[":
             groupreg = re.match("\[(-)?(.*?)\]", line)
             grpname = groupreg.group(2)
+            #Fix any escaped sequences
+            grpname = urllib.unquote(grpname)
             
             #If we don't have a minus sign then its a watch, otherwise its an avoid
             if groupreg.group(1) is None:
@@ -966,8 +968,14 @@ def on_text(word, word_eol, userdata):
                         check_filter = check_filter.replace('*','(.*)')
                         check_filter = check_filter.replace('/','\/')
                         check_filter = '^' + check_filter + '$'
-                        #Keeping this around, makes it easier to convert to 2.0
-                        #Lowercase everything first
+                    else:
+                        #Our GUI app likes to escape back slashes so we have to undo some of the damage
+                        check_filter = check_filter.replace("\\\\", "\\")
+                        if watch_specific_options["debug"] == "on":
+                            DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Enabling Regex support for watch entry: %s%s" % (color["dgrey"], watch_entry)
+                            verbose(DEBUG_MESSAGE)
+                            logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
+                            
                     #No regex stuff in the category list...... for now
                     categories = watch_specific_options["watch_categories"].replace("/", "\/")
                     categories = categories.replace(".", "\.")
@@ -979,6 +987,7 @@ def on_text(word, word_eol, userdata):
                     download_dir = option["global"]["savepath"]
                     
                     #do the check for release name. re.I means the search is case insensitive
+                        
                     if re.search(watchlist_splitted[0], matchedtext.group(3), re.I):
                         if watch_specific_options["debug"] == "on":
                             DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Matched release name to watch entry: " + color["dgrey"] + str(watch_entry)
@@ -1004,7 +1013,13 @@ def on_text(word, word_eol, userdata):
                                         avoid_entry = avoid_entry.replace('*','')
                                         avoid_entry = avoid_entry.replace('/','\/')
                                         avoid_entry = '^(.*)' + avoid_entry + '(.*)$'
-                                        
+                                    else:
+                                        #Unmangling escaped backslashes.
+                                        avoid_entry = avoid_entry.replace("\\\\", "\\")
+                                        if watch_specific_options["debug"] == "on":
+                                            DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Enabling Regex support for avoid entry: %s%s" % (color["dgrey"], avoid_entry)
+                                            verbose(DEBUG_MESSAGE)
+                                            logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
                                         
                                     if re.search(avoid_entry, matchedtext.group(3), re.I):
                                         counter = 0
@@ -1064,11 +1079,20 @@ def on_text(word, word_eol, userdata):
                     if len(avoid_filter) < 1:
                         continue
                     
-                    if avoid_data["avoid_regex"] == "off":
+                    #This is the ONLY place in the whole script where off is actually 0. Programmer, more like lolgrammer! AMIRITE?!
+                    if int(avoid_data["avoid_regex"]) == 0:
                         avoid_filter = avoid_filter.replace('.','\.')
                         avoid_filter = avoid_filter.replace('*','')
                         avoid_filter = avoid_filter.replace('/','\/')
                         avoid_filter = '^(.*)' + avoid_filter + '(.*)$'
+                    else:
+                        #Unmangling escaped backslashes.
+                        avoid_entry = avoid_entry.replace("\\\\", "\\")
+                        if watch_specific_options["debug"] == "on":
+                            DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Enabling Regex support for avoid entry: %s%s" % (color["dgrey"], avoid_entry)
+                            verbose(DEBUG_MESSAGE)
+                            logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
+                        
                     #do the check only on the release name
                     if re.search(avoid_filter, matchedtext.group(3), re.I):
                         counter = 0
@@ -1079,7 +1103,7 @@ def on_text(word, word_eol, userdata):
                         break
                     else:
                         if watch_specific_options["debug"] == "on":
-                            DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Failed to match avoidlist entry with rls. Avoidlist entry: " + color["dgrey"] + str(avoid_filter)
+                            DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Failed to match avoidlist entry with rls. Avoidlist entry: " + color["dgrey"] + str(avoid_entry)
                             verbose(DEBUG_MESSAGE)
                             logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
                 
@@ -1159,8 +1183,11 @@ def on_text(word, word_eol, userdata):
                         verbose(DEBUG_MESSAGE)
                         logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
                     
-                #And make the nice_tag_extra a string, since later it will be needed in string format, and we wont be needing its boolean type anymore anyway.
-#                nice_tag_extra = str(nice_tag_extra)
+                #And make the nice_watch_entry_name a string, since later it will be needed in string format, and we wont be needing its boolean type anymore anyway.
+                if userdata != "BYPASS" and userdata != "TESTING":
+                        nice_watch_entry_name = str(watch_entry)
+                else:
+                        nice_watch_entry_name = "Manual Add"
                 #Utorrent is either disabled or is working in tandom with normal download.
                 if watch_specific_options["utorrent_mode"] == "off" or watch_specific_options["utorrent_mode"] == "_MIDWAY_":
                     # If theres a specified directory, run through the directory checker to make sure the dir exists and is accessable
@@ -1183,7 +1210,7 @@ def on_text(word, word_eol, userdata):
                     #Set the tray text
                     xchat.command('TRAY -t "SCCwatcher has grabbed a new torrent"')
                     #The number of passed vars has gone up in an effort to alleviate var overwrites under high load.
-                    download(downloadurl, filename, zxfpath, matchedtext, disp_path, nicesize, extra_paths, "DELETEME-nice_tag_extra", watch_specific_options).start()
+                    download(downloadurl, filename, zxfpath, matchedtext, disp_path, nicesize, extra_paths, nice_watch_entry_name, watch_specific_options).start()
                     # The upload will be cascaded from the download thread to prevent a train wreck.   
                 # If utorrent adding is enabled, perform those operations
                 if watch_specific_options["use_utorrent_webui"] == "on":
@@ -1192,7 +1219,7 @@ def on_text(word, word_eol, userdata):
                         verbose(verbtext)
                         verbtext3 = xchat.strip(verbtext)
                         logging(verbtext3, "START_UTOR_ADD")
-                        webui_upload(downloadurl, matchedtext, nicesize, "DELETEME-nice_tag_extra", watch_specific_options).start()
+                        webui_upload(downloadurl, matchedtext, nicesize, nice_watch_entry_name, watch_specific_options).start()
                     if watch_specific_options["utorrent_mode"] != "off" and watch_specific_options["utorrent_mode"] != "_MIDWAY_" and watch_specific_options["utorrent_mode"] != "on":
                         verbtext = color["bpurple"]+"SCCwatcher cannot download because you have set utorrent_mode to an invalid number. Please check your scc2.ini and fix this error. utorrent_mode is currently set to: " + color["dgrey"] + watch_specific_options["utorrent_mode"]
                         verbose(verbtext)
@@ -1412,7 +1439,7 @@ class Decoder:
 
 #Threaded download class.
 class download(threading.Thread):
-    def __init__(self, dlurl, flname, zxfpath, matchedtext, disp_path, nicesize, extra_paths, nice_tag_extra, specific_options):
+    def __init__(self, dlurl, flname, zxfpath, matchedtext, disp_path, nicesize, extra_paths, nice_watch_entry_name, specific_options):
         self.dlurl = dlurl
         self.flname = flname
         self.zxfpath = zxfpath
@@ -1420,7 +1447,7 @@ class download(threading.Thread):
         self.disp_path = disp_path
         self.nicesize = nicesize
         self.extra_paths = extra_paths
-        self.nice_tag_extra = "" #DELETEME
+        self.nice_watch_entry_name = nice_watch_entry_name
         self.specific_options = specific_options
         threading.Thread.__init__(self)
     def run(self):
@@ -1589,16 +1616,17 @@ class download(threading.Thread):
             update_recent(self.matchedtext.group(3), self.disp_path, self.nicesize, thread_data.duration)
             #Print/log the confirmation of download completed and duration
             # Its annoying to see the download try number after each grab, so only put the number of retry's if there was more than 1.
-            if self.count == 1:
-                thread_data.verbtext3 = color["bpurple"] + "SCCwatcher successfully downloaded torrent for " + color["dgrey"] + self.matchedtext.group(3) + color["bpurple"] + " in " + color["dgrey"] + thread_data.duration + color["bpurple"] + " seconds."
-            else:
-                thread_data.verbtext3 = color["bpurple"] + "SCCwatcher successfully downloaded torrent for " + color["dgrey"] + self.matchedtext.group(3) + color["bpurple"] + " in " + color["dgrey"] + thread_data.duration + color["bpurple"] + " seconds. Total retry's: " + color["dgrey"] + str(self.count)
+            
+            thread_data.dldir = os.path.dirname(self.flname)
+            thread_data.verbtext3 = color["bpurple"] + "SCCwatcher successfully downloaded torrent for " + color["dgrey"] + self.matchedtext.group(3) + color["bpurple"] + " to " + color["dgrey"] + thread_data.dldir + color["bpurple"] + " in " + color["dgrey"] + thread_data.duration + color["bpurple"] + " seconds."
+            if self.count > 1:
+                thread_data.verbtext3 += " Total retry's: " + color["dgrey"] + str(self.count)
             verbose(thread_data.verbtext3)
             thread_data.verbtext3 = xchat.strip(thread_data.verbtext3) +" - "+ os.path.normcase(self.disp_path)
             logging(thread_data.verbtext3, "END_GRAB")
             
             #Download definitely succeeded, now we can add to the dupe list
-            if self.specific_options["debug"] == "on":
+            if self.specific_options["debug"] == "on" and self.specific_options["dupecheck"] == "on":
                 DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Added the following release to dupe list: " + color["dgrey"] + str(self.matchedtext.group(3))
                 verbose(DEBUG_MESSAGE)
                 logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
@@ -1607,14 +1635,14 @@ class download(threading.Thread):
             #Ok now that we have the file, we can do the upload if necessary:
             #If we're doing an upload, then dont do an email or external command, as that will be handled by the upload class.
             if self.specific_options["ftpenable"] == 'on':
-                upload(self.flname, self.zxfpath, self.matchedtext, self.disp_path, self.extra_paths, self.nicesize, self.nice_tag_extra, self.specific_options).start()
+                upload(self.flname, self.zxfpath, self.matchedtext, self.disp_path, self.extra_paths, self.nicesize, self.nice_watch_entry_name, self.specific_options).start()
             else:
                 #If emailing is enabled, dont do external command as that will be handled by the email class.
                 if self.specific_options["smtp_emailer"] == "on":
-                    email(self.matchedtext, self.disp_path, self.nicesize, self.nice_tag_extra, self.specific_options).start()
+                    email(self.matchedtext, self.disp_path, self.nicesize, self.nice_watch_entry_name, self.specific_options).start()
                 else:
                     if self.specific_options["use_external_command"] == "on":
-                        do_cmd(self.matchedtext, self.disp_path, self.nicesize, self.nice_tag_extra, self.specific_options).start()
+                        do_cmd(self.matchedtext, self.disp_path, self.nicesize, self.nice_watch_entry_name, self.specific_options).start()
         else:
             thread_data.verbtext3 = color["bpurple"]+"SCCwatcher failed to downloaded torrent for "+color["dgrey"] + self.matchedtext.group(3) + color["bpurple"]+" after " +color["dgrey"]+ option["global"]["max_dl_tries"] + color["bpurple"]+" tries. Manually download at: " +color["dgrey"]+ self.dlurl
             verbose(thread_data.verbtext3)
@@ -1623,14 +1651,14 @@ class download(threading.Thread):
     
 #threaded upload class
 class upload(threading.Thread):
-    def __init__(self, torrentname, zxfpath, matchedtext, disp_path, extra_paths, nicesize, nice_tag_extra, specific_options):
+    def __init__(self, torrentname, zxfpath, matchedtext, disp_path, extra_paths, nicesize, nice_watch_entry_name, specific_options):
         self.torrentname = torrentname
         self.zxfpath = zxfpath
         self.matchedtext = matchedtext        
         self.disp_path = disp_path
         self.extra_paths = extra_paths
         self.nicesize = nicesize
-        self.nice_tag_extra = nice_tag_extra
+        self.nice_watch_entry_name = nice_watch_entry_name
         self.specific_options = specific_options
         threading.Thread.__init__(self)
     #Uploading tiem nao!!!!
@@ -1711,10 +1739,10 @@ class upload(threading.Thread):
             option["global"]["ftpenable"] = 'off'
             xchat.command('menu -t0 add "SCCwatcher/FTP Uploading" "sccwatcher ftpon" "sccwatcher ftpoff"')
         if option["global"]["smtp_emailer"] == "on":
-            email(self.matchedtext, self.disp_path, self.nicesize, self.nice_tag_extra).start()
+            email(self.matchedtext, self.disp_path, self.nicesize, self.nice_watch_entry_name).start()
         else:
             if option["global"]["use_external_command"] == "on":
-                do_cmd(self.matchedtext, self.disp_path, self.nicesize, self.nice_tag_extra).start()
+                do_cmd(self.matchedtext, self.disp_path, self.nicesize, self.nice_watch_entry_name).start()
         
     def upload_finish(self, stime, ftpdetails):
         thread_data = threading.local()
@@ -1732,11 +1760,11 @@ class upload(threading.Thread):
 #Threaded upload class. Thanks to backdraft for providing most of the code. Sure made my life easier. :)
 #Had to update a lot of this code in June 2016 due to not using token auth. 
 class webui_upload(threading.Thread):
-    def __init__(self, turl, matchedtext, nicesize, nice_tag_extra, specific_options):
+    def __init__(self, turl, matchedtext, nicesize, nice_watch_entry_name, specific_options):
         self.turl = turl
         self.matchedtext = matchedtext
         self.nicesize = nicesize
-        self.nice_tag_extra = "" #DELETEME
+        self.nice_watch_entry_name = nice_watch_entry_name
         self.specific_options = specific_options
         threading.Thread.__init__(self)    
         
@@ -1794,10 +1822,10 @@ class webui_upload(threading.Thread):
                 thread_data.webuiloc = "WEBUI-" + option["global"]["utorrent_hostname"]
                 update_recent(self.matchedtext.group(3), thread_data.webuiloc, self.nicesize, thread_data.duration)
                 if option["global"]["smtp_emailer"] == "on":
-                    email(self.matchedtext, "NONE", self.nicesize, self.nice_tag_extra).start()
+                    email(self.matchedtext, "NONE", self.nicesize, self.nice_watch_entry_name).start()
                 else:
                     if option["global"]["use_external_command"] == "on":
-                        do_cmd(self.matchedtext, "NONE", self.nicesize, self.nice_tag_extra).start()
+                        do_cmd(self.matchedtext, "NONE", self.nicesize, self.nice_watch_entry_name).start()
                 
             thread_data.verbtext = color["bpurple"]+"SCCwatcher successfully added torrent for " + color["dgrey"] + self.matchedtext.group(3) + color["bpurple"] + " to the uTorrent WebUI at " + color["dgrey"] + option["global"]["utorrent_hostname"] + ":" + option["global"]["utorrent_port"] + color["bpurple"] + " in " + color["dgrey"] + thread_data.duration + color["bpurple"] + " seconds."
             verbose(thread_data.verbtext)
@@ -1808,11 +1836,11 @@ class webui_upload(threading.Thread):
             logging(thread_data.verbtext3, "END_UTOR_ADD")
         
 class email(threading.Thread):
-    def __init__(self, matchedtext, disp_path, nicesize, nice_tag_extra, specific_options):
+    def __init__(self, matchedtext, disp_path, nicesize, nice_watch_entry_name, specific_options):
         self.matchedtext = matchedtext
         self.disp_path = disp_path
         self.nicesize = nicesize
-        self.nice_tag_extra = nice_tag_extra
+        self.nice_watch_entry_name = nice_watch_entry_name
         self.specific_options = specific_options
         threading.Thread.__init__(self)    
     #Send tiem nao
@@ -1875,7 +1903,7 @@ class email(threading.Thread):
                     thread_data.verbtext = xchat.strip(thread_data.verbtext)
                     logging(xchat.strip(thread_data.verbtext), "SMTP_FAIL")
         if option["global"]["use_external_command"] == "on":
-            do_cmd(self.matchedtext, self.disp_path, self.nicesize, self.nice_tag_extra, self.specific_options).start()
+            do_cmd(self.matchedtext, self.disp_path, self.nicesize, self.nice_watch_entry_name, self.specific_options).start()
 
     #Here we build our email message
     def message_builder(self):
@@ -1901,6 +1929,7 @@ class email(threading.Thread):
             thread_data.ftpstring = "BAD_FTP_DETAILS"
         thread_data.utstring = option["global"]["utorrent_hostname"] + ":" + option["global"]["utorrent_port"]
         
+        
         thread_data.email_body = option["global"]["smtp_message"].replace('%torrent%', self.matchedtext.group(3))
         thread_data.email_body = thread_data.email_body.replace('%category%', self.matchedtext.group(2))
         thread_data.email_body = thread_data.email_body.replace('%size%', self.nicesize)
@@ -1908,7 +1937,7 @@ class email(threading.Thread):
         thread_data.email_body = thread_data.email_body.replace('%dlpath%', self.disp_path)
         thread_data.email_body = thread_data.email_body.replace('%ulpath%', thread_data.ftpstring)
         thread_data.email_body = thread_data.email_body.replace('%utserver%', thread_data.utstring)
-        thread_data.email_body = thread_data.email_body.replace('%tag%', self.nice_tag_extra)
+        thread_data.email_body = thread_data.email_body.replace('%watchname%', self.nice_watch_entry_name)
         thread_data.email_body = thread_data.email_body.replace('%torrentpath%', thread_data.fulltpath)
         thread_data.email_body = thread_data.email_body.replace('%sccgrptree%', thread_data.sccgrptree)
         thread_data.email_body = thread_data.email_body.replace('%sccgrp%', thread_data.sccgrp)
@@ -1921,7 +1950,7 @@ class email(threading.Thread):
         thread_data.email_subject = thread_data.email_subject.replace('%dlpath%', self.disp_path)
         thread_data.email_subject = thread_data.email_subject.replace('%ulpath%', thread_data.ftpstring)
         thread_data.email_subject = thread_data.email_subject.replace('%utserver%', thread_data.utstring)
-        thread_data.email_subject = thread_data.email_subject.replace('%tag%', self.nice_tag_extra)
+        thread_data.email_subject = thread_data.email_subject.replace('%watchname%', self.nice_watch_entry_name)
         thread_data.email_subject = thread_data.email_subject.replace('%torrentpath%', thread_data.fulltpath)
         thread_data.email_subject = thread_data.email_subject.replace('%sccgrptree%', thread_data.sccgrptree)
         thread_data.email_subject = thread_data.email_subject.replace('%sccgrp%', thread_data.sccgrp)
@@ -1943,11 +1972,11 @@ Content-Type: text/html; charset=ISO-8859-1
         return thread_data.message
 
 class do_cmd(threading.Thread):
-    def __init__(self, matchedtext, disp_path, nicesize, nice_tag_extra, specific_options):
+    def __init__(self, matchedtext, disp_path, nicesize, nice_watch_entry_name, specific_options):
         self.matchedtext = matchedtext
         self.disp_path = disp_path
         self.nicesize = nicesize
-        self.nice_tag_extra = nice_tag_extra
+        self.nice_watch_entry_name = nice_watch_entry_name
         self.specific_options = specific_options
         threading.Thread.__init__(self)    
     #Send tiem nao
@@ -1985,7 +2014,7 @@ class do_cmd(threading.Thread):
         thread_data.command_args = thread_data.command_args.replace('%dlpath%', self.disp_path)
         thread_data.command_args = thread_data.command_args.replace('%ulpath%', thread_data.ftpstring)
         thread_data.command_args = thread_data.command_args.replace('%utserver%', thread_data.utstring)
-        thread_data.command_args = thread_data.command_args.replace('%tag%', self.nice_tag_extra)
+        thread_data.command_args = thread_data.command_args.replace('%watchname%', self.nice_watch_entry_name)
         thread_data.command_args = thread_data.command_args.replace('%torrentpath%', thread_data.fulltpath)
         thread_data.command_args = thread_data.command_args.replace('%sccgrptree%', thread_data.sccgrptree)
         thread_data.command_args = thread_data.command_args.replace('%sccgrp%', thread_data.sccgrp)
@@ -2448,5 +2477,5 @@ if (__name__ == "__main__"):
     main()
 
 #LICENSE GPL
-#Last modified 06-17-16 (MM/DD/YY)
+#Last modified 06-18-16 (MM/DD/YY)
 
