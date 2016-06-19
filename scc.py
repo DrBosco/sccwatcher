@@ -22,7 +22,7 @@
 #                                                                            #
 ##############################################################################
 __module_name__ = "SCCwatcher"
-__module_version__ = "2.0rc1"
+__module_version__ = "2.0rc2"
 __module_description__ = "SCCwatcher"
 
 import xchat
@@ -402,6 +402,9 @@ def setupMenus(global_option, rld=False):
 def load_vars(rld=False):
     global option, announce_regex, sccnet, has_tab_data, downloaderHeaders, starttimerhook
     
+    #compile the regexp, do this one time only
+    announce_regex = re.compile('(.*)NEW in (.*): -> ([^\s]*.) \((.*)\) - \(https?:\/\/(?:www\.)?sceneaccess\.(?:org|eu)\/details(?:\.php)?\?id=(\d+)\)(.*)')
+    
     if rld is True:
         #backup some values we want to keep, if they exist
         _saved_service = option["global"]["service"]
@@ -535,8 +538,6 @@ def load_vars(rld=False):
             if option["global"]["logenabled"] == "on":
                 loadmsg = "\0034 "+__module_name__+" "+__module_version__+" has been loaded\003"
                 logging(xchat.strip(loadmsg), "LOAD")
-            #compile the regexp, do this one time only
-            announce_regex = re.compile('(.*)NEW in (.*): -> ([^\s]*.) \((.*)\) - \(https?:\/\/(?:www\.)?sceneaccess\.(?:org|eu)\/details(?:\.php)?\?id=(\d+)\)(.*)')
             
         #Build the menus
         setupMenus(option["global"], rld)
@@ -662,6 +663,20 @@ def logging(text, operation):
         scclog.write(text)
         scclog.close()
     
+
+def detect_sep(fullpath):
+    DETECTED_SEP = os.sep #Default fallback
+    try:
+        fullpath.index("/")
+        DETECTED_SEP = "/"
+    except:
+        try:
+            fullpath.index("\\")
+            DETECTED_SEP = "\\"
+        except:
+            pass
+    return DETECTED_SEP
+
 #This class checks to make sure the directory given actually exists and creates it if not.
 #It can also create directories in varius styles, e.g. SCCDATE, SCCGRP, SCCGRPTREE
 class dir_check:
@@ -673,35 +688,50 @@ class dir_check:
         self.full_path = dldir
         #This is the stuff thats going to get appended to the savepath
         self.npath = ""
-        #Put the sep on our start path if needed
-        if len(self.full_path) > 0 and self.full_path[-1] != os.sep:
-            self.full_path = str(self.full_path) + os.sep
         
     def check(self):
         global extra_paths
         extra_paths = "yes"
-        #This will seperate all the download dir options into a list
-        dir_list = re.split(";", self.dldir)
-        #Now we can easily loop through all the options
-        for x in dir_list:
-            #Get the dir's name-to-be
-            dirname = self.categorize(x)
-            #Append the new dir to the eventual path:
-            self.npath = os.path.join(self.npath, dirname)
-        #Ok now we should have a nice list of extra dirs in self.npath, so lets split em up and start making dirs
+        #Detect dir separator
+        DETECTED_SEP = detect_sep(self.full_path) #Default fallback
+        
+        #Remove any trailing slash for now
+        while self.full_path[-1] == "\\" or self.full_path[-1] == "/":
+                self.full_path = self.full_path[:len(self.full_path)-1]
+        
+        #Fix double slashes
+        if DETECTED_SEP == "\\":
+                self.full_path.replace("\\\\", "\\")
+        #Split the dirs and test each one to see if its a special dir path.
+        dir_split = self.full_path.split(DETECTED_SEP)
+        #We're going to live dangerously and assume that index 0 of our split path is not a special dir name.
+        self.npath = dir_split.pop(0)
+        #Fix the path to use os.sep to make things easier as well as convert special dir names.
+        for x in dir_split:
+            if len(x) > 0:
+                #Get the dir's name-to-be
+                dirname = self.categorize(x)
+                #Append the new dir to the eventual path:
+                self.npath = self.npath + os.sep + dirname
+        #split it again now that we have converted to special dir names and corrected the separator.
         dir_split = self.npath.split(os.sep)
         
-        #We use another list similar to npath to keep track of our current dir.
-        #This list also contains the savepath
-        cur_dir = self.full_path
+        #Could probably combine the above and below loops into one
+        #now create the directory structure
+        cur_dir = dir_split.pop(0)
         for x in dir_split:
-            cur_dir = os.path.join(cur_dir, x)
+            cur_dir = cur_dir + os.sep + x
             self.create_dir(cur_dir)
+            #Check if we failed
+            if extra_paths == "no": break
         
-        #And finally, return the entire new savepath
-        self.full_path = os.path.join(self.full_path, self.npath)
-        #DONT FORGET THE TRAILING SLASH!!!!
-        self.full_path = self.full_path + os.sep
+        #See if we failed during path creation:
+        if extra_paths == "yes":
+            self.full_path = os.path.join(self.full_path, self.npath)
+            #DONT FORGET THE TRAILING SLASH!!!!
+            self.full_path = self.full_path + os.sep
+        else:
+            self.full_path = option["global"]["savepath"]
         return self.full_path
             
     def categorize(self, xpath):
@@ -712,7 +742,6 @@ class dir_check:
         if xpath == "SCCGRP":
             xpath = self.cat
             xpath = xpath.replace('/','.')
-            xpath = xpath.replace('-','.')
             
         if xpath == "SCCGRPTREE":
             xpath = self.cat
@@ -732,16 +761,15 @@ class dir_check:
             OHNOEZ = color["bpurple"]+"SCCwatcher is creating the following dir: " + color["dgrey"] + xpath
             verbose(OHNOEZ)
             logging(xchat.strip(OHNOEZ), "CREATE_DIR")
-            os.makedirs(xpath)
+            try:
+                os.makedirs(xpath)
+            except:
+                OHNOEZ = color["bpurple"]+"SCCwatcher cannot create dir: "+color["dgrey"]+xpath+color["bpurple"]+". Please make sure the user running xchat has the proper permissions."
+                verbose(OHNOEZ)
+                logging(xchat.strip(OHNOEZ), "WRITE_ERROR")
+                #disable extra paths
+                extra_paths = "no"
             
-        #Check if the DIR is writeable
-        checkW_xpath = os.access(xpath, os.W_OK)
-        if checkW_xpath is False:
-            OHNOEZ = color["bpurple"]+"SCCwatcher cannot write to the save dir: "+color["dgrey"]+xpath+color["bpurple"]+". Please make sure the user running xchat has the proper permissions."
-            verbose(OHNOEZ)
-            logging(xchat.strip(OHNOEZ), "WRITE_ERROR")
-            #disable extra paths
-            extra_paths = "no"
 
 
 def update_recent(file, dldir, size, dduration):
@@ -1597,9 +1625,16 @@ class download(threading.Thread):
             #thread_data.dl = urllib.urlretrieve(self.dlurl, self.flname)
         #Problem with urllib, so we create a blank file and send it to the size check. It will fail the check and redownload
         except:
-            blankfile = open(self.flname, 'w')
-            blankfile.write("")
-            blankfile.close()
+            try:
+                blankfile = open(self.flname, 'w')
+                blankfile.write("")
+                blankfile.close()
+            except:
+                thread_data.dlerror = color["bpurple"] + "SCCwatcher encountered an error while writing the torrent file. Torrent was NOT downloaded. Please check the following path is writable: " + color["dgrey"] + self.flname
+                verbose(thread_data.dlerror)
+                thread_data.dlerror = xchat.strip(thread_data.dlerror)
+                logging(thread_data.dlerror, "GRAB_WRITE_FAIL")
+                return False
         #Now that we have either downloaded the torrent, or we have made a blank file because the download failed, we can continue to the checking routine:
         self.check_valid(self.flname, stime)
         
@@ -2477,5 +2512,5 @@ if (__name__ == "__main__"):
     main()
 
 #LICENSE GPL
-#Last modified 06-18-16 (MM/DD/YY)
+#Last modified 06-19-16 (MM/DD/YY)
 
