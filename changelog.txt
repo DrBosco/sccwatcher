@@ -2,9 +2,24 @@ Updated to 2.0
 Completely new config system with new features!
 
 New Features:
+# Configurable with new GUI companion app, SCCwatcher-GUI
+# Check the current status of a locally-running SCCwatcher script with the companion GUI
+# Simplified configuration layout that makes adding and modifying your settings even easier.
+# Global upper and lower sizelimits.
+# Watch-specific configurable options. Each watch can be specifically tuned, overriding the global settings for:
+# - Avoid list
+# - Savepath
+# - Sizelimit (upper and lower)
+# - Dupechecking
+# - External Command
+# - uTorrent uploading mode
+# - FTP Server uploading
+# - Emailer
+# Avoid and Watchlists now have full regular expression support.
 
 
 Bugfixes:
+# uTorrent WebUI uploading was broken on some versions of uTorrent. Its now been updated to make use of token authentication.
 
 ----------------------------------
 
