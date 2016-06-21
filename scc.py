@@ -22,7 +22,7 @@
 #                                                                            #
 ##############################################################################
 __module_name__ = "SCCwatcher"
-__module_version__ = "2.0rc2"
+__module_version__ = "2.0"
 __module_description__ = "SCCwatcher"
 
 import xchat
@@ -777,7 +777,9 @@ def update_recent(file, dldir, size, dduration):
     entry_number = str(int(len(recent_list)) + 1)
     time_now = time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())
     
-    formatted = color["bpurple"] + entry_number + color["black"] + " - " + color["dgrey"] + time_now + color["black"] + " - " + color["bpurple"] + file + color["black"] + " - " + color["dgrey"] + size + color["black"] + " - " + color["dgrey"] + dduration+" Seconds" + color["black"] + " - " + color["dgrey"] + os.path.normcase(dldir)
+    sep = color["black"] + " - "
+    
+    formatted = color["bpurple"] + entry_number + sep + color["dgrey"] + time_now + sep + color["bpurple"] + file + sep + color["dgrey"] + size + sep + color["bpurple"] + dduration+" Seconds" + sep + color["dgrey"] + os.path.normcase(dldir)
     #recent list update
     recent_list.append(formatted)
 
@@ -1125,7 +1127,7 @@ def on_text(word, word_eol, userdata):
                     if re.search(avoid_filter, matchedtext.group(3), re.I):
                         counter = 0
                         if watch_specific_options["debug"] == "on":
-                            DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Matched rls to entry in avoidlist. Download operation stopped. Matched avoidlist entry: " + color["dgrey"] + str(avoid_filter)
+                            DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Matched rls to entry in avoidlist. Download operation stopped. Matched avoidlist entry: " + color["dgrey"] + str(avoid_entry)
                             verbose(DEBUG_MESSAGE)
                             logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
                         break
@@ -1235,8 +1237,6 @@ def on_text(word, word_eol, userdata):
                     verbose(verbtext)
                     verbtext = xchat.strip(verbtext) +" - "+ os.path.normcase(disp_path)
                     logging(verbtext, "GRAB")
-                    #Set the tray text
-                    xchat.command('TRAY -t "SCCwatcher has grabbed a new torrent"')
                     #The number of passed vars has gone up in an effort to alleviate var overwrites under high load.
                     download(downloadurl, filename, zxfpath, matchedtext, disp_path, nicesize, extra_paths, nice_watch_entry_name, watch_specific_options).start()
                     # The upload will be cascaded from the download thread to prevent a train wreck.   
@@ -1547,7 +1547,7 @@ class download(threading.Thread):
         #Delete the bad file
             os.remove(tfile)
             # Have we reached the retry limit?
-            if self.count < int(option["global"]["max_dl_tries"]):
+            if self.count <= int(option["global"]["max_dl_tries"]):
                 #Sleep a second to give the server some breathing room.
                 time.sleep(int(option["global"]["retry_wait"]))
                 #Then download again
@@ -1733,7 +1733,7 @@ class upload(threading.Thread):
             try:
                 thread_data.s.cwd("/" + thread_data.ftpdetails.group(5)) # Change directory
             except:
-                thread_data.vtext = color["bpurple"] + "SCCwatcher encountered an error while changing the directory to " + color["dgrey"] + thread_data.ftpdetails.group(5) + ". " + color["bpurple"] + "Skipping FTP Upload. Please check your configuration and be sure your user has access to the directory on the remote server."
+                thread_data.vtext = color["bpurple"] + "SCCwatcher encountered an error while changing the directory to " + color["dgrey"] + "/" + thread_data.ftpdetails.group(5) + ". " + color["bpurple"] + "Skipping FTP Upload. Please check your configuration and be sure your user has access to the directory on the remote server."
                 verbose(thread_data.vtext)
                 logging(xchat.strip(thread_data.vtext), "UPLOAD_FAIL-CHDIR_FAIL")
                 return False
@@ -1946,7 +1946,7 @@ class email(threading.Thread):
         thread_data.current_time = time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())
         #Here we replace all the special strings with actual data
         # Acceptable special strings are:
-        # %torrent% %category% %size% %time% %dlpath% %ulpath% %utserver% %tag %torrentpath% %sccgrptree% %sccgrp% %sccdate%
+        # %torrent% %category% %size% %time% %dlpath% %ulpath% %utserver% %watchname% %torrentpath% %sccgrptree% %sccgrp% %sccdate%
         # To see what they mean, just see below.
         thread_data.sccgrp = self.matchedtext.group(2)
         thread_data.sccgrp = thread_data.sccgrp.replace('/','.')
@@ -2512,5 +2512,5 @@ if (__name__ == "__main__"):
     main()
 
 #LICENSE GPL
-#Last modified 06-19-16 (MM/DD/YY)
+#Last modified 06-20-16 (MM/DD/YY)
 
