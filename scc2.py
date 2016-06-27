@@ -22,7 +22,7 @@
 #                                                                            #
 ##############################################################################
 __module_name__ = "SCCwatcher"
-__module_version__ = "2.0"
+__module_version__ = "2.1a1"
 __module_description__ = "SCCwatcher"
 
 import xchat
@@ -108,6 +108,7 @@ def getCurrentStatus():
         data["verbose"] = option["global"]["verbose"]
         data["recent_list_size"] = str(len(recent_list))
         data["wl_al_size"] = "%s/%s" % (str(len(option["global"]["watchlist"])), str(len(option["global"]["avoidlist"])))
+        data["ini_path"] = xchatdir + os.sep + "scc2.ini"
         #Ok we have our data, lets pickle it and return
         rtn_data = cPickle.dumps(data)
         return rtn_data
@@ -2494,7 +2495,6 @@ def unload_cb(userdata):
         logging(xchat.strip(quitmsg), "UNLOAD")
 
 
-
 #The hooks go here
 xchat.hook_print('Channel Message', on_text)
 xchat.hook_command('SCCwatcher', on_local, help="Edit main setting in scc2.ini. use \002/sccwatcher help\002 for usage information.")
@@ -2512,5 +2512,5 @@ if (__name__ == "__main__"):
     main()
 
 #LICENSE GPL
-#Last modified 06-20-16 (MM/DD/YY)
+#Last modified 06-26-16 (MM/DD/YY)
 
