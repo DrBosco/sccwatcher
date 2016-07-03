@@ -22,7 +22,7 @@
 #                                                                            #
 ##############################################################################
 __module_name__ = "SCCwatcher"
-__module_version__ = "2.1a2_debug"
+__module_version__ = "2.1a2"
 __module_description__ = "SCCwatcher"
 
 import xchat
@@ -83,20 +83,6 @@ color = {"white":"\00300", "black":"\00301", "blue":"\00302", "green":"\00303", 
 class sccwDownloader(urllib.FancyURLopener):
         #This is where we adjust the useragent.
         version = "Mozilla/5.0 (compatible; Python urllib; SCCwatcher; v%s)" % (__module_version__)
-        
-    
-def scriptStatusUpdater(userdata):
-    #Man this hook_timer is broken, its supposed to repeat but it doesnt for some reason
-    xchat.hook_timer(10000, scriptStatusUpdater)
-    if starttimerhook is not None:
-        return
-    #So dirty, I hate myself lol
-    #We're just going to output our status to a file every 30 seconds or so
-    tmpname = gettempdir() + os.sep + "sccw_temp.txt"
-    tempfile = open(tmpname, 'w')
-    pickledata = getCurrentStatus()
-    tempfile.write(pickledata)
-    tempfile.close()
     
 
 #Simple way to communicate our random port number to the GUI
@@ -135,28 +121,13 @@ class server(threading.Thread):
         self.wait_time_recv = int(time.time()) - 5
         self.wait_time_accept = int(time.time()) - 5
         self.recv_tries = 0
-        xchat.command("QUERY THREAD_TEST")
-        self.ctx = xchat.find_context(channel='THREAD_TEST')
         super(server, self).__init__()
     
-    def print_status(self):
-        self.ctx.prnt("-------------------------------------")
-        self.ctx.prnt("THREAD_STATUS: ")
-        self.ctx.prnt("Quitting:  %s" % self.quitting)
-        self.ctx.prnt("Port:  %s" % self.port)
-        self.ctx.prnt("Connected:  %s" % self.connected)
-        self.ctx.prnt("Quitting:  %s" % self.quitting)
-        self.ctx.prnt("Connection: ")
-        self.ctx.prnt(str(self.connection))
-        self.ctx.prnt("-------------------------------------")
-
     
     def quit_thread(self):
-        self.ctx.prnt("quit_thread_start")
         #First set our quitting var se we die asap
         self.quitting = True
         if self.connected is False:
-            self.ctx.prnt("QT1")
             #Waiting for a self.connection, lets give it one
             quit_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             quit_socket.connect((self.address[0], self.port))
@@ -164,10 +135,7 @@ class server(threading.Thread):
             self.quitting = True
             quit_socket.close()
         elif self.connected is True:
-            self.ctx.prnt("QT2")
-            self.ctx.prnt("Sending quit msg and hoping...")
             self.connection.send("CONNECTION_CLOSING")
-            self.ctx.prnt("Waiting on recv()")
     
     def get_connection(self):
         #Connect loop
@@ -175,48 +143,31 @@ class server(threading.Thread):
             if int(time.time()) - self.wait_time_accept > 5:
                 self.wait_time_accept = int(time.time())
                 try:
-                    self.ctx.prnt("Listening for connects....")
                     self.main_socket.settimeout(2)
                     self.connection, addy = self.main_socket.accept()
                     self.connected = True
                     self.connection.setblocking(0) #Non-blocking so we can quit fast if necessary
-                    self.ctx.prnt("Got connection!")
                 except:
                     continue
             sleep(0.5)
             
     def run(self):
         if len(self.address) != 2:
-            self.ctx.prnt("ADDRESS FAIL")
             return
         
-        self.ctx.prnt("Setting up socket for the first time")
         self.main_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
-            self.ctx.prnt("Here1")
             self.main_socket.bind(self.address)
-            self.ctx.prnt("Here2")
             portnum = self.main_socket.getsockname()[1]
-            self.ctx.prnt("Here3")
-            self.ctx.prnt("Writing port num %s" % portnum)
             writePortNum(portnum)
-            self.ctx.prnt("Here4")
             self.main_socket.listen(1)
-            self.ctx.prnt("Here5")
-        except Exception as e:
-            self.ctx.prnt("Here6")
-            self.ctx.prnt("BIND FAIL:")
-            self.ctx.prnt(e)
+        except:
             return
         
         while self.quitting is False:
-            self.ctx.prnt("Here7")
             if self.connected is False:
                 self.get_connection()
                 continue
-            
-            if self.connected == True:
-                self.ctx.prnt("Waiting for data...")
             
             while self.connected is True and self.quitting is False:
                 rawdata = None
@@ -228,7 +179,6 @@ class server(threading.Thread):
                         self.recv_tries = 0
                         continue
                     try:
-                        self.ctx.prnt("Recv()")
                         rawdata = self.connection.recv(4096) #Receive at most 4096 bytes.
                         self.recv_tries = 0
                     except:
@@ -240,7 +190,6 @@ class server(threading.Thread):
                             self.connection.close()
                             self.connected = False
                             continue
-                        self.ctx.prnt("Waiting A 0.5s")
                         self.wait_time_recv = int(time.time())
                         continue
                 
@@ -248,55 +197,35 @@ class server(threading.Thread):
                     continue
                 
                 #Got some data, do what was requested:
-                self.ctx.prnt("GOT DATA: ")
-                self.ctx.prnt(str(len(rawdata)))
-                self.ctx.prnt(str(type(rawdata)))
-                self.ctx.prnt(str(rawdata))
-                self.ctx.prnt("-------------------------------")
-                
                 if len(rawdata) > 0:
                     returndata = None
-                    self.ctx.prnt("Data is good!")
                     
                     data_split = re.split(";;;", rawdata)
                     for data in data_split:
                         if len(data) == 0:
                             continue
-                        print "CHECKING %s" % data
                         #Return script status to GUI
                         if data == "GET_SCRIPT_STATUS":
                             script_status = getCurrentStatus()
                             returndata = cPickle.dumps(script_status)
-                            print repr(returndata)
                             #We surround our data with special chars to make it easier to pick out of the jumble of keep-alives we will find in our recv buffer
                             returndata = ":::" + str(returndata) + ";;;"
-                            self.ctx.prnt("Sending script status...")
                             
                         #Execute cmds from GUI
                         elif data == "RELOAD_SCRIPT_SETTINGS":
-                            self.ctx.prnt("Executing cmd '%s' and sending confirm" % data)
                             #returndata = "CONFIRM_CMD"
                             sccwhelp(["", "reload"])
                         
+                        #Toggle autodl status
                         elif data == "TOGGLE_AUTODL":
-                            self.ctx.prnt("Executing cmd '%s' and sending confirm" % data)
                             #returndata = "CONFIRM_CMD"
                             if option["global"]["service"] == "off":
                                 sccwhelp(["", "on"])
                             else:
                                 sccwhelp(["", "off"])
                         
-                            
-                        elif data == "PRINT_STATUS":
-                            self.ctx.prnt("Executing cmd '%s' and sending confirm" % data)
-                            #returndata = "CONFIRM_CMD"
-                            sccwhelp(["", "status"])
-                            self.print_status()
-                        
-                        
                         #Closing    
                         elif data == "CONNECTION_CLOSING":
-                            self.ctx.prnt("Got close request, closing connection...")
                             self.connection.close()
                             self.connected = False
                             continue
@@ -305,15 +234,11 @@ class server(threading.Thread):
                             self.connection.send(returndata)
                         
                 else:
-                    self.ctx.prnt("Got zero-sized reply, closing connection...")
                     self.connection.close()
                     self.connected = False
                 
-                self.ctx.prnt("Sleeping B 0.2s")
                 sleep(0.2)
                 
-        self.ctx.prnt("Quitting!")
-        self.ctx.prnt("Sending quit message")
         try:
             self.connection.send("CONNECTION_CLOSING")
         except:
@@ -618,7 +543,7 @@ def setupMenus(global_option, rld=False):
 
 
 def load_vars(rld=False):
-    global option, announce_regex, sccnet, has_tab_data, downloaderHeaders, starttimerhook
+    global option, announce_regex, sccnet, has_tab_data, downloaderHeaders, starttimerhook, server_thread
     
     #compile the regexp, do this one time only
     announce_regex = re.compile('(.*)NEW in (.*): -> ([^\s]*.) \((.*)\) - \(https?:\/\/(?:www\.)?sceneaccess\.(?:org|eu)\/details(?:\.php)?\?id=(\d+)\)(.*)')
@@ -759,6 +684,11 @@ def load_vars(rld=False):
             
         #Build the menus
         setupMenus(option["global"], rld)
+        
+        #Start up coms server
+        server_thread = server()
+        server_thread.start()
+        
         return True
     else:
         print color["red"], "There was an error while reading your config. The GlobalSettings group couldn't be located within your scc2.ini. Please recheck your config. Autodownloading is disabled."
@@ -2721,19 +2651,6 @@ def unload_cb(userdata):
     if option["global"]["logenabled"] == "on":
         logging(xchat.strip(quitmsg), "UNLOAD")
 
-def doit2(word, word_eol, userdata):
-    server_thread.print_status()
-    return xchat.EAT_ALL
-
-def doit(word, word_eol, userdata):
-    global server_thread
-    print "Starting main thread...."
-    server_thread = server()
-    server_thread.start()
-    return xchat.EAT_ALL
-    
-xchat.hook_command('thread_test', doit)
-xchat.hook_command('thread_test2', doit2)
 
 #The hooks go here
 xchat.hook_print('Channel Message', on_text)
@@ -2752,5 +2669,5 @@ if (__name__ == "__main__"):
     main()
 
 #LICENSE GPL
-#Last modified 06-26-16 (MM/DD/YY)
+#Last modified 07-03-16 (MM/DD/YY)
 
