@@ -22,7 +22,7 @@
 #                                                                            #
 ##############################################################################
 __module_name__ = "SCCwatcher"
-__module_version__ = "2.1a1"
+__module_version__ = "2.1a2_debug"
 __module_description__ = "SCCwatcher"
 
 import xchat
@@ -42,9 +42,8 @@ import socket
 import cookielib
 import cPickle
 from copy import deepcopy as DC
+from time import sleep
 from tempfile import gettempdir
-
-
 #from copy import deepcopy as DC
 
 
@@ -53,6 +52,13 @@ socket.setdefaulttimeout(20)
 
 loadmsg = "\0034 "+__module_name__+" "+__module_version__+" has been loaded\003"
 print loadmsg
+#Remove our port file
+try:
+    os.remove(gettempdir() + os.sep + "sccw_port.txt")
+except:
+    pass
+
+    
 
 #the globals go here
 xchat.command('menu DEL SCCwatcher')
@@ -66,6 +72,7 @@ has_tab_data = False
 sccnet = None
 announce_regex = None
 downloaderHeaders = None
+server_thread = None
 xchatdir = xchat.get_info("xchatdir")
 color = {"white":"\00300", "black":"\00301", "blue":"\00302", "green":"\00303", "red":"\00304",
 "dred":"\00305", "purple":"\00306", "dyellow":"\00307", "yellow":"\00308", "bgreen":"\00309",
@@ -92,6 +99,13 @@ def scriptStatusUpdater(userdata):
     tempfile.close()
     
 
+#Simple way to communicate our random port number to the GUI
+def writePortNum(portnum):
+    tmpname = gettempdir() + os.sep + "sccw_port.txt"
+    tempfile = open(tmpname, 'w')
+    tempfile.write(str(portnum))
+    tempfile.close()
+
 def getCurrentStatus():
         data = {}
         data["version"] = __module_version__
@@ -109,9 +123,212 @@ def getCurrentStatus():
         data["recent_list_size"] = str(len(recent_list))
         data["wl_al_size"] = "%s/%s" % (str(len(option["global"]["watchlist"])), str(len(option["global"]["avoidlist"])))
         data["ini_path"] = xchatdir + os.sep + "scc2.ini"
-        #Ok we have our data, lets pickle it and return
-        rtn_data = cPickle.dumps(data)
-        return rtn_data
+        return data
+
+class server(threading.Thread):
+    def __init__(self):
+        self.quitting = False
+        self.port = None
+        self.connected = False
+        self.connection = None
+        self.address = ("127.0.0.1", 0)
+        self.wait_time_recv = int(time.time()) - 5
+        self.wait_time_accept = int(time.time()) - 5
+        self.recv_tries = 0
+        xchat.command("QUERY THREAD_TEST")
+        self.ctx = xchat.find_context(channel='THREAD_TEST')
+        super(server, self).__init__()
+    
+    def print_status(self):
+        self.ctx.prnt("-------------------------------------")
+        self.ctx.prnt("THREAD_STATUS: ")
+        self.ctx.prnt("Quitting:  %s" % self.quitting)
+        self.ctx.prnt("Port:  %s" % self.port)
+        self.ctx.prnt("Connected:  %s" % self.connected)
+        self.ctx.prnt("Quitting:  %s" % self.quitting)
+        self.ctx.prnt("Connection: ")
+        self.ctx.prnt(str(self.connection))
+        self.ctx.prnt("-------------------------------------")
+
+    
+    def quit_thread(self):
+        self.ctx.prnt("quit_thread_start")
+        #First set our quitting var se we die asap
+        self.quitting = True
+        if self.connected is False:
+            self.ctx.prnt("QT1")
+            #Waiting for a self.connection, lets give it one
+            quit_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            quit_socket.connect((self.address[0], self.port))
+            #Reset quitting since it will be set true now
+            self.quitting = True
+            quit_socket.close()
+        elif self.connected is True:
+            self.ctx.prnt("QT2")
+            self.ctx.prnt("Sending quit msg and hoping...")
+            self.connection.send("CONNECTION_CLOSING")
+            self.ctx.prnt("Waiting on recv()")
+    
+    def get_connection(self):
+        #Connect loop
+        while self.connected is False and self.quitting is False:
+            if int(time.time()) - self.wait_time_accept > 5:
+                self.wait_time_accept = int(time.time())
+                try:
+                    self.ctx.prnt("Listening for connects....")
+                    self.main_socket.settimeout(2)
+                    self.connection, addy = self.main_socket.accept()
+                    self.connected = True
+                    self.connection.setblocking(0) #Non-blocking so we can quit fast if necessary
+                    self.ctx.prnt("Got connection!")
+                except:
+                    continue
+            sleep(0.5)
+            
+    def run(self):
+        if len(self.address) != 2:
+            self.ctx.prnt("ADDRESS FAIL")
+            return
+        
+        self.ctx.prnt("Setting up socket for the first time")
+        self.main_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            self.ctx.prnt("Here1")
+            self.main_socket.bind(self.address)
+            self.ctx.prnt("Here2")
+            portnum = self.main_socket.getsockname()[1]
+            self.ctx.prnt("Here3")
+            self.ctx.prnt("Writing port num %s" % portnum)
+            writePortNum(portnum)
+            self.ctx.prnt("Here4")
+            self.main_socket.listen(1)
+            self.ctx.prnt("Here5")
+        except Exception as e:
+            self.ctx.prnt("Here6")
+            self.ctx.prnt("BIND FAIL:")
+            self.ctx.prnt(e)
+            return
+        
+        while self.quitting is False:
+            self.ctx.prnt("Here7")
+            if self.connected is False:
+                self.get_connection()
+                continue
+            
+            if self.connected == True:
+                self.ctx.prnt("Waiting for data...")
+            
+            while self.connected is True and self.quitting is False:
+                rawdata = None
+                sleep(0.5) #500ms sleep time to give everyone some breathing room
+                if int(time.time()) - self.wait_time_recv > 0.5:
+                    if self.recv_tries > 20: #Consider our connection closed if after 10 seconds we still have no data
+                        self.connection.close()
+                        self.connected = False
+                        self.recv_tries = 0
+                        continue
+                    try:
+                        self.ctx.prnt("Recv()")
+                        rawdata = self.connection.recv(4096) #Receive at most 4096 bytes.
+                        self.recv_tries = 0
+                    except:
+                        self.recv_tries += 1 #Prevents runaways where the client has closed but we don't know and keep-alives dont figure it out (rare)
+                        #send keep-alive
+                        try:
+                            self.connection.send("KEEP-ALIVE")
+                        except:
+                            self.connection.close()
+                            self.connected = False
+                            continue
+                        self.ctx.prnt("Waiting A 0.5s")
+                        self.wait_time_recv = int(time.time())
+                        continue
+                
+                if rawdata is None:
+                    continue
+                
+                #Got some data, do what was requested:
+                self.ctx.prnt("GOT DATA: ")
+                self.ctx.prnt(str(len(rawdata)))
+                self.ctx.prnt(str(type(rawdata)))
+                self.ctx.prnt(str(rawdata))
+                self.ctx.prnt("-------------------------------")
+                
+                if len(rawdata) > 0:
+                    returndata = None
+                    self.ctx.prnt("Data is good!")
+                    
+                    data_split = re.split(";;;", rawdata)
+                    for data in data_split:
+                        if len(data) == 0:
+                            continue
+                        print "CHECKING %s" % data
+                        #Return script status to GUI
+                        if data == "GET_SCRIPT_STATUS":
+                            script_status = getCurrentStatus()
+                            returndata = cPickle.dumps(script_status)
+                            print repr(returndata)
+                            #We surround our data with special chars to make it easier to pick out of the jumble of keep-alives we will find in our recv buffer
+                            returndata = ":::" + str(returndata) + ";;;"
+                            self.ctx.prnt("Sending script status...")
+                            
+                        #Execute cmds from GUI
+                        elif data == "RELOAD_SCRIPT_SETTINGS":
+                            self.ctx.prnt("Executing cmd '%s' and sending confirm" % data)
+                            #returndata = "CONFIRM_CMD"
+                            sccwhelp(["", "reload"])
+                        
+                        elif data == "TOGGLE_AUTODL":
+                            self.ctx.prnt("Executing cmd '%s' and sending confirm" % data)
+                            #returndata = "CONFIRM_CMD"
+                            if option["global"]["service"] == "off":
+                                sccwhelp(["", "on"])
+                            else:
+                                sccwhelp(["", "off"])
+                        
+                            
+                        elif data == "PRINT_STATUS":
+                            self.ctx.prnt("Executing cmd '%s' and sending confirm" % data)
+                            #returndata = "CONFIRM_CMD"
+                            sccwhelp(["", "status"])
+                            self.print_status()
+                        
+                        
+                        #Closing    
+                        elif data == "CONNECTION_CLOSING":
+                            self.ctx.prnt("Got close request, closing connection...")
+                            self.connection.close()
+                            self.connected = False
+                            continue
+                        
+                        if returndata is not None:
+                            self.connection.send(returndata)
+                        
+                else:
+                    self.ctx.prnt("Got zero-sized reply, closing connection...")
+                    self.connection.close()
+                    self.connected = False
+                
+                self.ctx.prnt("Sleeping B 0.2s")
+                sleep(0.2)
+                
+        self.ctx.prnt("Quitting!")
+        self.ctx.prnt("Sending quit message")
+        try:
+            self.connection.send("CONNECTION_CLOSING")
+        except:
+            pass
+        try:
+            self.connection.close()
+        except:
+            pass
+        try:
+            self.main_socket.close()
+        except:
+            pass
+        
+        return
+
 
 #This function takes the ini file as an argument, and returns the loaded options dict
 def loadSettingsFile(file_location):
@@ -2482,18 +2699,41 @@ def announce_line_tester(word, word_eol, userdata):
     return xchat.EAT_ALL
 
 def unload_cb(userdata):
+    global server_thread
     quitmsg = "\0034 "+__module_name__+" "+__module_version__+" has been unloaded\003"
     #Remove our status file
     try:
-        os.remove(gettempdir() + os.sep + "sccw_temp.txt")
+        os.remove(gettempdir() + os.sep + "sccw_port.txt")
     except:
         pass
     print quitmsg
+    
+    try:
+        server_thread.quit_thread()
+    except:
+        pass
+    try:
+        server_thread.join()
+    except:
+        pass
     xchat.command('menu DEL SCCwatcher')
     #Only log script unload if logging is enabled
     if option["global"]["logenabled"] == "on":
         logging(xchat.strip(quitmsg), "UNLOAD")
 
+def doit2(word, word_eol, userdata):
+    server_thread.print_status()
+    return xchat.EAT_ALL
+
+def doit(word, word_eol, userdata):
+    global server_thread
+    print "Starting main thread...."
+    server_thread = server()
+    server_thread.start()
+    return xchat.EAT_ALL
+    
+xchat.hook_command('thread_test', doit)
+xchat.hook_command('thread_test2', doit2)
 
 #The hooks go here
 xchat.hook_print('Channel Message', on_text)
@@ -2503,7 +2743,7 @@ xchat.hook_command('manualadd_special', manual_torrent_add_special, help="Manual
 xchat.hook_command('test_line', announce_line_tester, help="This will test a line to see if it would be downloaded by your current settings in scc2.ini")
 xchat.hook_unload(unload_cb)
 #Now that we have everything loaded, start up our status updater thread
-xchat.hook_timer(1000, scriptStatusUpdater)
+#xchat.hook_timer(1000, scriptStatusUpdater)
 #load scc2.ini
 
 
