@@ -22,7 +22,7 @@
 #                                                                            #
 ##############################################################################
 __module_name__ = "SCCwatcher"
-__module_version__ = "2.1a3"
+__module_version__ = "2.1a4"
 __module_description__ = "SCCwatcher"
 
 import xchat
@@ -130,8 +130,6 @@ class server(threading.Thread):
         if self.connected is False:
             #Waiting for a self.connection, lets give it one
             quit_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            print self.address[0]
-            print self.port
             quit_socket.connect((self.address[0], self.port))
             #Reset quitting since it will be set true now
             self.quitting = True
@@ -161,6 +159,7 @@ class server(threading.Thread):
         try:
             self.main_socket.bind(self.address)
             portnum = self.main_socket.getsockname()[1]
+            self.port = portnum
             writePortNum(portnum)
             self.main_socket.listen(1)
         except:
