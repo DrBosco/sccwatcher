@@ -22,7 +22,7 @@
 #                                                                            #
 ##############################################################################
 __module_name__ = "SCCwatcher"
-__module_version__ = "2.1a2"
+__module_version__ = "2.1a3"
 __module_description__ = "SCCwatcher"
 
 import xchat
@@ -130,6 +130,8 @@ class server(threading.Thread):
         if self.connected is False:
             #Waiting for a self.connection, lets give it one
             quit_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            print self.address[0]
+            print self.port
             quit_socket.connect((self.address[0], self.port))
             #Reset quitting since it will be set true now
             self.quitting = True
@@ -204,25 +206,19 @@ class server(threading.Thread):
                     for data in data_split:
                         if len(data) == 0:
                             continue
-                        #Return script status to GUI
-                        if data == "GET_SCRIPT_STATUS":
-                            script_status = getCurrentStatus()
-                            returndata = cPickle.dumps(script_status)
-                            #We surround our data with special chars to make it easier to pick out of the jumble of keep-alives we will find in our recv buffer
-                            returndata = ":::" + str(returndata) + ";;;"
                             
                         #Execute cmds from GUI
                         elif data == "RELOAD_SCRIPT_SETTINGS":
-                            #returndata = "CONFIRM_CMD"
-                            sccwhelp(["", "reload"])
+                            reload_vars()
+                            returndata = getCurrentStatus()
                         
                         #Toggle autodl status
                         elif data == "TOGGLE_AUTODL":
-                            #returndata = "CONFIRM_CMD"
                             if option["global"]["service"] == "off":
                                 sccwhelp(["", "on"])
                             else:
                                 sccwhelp(["", "off"])
+                            returndata = getCurrentStatus()
                         
                         #Closing    
                         elif data == "CONNECTION_CLOSING":
@@ -230,8 +226,15 @@ class server(threading.Thread):
                             self.connected = False
                             continue
                         
+                        #Return script status to GUI
+                        if data == "GET_SCRIPT_STATUS":
+                            returndata = getCurrentStatus()
+                        
                         if returndata is not None:
-                            self.connection.send(returndata)
+                            preturndata = cPickle.dumps(returndata)
+                            #We surround our data with special chars to make it easier to pick out of the jumble of keep-alives we will find in our recv buffer
+                            preturndata = ":::" + str(preturndata) + ";;;"
+                            self.connection.send(preturndata)
                         
                 else:
                     self.connection.close()
@@ -685,9 +688,10 @@ def load_vars(rld=False):
         #Build the menus
         setupMenus(option["global"], rld)
         
-        #Start up coms server
-        server_thread = server()
-        server_thread.start()
+        #Start up coms server on first boot
+        if rld is False:
+            server_thread = server()
+            server_thread.start()
         
         return True
     else:
@@ -1234,7 +1238,7 @@ def on_text(word, word_eol, userdata):
                                 if counter > 0: break #Breaking out of cat search
                             else:
                                 if watch_specific_options["debug"] == "on":
-                                    DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Category match failed. Release category: " + str(matchedtext.group(2).lower())
+                                    DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Category match failed. Release category: " + color["dgrey"] + str(matchedtext.group(2).lower())
                                     verbose(DEBUG_MESSAGE)
                                     logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
                         if counter > 0:
@@ -2646,6 +2650,7 @@ def unload_cb(userdata):
         server_thread.join()
     except:
         pass
+    
     xchat.command('menu DEL SCCwatcher')
     #Only log script unload if logging is enabled
     if option["global"]["logenabled"] == "on":
@@ -2669,5 +2674,5 @@ if (__name__ == "__main__"):
     main()
 
 #LICENSE GPL
-#Last modified 07-03-16 (MM/DD/YY)
+#Last modified 07-04-16 (MM/DD/YY)
 
