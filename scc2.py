@@ -22,7 +22,7 @@
 #                                                                            #
 ##############################################################################
 __module_name__ = "SCCwatcher"
-__module_version__ = "2.1a4"
+__module_version__ = "2.1a5"
 __module_description__ = "SCCwatcher"
 
 import xchat
@@ -44,7 +44,6 @@ import cPickle
 from copy import deepcopy as DC
 from time import sleep
 from tempfile import gettempdir
-#from copy import deepcopy as DC
 
 
 #Set the timeout for all network operations here. This value is in seconds. Default is 20 seconds.
@@ -64,7 +63,7 @@ except:
 xchat.command('menu DEL SCCwatcher')
 extra_paths = "no"
 recent_list = []
-last5recent_list = {}
+last5recent_list = []
 dupelist = []
 full_xpath = ""
 option = {}
@@ -125,7 +124,7 @@ class server(threading.Thread):
     
     
     def quit_thread(self):
-        #First set our quitting var se we die asap
+        #First set our quitting var so we die asap
         self.quitting = True
         if self.connected is False:
             #Waiting for a self.connection, lets give it one
@@ -207,7 +206,7 @@ class server(threading.Thread):
                             continue
                             
                         #Execute cmds from GUI
-                        elif data == "RELOAD_SCRIPT_SETTINGS":
+                        if data == "RELOAD_SCRIPT_SETTINGS":
                             reload_vars()
                             returndata = getCurrentStatus()
                         
@@ -226,7 +225,7 @@ class server(threading.Thread):
                             continue
                         
                         #Return script status to GUI
-                        if data == "GET_SCRIPT_STATUS":
+                        elif data == "GET_SCRIPT_STATUS":
                             returndata = getCurrentStatus()
                         
                         if returndata is not None:
@@ -485,6 +484,8 @@ def setupMenus(global_option, rld=False):
     xchat.command('menu add "SCCwatcher/Reload scc2.ini" "sccwatcher rehash"')
     xchat.command('menu add "SCCwatcher/Re-Detect Network" "sccwatcher detectnetwork"')
     xchat.command('menu add SCCwatcher/-')
+    
+    
     xchat.command('menu add "SCCwatcher/Watchlist"')
     xchat.command('menu add "SCCwatcher/Watchlist/Print Watchlist" "sccwatcher watchlist"')
     xchat.command('menu add "SCCwatcher/Watchlist/-"')
@@ -492,7 +493,10 @@ def setupMenus(global_option, rld=False):
     
     xchat.command('menu add "SCCwatcher/Watchlist/Temporarily Remove Watch"')
     for x in global_option["watchlist"]:
-        xchat.command('menu add "SCCwatcher/Watchlist/Temporarily Remove Watch/%s"' % str(x))
+        #Underscores in GTK menus with mnemonics enabled need to be doubled to appear as underscores
+        x1 = x.replace("_", "__")
+        #Adding submenus to this menu, however, doens't require double underscores. Consistency much gtk/hexchat?
+        xchat.command('menu add "SCCwatcher/Watchlist/Temporarily Remove Watch/%s"' % str(x1))
         xchat.command('menu add "SCCwatcher/Watchlist/Temporarily Remove Watch/%s/Confirm Remove" "sccwatcher remwatch %s"' % (str(x), str(x)))
     
     
@@ -504,7 +508,9 @@ def setupMenus(global_option, rld=False):
     
     xchat.command('menu add "SCCwatcher/Avoidlist/Temporarily Remove Avoid"')
     for x in global_option["avoidlist"]:
-        xchat.command('menu add "SCCwatcher/Avoidlist/Temporarily Remove Avoid/%s"' % str(x))
+        #Underscores in GTK menus with mnemonics enabled need to be doubled to appear as underscores
+        x1 = x.replace("_", "__")
+        xchat.command('menu add "SCCwatcher/Avoidlist/Temporarily Remove Avoid/%s"' % str(x1))
         xchat.command('menu add "SCCwatcher/Avoidlist/Temporarily Remove Avoid/%s/Confirm Remove" "sccwatcher remavoid %s"' % (str(x), str(x)))
     
     
@@ -720,10 +726,6 @@ def starttimer(userdata):
             # I am running through a ZNC server myself and it didn't seem to effect things. But just in case this DOES fail on someone the backup will be just looking for #sceneaccess
             scc_context = xchat.find_context(server="irc.sceneaccess.org")
             if scc_context is None:
-                # If it's None we know either the connection hasnt been made to the server yet or there is a difference in someone's BNC config that obscures the actual server address.
-                scc_context = xchat.find_context(channel="#sceneaccess")
-            if scc_context is None:
-                # If it's STILL None then this user is also only joined to one channnel. Since this is an autodownloader we will assume this channel is the scc announce channel.
                 # This could possibly come back as a different server if they share the same channel names. This is just our last ditch maneuver to still use the designated output tab.
                 scc_context = xchat.find_context(channel="#announce")
             #Create the new tab if we have the right context object, if not we will report the error and not create the new tab
@@ -923,39 +925,29 @@ class dir_check:
             
 
 
-def update_recent(file, dldir, size, dduration):
+def update_recent(entry_name, dldir, size, dduration):
     global recent_list, last5recent_list
+    
+    #Remove the none entry if its there
+    xchat.command('menu DEL "SCCwatcher/Recent Grab List/Recent List/(none)')
+        
     entry_number = str(int(len(recent_list)) + 1)
     time_now = time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())
     
     sep = color["black"] + " - "
     
-    formatted = color["bpurple"] + entry_number + sep + color["dgrey"] + time_now + sep + color["bpurple"] + file + sep + color["dgrey"] + size + sep + color["bpurple"] + dduration+" Seconds" + sep + color["dgrey"] + os.path.normcase(dldir)
+    formatted = color["bpurple"] + entry_number + sep + color["dgrey"] + time_now + sep + color["bpurple"] + entry_name + sep + color["dgrey"] + size + sep + color["bpurple"] + dduration+" Seconds" + sep + color["dgrey"] + os.path.normcase(dldir)
     #recent list update
     recent_list.append(formatted)
-
+        
     #And heres where we update the menu items
-    #Check the size of the menu so far
-    menu_size = len(last5recent_list)
-    if menu_size == 0:
-        xchat.command('menu DEL "SCCwatcher/Recent Grab List/Recent List/(none)')
-        last5recent_list["1"] = file
-    
-    elif menu_size < 5:
-        entry = str(menu_size + 1)
-        last5recent_list[entry] = file
+    if len(last5recent_list) < 5:
+        last5recent_list.append(entry_name)
     else:
-        #Cut the first one, and move all others down. Then add the new one to the end.
-        xchat.command('menu DEL "SCCwatcher/Recent Grab List/Recent List/%s' % last5recent_list["1"])
-        del(last5recent_list["1"])
-        n = 1
-        while n < 5:
-            cnum = str(n+1)
-            enum = str(n)
-            last5recent_list[enum] = last5recent_list[cnum]
-            n += 1
-        last5recent_list["5"] = file
-    xchat.command('menu -e0 add "SCCwatcher/Recent Grab List/Recent List/%s" "echo"' % file)
+        #pop the first one, moving all others down. Then add the new one to the end.
+        xchat.command('menu DEL "SCCwatcher/Recent Grab List/Recent List/%s' % last5recent_list.pop(0))
+        last5recent_list.append(entry_name)
+    xchat.command('menu -e0 add "SCCwatcher/Recent Grab List/Recent List/%s" "echo"' % entry_name)
     
 
 
@@ -1515,75 +1507,112 @@ def update_ftp(details):
             print color["blue"] + "FTPdetails have been updated successfully. Please use 'ftpon' to reenable FTP uploading."
             option["global"]["ftpdetails"] = details
         else:
-            print color["red"]+"There is a problem with your ftp details, the proper format is: ftp://username:password@server:port/directory"
-    
+            print color["red"]+"There is a problem with your ftp details, the proper format is: " + color["dgrey"] + "ftp://username:password@server:port/directory"
+
+
+
 def add_avoid(item):
-    if item is not None:
-        print "Temporarily adding", color["bpurple"]+item,color["black"]+"to the avoidlist"
-        #Check if the list is empty
-        if len(string.join(option["global"]["avoidlist"], ' ')) > 0:
-            option["global"]["avoidlist"].append(item)
-        else:
-            option["global"]["avoidlist"] = [item]
+    if item is not None and len(item) > 0:
+        tmpitem = "Temp_Avoid-%s" % str(item)
+        print "Temporarily adding", color["bpurple"] + item, color["black"] + "to the global avoidlist"
+        #Add to both global avoidlist and avoidlist dict
+        option["global"]["avoidlist"].append(tmpitem)
+        option["avoidlist"][tmpitem] = {"avoid_filter": str(item), "avoid_regex": 0}
         #Add to the menu
-        xchat.command('menu add "SCCwatcher/Avoidlist/Temporarily Remove Avoid/%s"' % str(item))
-        xchat.command('menu add "SCCwatcher/Avoidlist/Temporarily Remove Avoid/%s/Confirm Remove" "sccwatcher remavoid %s"' % (str(item), str(item)))
+        xchat.command('menu add "SCCwatcher/Avoidlist/Temporarily Remove Avoid/%s"' % str(tmpitem.replace("_", "__")))
+        xchat.command('menu add "SCCwatcher/Avoidlist/Temporarily Remove Avoid/%s/Confirm Remove" "sccwatcher remavoid %s"' % (str(tmpitem), str(tmpitem)))
     else:
         print color["red"], "Invalid entry. Add cannot be empty"
 
 def remove_avoid(delitem):
-    if delitem is not None:
+    if delitem is not None and len(delitem) > 0:
         #make sure its in the avoidlist to begin with
         try:
             option["global"]["avoidlist"].index(delitem)
-            print "Temporarily removing", color["bpurple"]+delitem,color["black"]+"from the avoidlist"
+            option["avoidlist"][delitem]
+            print "Temporarily removing", color["bpurple"] + delitem, color["black"] + "from the global avoidlist"
             option["global"]["avoidlist"].remove(delitem)
-            #remove the menu item
-            xchat.command('menu DEL "SCCwatcher/Avoidlist/Temporarily Remove Avoid/%s/Confirm Remove"' % str(delitem))
-            xchat.command('menu DEL "SCCwatcher/Avoidlist/Temporarily Remove Avoid/%s"' % str(delitem))
-        except:
-            print color["bpurple"], delitem+color["red"], "was not found in the avoidlist"
+            del(option["avoidlist"][delitem])
+            #remove the menu item. We have to delete the entire menu and rebuild it as a workaround to the underscore issue mentioned in the remove_watch function.
+            
+            xchat.command('menu DEL "SCCwatcher/Avoidlist"')
+            xchat.command('menu -p15 add "SCCwatcher/Avoidlist"')
+            xchat.command('menu add "SCCwatcher/Avoidlist/Print Avoidlist" "sccwatcher avoidlist"')
+            xchat.command('menu add "SCCwatcher/Avoidlist/-"')
+            xchat.command('menu add "SCCwatcher/Avoidlist/Temporarily Add Avoid" "sccwatcher _guiaddavoid"')
+            
+            xchat.command('menu add "SCCwatcher/Avoidlist/Temporarily Remove Avoid"')
+            for x in option["global"]["avoidlist"]:
+                #Underscores in GTK menus with mnemonics enabled need to be doubled to appear as underscores
+                x1 = x.replace("_", "__")
+                xchat.command('menu add "SCCwatcher/Avoidlist/Temporarily Remove Avoid/%s"' % str(x1))
+                xchat.command('menu add "SCCwatcher/Avoidlist/Temporarily Remove Avoid/%s/Confirm Remove" "sccwatcher remavoid %s"' % (str(x), str(x)))
+                
+        except Exception as e:
+            print e
+            print color["bpurple"], delitem + color["red"], "was not found in the avoidlist"
     else:
         print color["red"], "Invalid entry. Are you sure you entered something?"
 
+
 def add_watch(item):
-    tmp_watch = re.match("(.*):(.*)", item)
-    if tmp_watch is not None:
-        print "Temporarily adding", color["bpurple"]+item,color["black"]+"to the watchlist"
-        #Check if the list is empty
-        if len(string.join(option["global"]["watchlist"], ' ')) > 0:
-            option["global"]["watchlist"].append(item)
+    if item is not None and len(item) > 0:
+        tmpitem = "Temp_Watch-%s" % str(item)
+        print "Temporarily adding", color["bpurple"] + item, color["black"] + "to the watchlist"
+        option["global"]["watchlist"].append(tmpitem)
+        
+        #Support v1-style adds with category
+        watch_with_category = re.match("(.*):(.*)", item)
+        if watch_with_category is not None:
+            watchdata = {"watch_filter": str(watch_with_category.group(1)), "watch_regex": 0, "watch_categories": watch_with_category.group(2)}
         else:
-            option["global"]["watchlist"] = [item]
+            watchdata = {"watch_filter": str(item), "watch_regex": 0}
+        option["watchlist"][tmpitem] = watchdata
         #Add to the menu
-        xchat.command('menu add "SCCwatcher/Watchlist/Temporarily Remove Watch/%s"' % str(item))
-        xchat.command('menu add "SCCwatcher/Watchlist/Temporarily Remove Watch/%s/Confirm Remove" "sccwatcher remwatch %s"' % (str(item), str(item)))
+        xchat.command('menu add "SCCwatcher/Watchlist/Temporarily Remove Watch/%s"' % str(tmpitem.replace("_", "__")))
+        xchat.command('menu add "SCCwatcher/Watchlist/Temporarily Remove Watch/%s/Confirm Remove" "sccwatcher remwatch %s"' % (str(tmpitem), str(tmpitem)))
     else:
-        print color["red"], "Invalid entry. Adds must be in the form of:"+color["dgrey"]+" name:category"
+        print color["red"], "Invalid entry. Add cannot be empty"
 
 def remove_watch(delitem):
-    del_watch = re.match("(.*):(.*)", delitem)
-    if del_watch is not None:
+    if delitem is not None and len(delitem) > 0:
         #make sure its even in the watchlist
         try:
             option["global"]["watchlist"].index(delitem)
-            print "Temporarily removing", color["bpurple"]+delitem,color["black"]+"from the watchlist"
+            option["watchlist"][delitem]
+            print "Temporarily removing", color["bpurple"] + delitem, color["black"] + "from the watchlist"
             option["global"]["watchlist"].remove(delitem)
+            del(option["watchlist"][delitem])
             
-            xchat.command('menu DEL "SCCwatcher/Watchlist/Temporarily Remove Watch/%s"' % str(delitem))
-            xchat.command('menu DEL "SCCwatcher/Watchlist/Temporarily Remove Watch/%s/Confirm Remove"' % str(delitem))
+            #Because of a bug/weirdness in hexchat, we can't directly remove menu entries with underscores.
+            #The workaround is to destroy the whole menu and rebuild it, not that big of a prob
+            xchat.command('menu DEL "SCCwatcher/Watchlist"')
+            #Rebuild it
+            xchat.command('menu -p14 add "SCCwatcher/Watchlist"')
+            xchat.command('menu add "SCCwatcher/Watchlist/Print Watchlist" "sccwatcher watchlist"')
+            xchat.command('menu add "SCCwatcher/Watchlist/-"')
+            xchat.command('menu add "SCCwatcher/Watchlist/Temporarily Add Watch" "sccwatcher _guiaddwatch"')
+            
+            xchat.command('menu add "SCCwatcher/Watchlist/Temporarily Remove Watch"')
+            for x in option["global"]["watchlist"]:
+                #Underscores in GTK menus with mnemonics enabled need to be doubled to appear as underscores
+                #Adding submenus to this menu, however, doens't require double underscores. Consistency much gtk/hexchat?
+                xchat.command('menu add "SCCwatcher/Watchlist/Temporarily Remove Watch/%s"' % str(x.replace("_", "__")))
+                xchat.command('menu add "SCCwatcher/Watchlist/Temporarily Remove Watch/%s/Confirm Remove" "sccwatcher remwatch %s"' % (str(x), str(x)))
+            
+            
         except:
-            print color["bpurple"], delitem+color["red"], "was not found in the watchlist"
+            print color["bpurple"], delitem + color["red"], "was not found in the watchlist"
     else:
-        print color["red"], "Invalid entry. Must be in the form of:"+color["dgrey"]+" name:category"
+        print color["red"], "Invalid entry. Are you sure you entered something?"
 
 
 #This decoder class was borrowed from:
 # http://buffis.com/2007/07/28/bittorrent-bencode-decoder-in-python-using-30-lines-of-code/
 #I take absolutely no credit for anything but copy and pasting that code here and adding the part in __init__ where it reads the provided file into self.data.
 class Decoder:
-    def __init__(self, file):
-        self.readme = open(file, 'rb')
+    def __init__(self, filen):
+        self.readme = open(filen, 'rb')
         self.data = self.readme.read()
         self.readme.close()
         self.ptr = 0
@@ -2242,15 +2271,13 @@ class do_cmd(threading.Thread):
 def on_local(word, word_eol, userdata):
     global option
     ftrigger = re.split(' ',word_eol[0])
-    try:
-        ftrigger[1] #make sure we have an argument
-        ftrigger[1][0] #Make sure that argument isnt just blank
-        #Before all text was being lower()'d but remwatch and remavoid are case sensitive, so this only turns the first arg to lower, leaving the other args intact
-        arg1 = ftrigger.pop(1).lower()
-        ftrigger.insert(1, arg1)
+    if len(ftrigger) > 1 and len(ftrigger[1]) > 0:
+        ftrigger[1] = ftrigger[1].lower()
         sccwhelp(ftrigger)
-    except:
+    else:
         print "No argument given, for help type: /sccwatcher help"
+    #Before all text was being lower()'d but remwatch and remavoid are case sensitive, so this only turns the first arg to lower, leaving the other args intact
+    
     return xchat.EAT_ALL
 
 def sccwhelp(trigger):
@@ -2288,7 +2315,10 @@ def sccwhelp(trigger):
         option["global"]["ftpenable"] = 'off'
     
     elif trigger[1] == 'updateftp':
-        update_ftp(trigger[2])
+        if len(trigger) > 2:
+            update_ftp(trigger[2])
+        else:
+            print color["bpurple"], "No FTP details supplied. See " + color["dgrey"], "/sccwatcher help updateftp"
     
     elif trigger[1] == 'ftpdetails':
         print color["bpurple"], "Current FTPdetails are: " + color["blue"] + option["global"]["ftpdetails"]
@@ -2311,16 +2341,20 @@ def sccwhelp(trigger):
         reload_vars()
 
     elif trigger[1] == 'addwatch':
-        add_watch(trigger[2])
+        args = " ".join(trigger[2:])
+        add_watch(args)
         
     elif trigger[1] == 'remwatch':
-        remove_watch(trigger[2])
+        args = " ".join(trigger[2:])
+        remove_watch(args)
 
     elif trigger[1] == 'addavoid':
-        add_avoid(trigger[2])
+        args = " ".join(trigger[2:])
+        add_avoid(args)
         
     elif trigger[1] == 'remavoid':
-        remove_avoid(trigger[2])
+        args = " ".join(trigger[2:])
+        remove_avoid(args)
     
     elif trigger[1] == 'recent':
         if len(recent_list) > 0:
@@ -2332,9 +2366,9 @@ def sccwhelp(trigger):
     elif trigger[1] == 'recentclear':
         #Clear the recent list menu
         for x in last5recent_list:
-            xchat.command('menu DEL "SCCwatcher/Recent Grab List/Recent List/%s' % last5recent_list[x])
+            xchat.command('menu DEL "SCCwatcher/Recent Grab List/Recent List/%s' % x)
         xchat.command('menu -e0 add "SCCwatcher/Recent Grab List/Recent List/(none)" "echo"')
-        last5recent_list = {}
+        last5recent_list = []
         recent_list = []
         
         print color["red"] + "Recent list cleared."
@@ -2663,9 +2697,7 @@ xchat.hook_command('manualadd', manual_torrent_add, help="Manually grab torrents
 xchat.hook_command('manualadd_special', manual_torrent_add_special, help="Manually grab torrents by pasting lines from #announce")
 xchat.hook_command('test_line', announce_line_tester, help="This will test a line to see if it would be downloaded by your current settings in scc2.ini")
 xchat.hook_unload(unload_cb)
-#Now that we have everything loaded, start up our status updater thread
-#xchat.hook_timer(1000, scriptStatusUpdater)
-#load scc2.ini
+
 
 
 # This gets the script movin
@@ -2673,5 +2705,5 @@ if (__name__ == "__main__"):
     main()
 
 #LICENSE GPL
-#Last modified 07-04-16 (MM/DD/YY)
+#Last modified 07-14-16 (MM/DD/YY)
 
