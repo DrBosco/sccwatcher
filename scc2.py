@@ -22,7 +22,7 @@
 #                                                                            #
 ##############################################################################
 __module_name__ = "SCCwatcher"
-__module_version__ = "2.1a5"
+__module_version__ = "2.1b1"
 __module_description__ = "SCCwatcher"
 
 import xchat
@@ -39,18 +39,17 @@ import smtplib
 import subprocess
 import platform
 import socket
+import select
 import cookielib
 import cPickle
 from copy import deepcopy as DC
-from time import sleep
 from tempfile import gettempdir
 
 
 #Set the timeout for all network operations here. This value is in seconds. Default is 20 seconds.
 socket.setdefaulttimeout(20)
 
-loadmsg = "\0034 "+__module_name__+" "+__module_version__+" has been loaded\003"
-print loadmsg
+
 #Remove our port file
 try:
     os.remove(gettempdir() + os.sep + "sccw_port.txt")
@@ -117,43 +116,44 @@ class server(threading.Thread):
         self.connected = False
         self.connection = None
         self.address = ("127.0.0.1", 0)
-        self.wait_time_recv = int(time.time()) - 5
-        self.wait_time_accept = int(time.time()) - 5
-        self.recv_tries = 0
+        self.shutdown_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.shutdown_socket.bind(("127.0.0.1", 0))
+        self.shutdown_port = self.shutdown_socket.getsockname()[1]
+        self.shutdown_socket.listen(1)
         super(server, self).__init__()
     
     
     def quit_thread(self):
-        #First set our quitting var so we die asap
         self.quitting = True
-        if self.connected is False:
-            #Waiting for a self.connection, lets give it one
-            quit_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            quit_socket.connect((self.address[0], self.port))
-            #Reset quitting since it will be set true now
-            self.quitting = True
-            quit_socket.close()
-        elif self.connected is True:
-            self.connection.send("CONNECTION_CLOSING")
+        shutdown_socket_sender = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            shutdown_socket_sender.connect(("127.0.0.1", self.shutdown_port))
+            shutdown_socket_sender.close()
+        except:
+            pass
+            
+
     
     def get_connection(self):
         #Connect loop
         while self.connected is False and self.quitting is False:
-            if int(time.time()) - self.wait_time_accept > 5:
-                self.wait_time_accept = int(time.time())
-                try:
-                    self.main_socket.settimeout(2)
-                    self.connection, addy = self.main_socket.accept()
-                    self.connected = True
-                    self.connection.setblocking(0) #Non-blocking so we can quit fast if necessary
-                except:
-                    continue
-            sleep(0.5)
+            try:
+                readable, _, _ = select.select([self.main_socket, self.shutdown_socket], [], [], 60)
+                for sock in readable:
+                    if sock == self.main_socket:
+                        self.connection, addy = sock.accept()
+                        self.connection.setblocking(0)
+                        self.connected = True
+                    elif sock == self.shutdown_socket:
+                        self.shutdown_socket.accept()
+                        self.shutdown_socket.close()
+                        self.quitting = True
+                    return
+            except:
+                continue
             
     def run(self):
-        if len(self.address) != 2:
-            return
-        
+        #Set up main socket, return if we run into probs
         self.main_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             self.main_socket.bind(self.address)
@@ -164,6 +164,9 @@ class server(threading.Thread):
         except:
             return
         
+        
+        
+        #While we arent being told to quit
         while self.quitting is False:
             if self.connected is False:
                 self.get_connection()
@@ -171,35 +174,26 @@ class server(threading.Thread):
             
             while self.connected is True and self.quitting is False:
                 rawdata = None
-                sleep(0.5) #500ms sleep time to give everyone some breathing room
-                if int(time.time()) - self.wait_time_recv > 0.5:
-                    if self.recv_tries > 20: #Consider our connection closed if after 10 seconds we still have no data
+                while rawdata is None and self.quitting is False and self.connected is True:
+                    try:
+                        readable, _, _ = select.select([self.connection, self.shutdown_socket], [], [self.connection], 60)
+                        for sock in readable:
+                            if sock == self.connection:
+                                rawdata = self.connection.recv(4096)
+                                continue
+                            elif sock == self.shutdown_port:
+                                self.shutdown_socket.accept()
+                                self.shutdown_socket.close()
+                                self.quitting = True
+                                continue
+                    except:
                         self.connection.close()
                         self.connected = False
-                        self.recv_tries = 0
                         continue
-                    try:
-                        rawdata = self.connection.recv(4096) #Receive at most 4096 bytes.
-                        self.recv_tries = 0
-                    except:
-                        self.recv_tries += 1 #Prevents runaways where the client has closed but we don't know and keep-alives dont figure it out (rare)
-                        #send keep-alive
-                        try:
-                            self.connection.send("KEEP-ALIVE")
-                        except:
-                            self.connection.close()
-                            self.connected = False
-                            continue
-                        self.wait_time_recv = int(time.time())
-                        continue
-                
-                if rawdata is None:
-                    continue
                 
                 #Got some data, do what was requested:
-                if len(rawdata) > 0:
+                if rawdata is not None and len(rawdata) > 0:
                     returndata = None
-                    
                     data_split = re.split(";;;", rawdata)
                     for data in data_split:
                         if len(data) == 0:
@@ -232,14 +226,19 @@ class server(threading.Thread):
                             preturndata = cPickle.dumps(returndata)
                             #We surround our data with special chars to make it easier to pick out of the jumble of keep-alives we will find in our recv buffer
                             preturndata = ":::" + str(preturndata) + ";;;"
-                            self.connection.send(preturndata)
+                            try:
+                                self.connection.send(preturndata)
+                            except:
+                                self.connected = False
+                                self.connection = None
+                                continue
                         
                 else:
                     self.connection.close()
                     self.connected = False
+                    continue
                 
-                sleep(0.2)
-                
+        #make sure everything has shut down
         try:
             self.connection.send("CONNECTION_CLOSING")
         except:
@@ -250,6 +249,10 @@ class server(threading.Thread):
             pass
         try:
             self.main_socket.close()
+        except:
+            pass
+        try:
+            self.shutdown_socket.close()
         except:
             pass
         
@@ -494,9 +497,8 @@ def setupMenus(global_option, rld=False):
     xchat.command('menu add "SCCwatcher/Watchlist/Temporarily Remove Watch"')
     for x in global_option["watchlist"]:
         #Underscores in GTK menus with mnemonics enabled need to be doubled to appear as underscores
-        x1 = x.replace("_", "__")
         #Adding submenus to this menu, however, doens't require double underscores. Consistency much gtk/hexchat?
-        xchat.command('menu add "SCCwatcher/Watchlist/Temporarily Remove Watch/%s"' % str(x1))
+        xchat.command('menu add "SCCwatcher/Watchlist/Temporarily Remove Watch/%s"' % str(x.replace("_", "__")))
         xchat.command('menu add "SCCwatcher/Watchlist/Temporarily Remove Watch/%s/Confirm Remove" "sccwatcher remwatch %s"' % (str(x), str(x)))
     
     
@@ -509,8 +511,7 @@ def setupMenus(global_option, rld=False):
     xchat.command('menu add "SCCwatcher/Avoidlist/Temporarily Remove Avoid"')
     for x in global_option["avoidlist"]:
         #Underscores in GTK menus with mnemonics enabled need to be doubled to appear as underscores
-        x1 = x.replace("_", "__")
-        xchat.command('menu add "SCCwatcher/Avoidlist/Temporarily Remove Avoid/%s"' % str(x1))
+        xchat.command('menu add "SCCwatcher/Avoidlist/Temporarily Remove Avoid/%s"' % str(x.replace("_", "__")))
         xchat.command('menu add "SCCwatcher/Avoidlist/Temporarily Remove Avoid/%s/Confirm Remove" "sccwatcher remavoid %s"' % (str(x), str(x)))
     
     
@@ -542,7 +543,11 @@ def setupMenus(global_option, rld=False):
             xchat.command('menu -e0 -t1 add "SCCwatcher/Verbose Output Settings/Using Non-Default Output?" "echo"')
         else:
             xchat.command('menu -e0 -t0 add "SCCwatcher/Verbose Output Settings/Using Non-Default Output?" "echo"')
-    
+        
+        #Rebuild the recent list menu
+        for entry_name in recent_list[-5:]:        
+            xchat.command('menu -e0 add "SCCwatcher/Recent Grab List/Recent List/%s" "echo"' % entry_name)
+        
     else:
         #Some stuff that only happens on first load.
         global_option["_extra_context_"] = "off"
@@ -569,15 +574,14 @@ def load_vars(rld=False):
     if loadSettingsFile(os.path.join(xchatdir,"scc2.ini")) is not False:
         
         if len(option["global"]["passkey"]) < 32: #Passkeys are 32 chars long
-            print color["red"]+"There is a problem with your passkey, it seems to be invalid. Please double check your the passkey you entered is correct and try again. Disabling autodownloading..."
-            print color["red"]+"If this problem persists, it may be a bug. Please contact TRB about the issue for a fix."
+            verbose(color["red"]+"There is a problem with your passkey, it seems to be invalid. Please double check your the passkey you entered is correct and try again. Disabling autodownloading...")
             option["global"]["service"] = "off"
             return False
         
         if option["global"]["ftpenable"] == 'on' and option["global"].has_key("ftpdetails") is True:
             detailscheck = re.match("ftp:\/\/(.*):(.*)@(.*):([^\/]*.)/(.*)", option["global"]["ftpdetails"])
             if detailscheck is None:
-                print color["red"]+"There is a problem with your ftp details, please double check scc2.ini and make sure you have entered them properly. Temporarily disabling FTP uploading, you can reenable it by using /sccwatcher ftpon"
+                verbose(color["red"]+"There is a problem with your ftp details, please double check scc2.ini and make sure you have entered them properly. Temporarily disabling FTP uploading, you can reenable it by using /sccwatcher ftpon")
                 option["global"]["ftpenable"] = 'off'
                 xchat.command('menu -t0 add "SCCwatcher/FTP Uploading" "sccwatcher ftpon" "sccwatcher ftpoff"')
         
@@ -681,10 +685,10 @@ def load_vars(rld=False):
                     verbose(OHNOEZ)
                     logging(xchat.strip(OHNOEZ), "WRITE_ERROR")
             
-            print color["dgreen"], "SCCwatcher scc2.ini reloaded successfully!"
+            verbose(color["dgreen"]+"SCCwatcher scc2.ini reloaded successfully!")
             
         else:
-            print color["dgreen"], "SCCwatcher scc2.ini Load Success, detecting the network details, the script will be ready in", option["global"]["startdelay"], "seconds "
+            verbose(color["dgreen"]+"SCCwatcher scc2.ini Load Success, detecting the network details, the script will be ready in " + str(option["global"]["startdelay"]) + " seconds ")
             #Only log script load if logging is enabled
             if option["global"]["logenabled"] == "on":
                 loadmsg = "\0034 "+__module_name__+" "+__module_version__+" has been loaded\003"
@@ -700,7 +704,7 @@ def load_vars(rld=False):
         
         return True
     else:
-        print color["red"], "There was an error while reading your config. The GlobalSettings group couldn't be located within your scc2.ini. Please recheck your config. Autodownloading is disabled."
+        verbose(color["red"]+"There was an error while reading your config. The GlobalSettings group couldn't be located within your scc2.ini. Please recheck your config. Autodownloading is disabled.")
         return False
     
 #detectet the network only 30seconds after the start
@@ -750,7 +754,7 @@ def starttimer(userdata):
     else:
         option["global"]["service"] = 'notdetected'
         xchat.command('menu -t0 add "SCCwatcher/Enable Autograbbing" "sccwatcher on" "sccwatcher off"')
-        print color["red"], "Could not detect the correct network! Autodownloading has been disabled. Make sure you have joined #announce channel and then do /sccwatcher detectnetwork"
+        verbose(color["red"] + "Could not detect the correct network! Autodownloading has been disabled. Make sure you have joined #announce channel and then do /sccwatcher detectnetwork")
 
 
 starttimerhook = None
@@ -761,14 +765,14 @@ def main():
         starttimerhook = xchat.hook_timer(sdelay, starttimer)
     else:
         #Still build the menus just to make it look good, and so the user can load a good config when ready
-        print color["red"] + "SCCwatcher encountered an error while loading your scc2.ini. Please double check your ini and then do /sccwatcher reload"
+        verbose(color["red"] + "SCCwatcher encountered an error while loading your scc2.ini. Please double check your ini and then do /sccwatcher reload")
         setupMenus(option["global"], False)
     
     
 def verbose(text):
     global option
     #Make sure verbose is enabled:
-    if option["global"]["verbose"] == 'on':
+    if option.has_key("global") is True and option["global"]["verbose"] == 'on':
         #Check if the user wants the script to beep when it prints
         if option["global"].has_key("printalert") and option["global"]["printalert"] == "on":
             text = "\007" + text
@@ -1408,7 +1412,7 @@ def return_bytes_from_sizedetail(sizedetail):
         return (0)
     sizedetail_reg = re.search("([0-9]{1,6}(?:\.[0-9]{1,2})?)(?:(.*)(M|m|K|k|G|g)B?)?(.*)", sizedetail)
     if sizedetail_reg is None:
-        print color["dgrey"] + str(sizedetail) + color["red"] + " is not a valid entry for sizelimit. Valid examples: 150K, 150M, 150G. Ignoring set size limit."
+        verbose(color["dgrey"] + str(sizedetail) + color["red"] + " is not a valid entry for sizelimit. Valid examples: 150K, 150M, 150G. Ignoring set size limit.")
         return(0)
     nicesize = str(sizedetail_reg.group(3)).lower()
     
@@ -1430,91 +1434,91 @@ def return_bytes_from_sizedetail(sizedetail):
 def more_help(command):
     command = command.lower()
     if command == 'help':
-        print color["bpurple"], "Help: " + color["blue"] + "Displays all of the currently accepted commands. Can also provide additional help on individual commands: "+color["dgrey"]+"/sccwatcher help <command>"
+        verbose(color["bpurple"] + "Help: " + color["blue"] + "Displays all of the currently accepted commands. Can also provide additional help on individual commands: "+color["dgrey"]+"/sccwatcher help <command>")
     elif command == 'loud':
-        print color["bpurple"], "Loud: " + color["blue"] + "Turns verbose output on."
+        verbose(color["bpurple"] + "Loud: " + color["blue"] + "Turns verbose output on.")
     elif command == 'quiet':
-        print color["bpurple"], "Quiet: " + color["blue"] + "Turns verbose output off"
+        verbose(color["bpurple"] + "Quiet: " + color["blue"] + "Turns verbose output off")
     elif command == 'rehash':
-        print color["bpurple"], "Rehash : " + color["blue"] + "Reloads settings from scc2.ini. "+color["red"]+"WARNING:"+color["blue"]+" All temporary adds will be lost upon doing this."
+        verbose(color["bpurple"] + "Rehash : " + color["blue"] + "Reloads settings from scc2.ini. "+color["red"]+"WARNING:"+color["blue"]+" All temporary adds will be lost upon doing this.")
     elif command == 'addwatch':
-        print color["bpurple"], "Addwatch: " + color["blue"] + "Temporarily adds an item to the watchlist. This add will be lost if the rehash command is used or scc.py is reloaded. Adds must be in the form of"+color["dgrey"]+" /sccwatcher addwatch name:category"
+        verbose(color["bpurple"] + "Addwatch: " + color["blue"] + "Temporarily adds an item to the watchlist. This add will be lost if the rehash command is used or scc.py is reloaded. Adds must be in the form of"+color["dgrey"]+" /sccwatcher addwatch name:category")
     elif command == 'status':
-        print color["bpurple"], "Status: " + color["blue"] + "Displays important settings and their current values."
+        verbose(color["bpurple"] + "Status: " + color["blue"] + "Displays important settings and their current values.")
     elif command == 'watchlist':
-        print color["bpurple"], "Watchlist: " + color["blue"] + "Displays the current watchlist (including adds)"
+        verbose(color["bpurple"] + "Watchlist: " + color["blue"] + "Displays the current watchlist (including adds)")
     elif command == 'avoidlist':
-        print color["bpurple"], "Avoidlist: " + color["blue"] + "Displays the current avoidlist"
+        verbose(color["bpurple"] + "Avoidlist: " + color["blue"] + "Displays the current avoidlist")
     elif command == 'on':
-        print color["bpurple"], "On: " + color["blue"] + "Enables auto downloading."
+        verbose(color["bpurple"] + "On: " + color["blue"] + "Enables auto downloading.")
     elif command == 'off':
-        print color["bpurple"], "Off: " + color["blue"] + "Disables auto downloading."
+        verbose(color["bpurple"] + "Off: " + color["blue"] + "Disables auto downloading.")
     elif command == 'addavoid':
-        print color["bpurple"], "Addavoid: " + color["blue"] + "Temporarily adds an item to the avoidlist. This add will be lost if the rehash command is used or scc.py is reloaded. Adds must be in the form of"+color["dgrey"]+" /sccwatcher addavoid <word>"
+        verbose(color["bpurple"] + "Addavoid: " + color["blue"] + "Temporarily adds an item to the avoidlist. This add will be lost if the rehash command is used or scc.py is reloaded. Adds must be in the form of"+color["dgrey"]+" /sccwatcher addavoid <word>")
     elif command == 'remwatch':
-        print color["bpurple"], "Remwatch: " + color["blue"] + "Temporarily remove a watch from watchlist. Must be in the form of : "+color["dgrey"]+" /sccwatcher remwatch name:category"
+        verbose(color["bpurple"] + "Remwatch: " + color["blue"] + "Temporarily remove a watch from watchlist. Must be in the form of : "+color["dgrey"]+" /sccwatcher remwatch name:category")
     elif command == 'remavoid':
-        print color["bpurple"], "Remavoid: " + color["blue"] + "Temporarily remove an entry from avoidlist. Must be in the form of : "+color["dgrey"]+" /sccwatcher remavoid <word>"
+        verbose(color["bpurple"] + "Remavoid: " + color["blue"] + "Temporarily remove an entry from avoidlist. Must be in the form of : "+color["dgrey"]+" /sccwatcher remavoid <word>")
     elif command == 'ftpon':
-        print color["bpurple"], "Ftpon: " + color["blue"] + "Enables FTP uploading"
+        verbose(color["bpurple"] + "Ftpon: " + color["blue"] + "Enables FTP uploading")
     elif command == 'ftpoff':
-        print color["bpurple"], "Ftpoff: " + color["blue"] + "Disables FTP upload"
+        verbose(color["bpurple"] + "Ftpoff: " + color["blue"] + "Disables FTP upload")
     elif command == 'updateftp':
-        print color["bpurple"], "Updateftp: " + color["blue"] + "Allows you to update your ftpdetails, must be in the format of:"+color["dgrey"]+" ftp://user:password@server:port/directory "
+        verbose(color["bpurple"] + "Updateftp: " + color["blue"] + "Allows you to update your ftpdetails, must be in the format of:"+color["dgrey"]+" ftp://user:password@server:port/directory ")
     elif command == 'detectnetwork':
-        print color["bpurple"], "Detectnetwork: " + color["blue"] + "Re-detects the network settings, incase when SCCwatcher couldn't detect them when it first loaded."
+        verbose(color["bpurple"] + "Detectnetwork: " + color["blue"] + "Re-detects the network settings, incase when SCCwatcher couldn't detect them when it first loaded.")
     elif command == 'ftpdetails':
-        print color["bpurple"], "ftpdetails: " + color["blue"] + "Displays your current FTPdetails"
+        verbose(color["bpurple"] + "ftpdetails: " + color["blue"] + "Displays your current FTPdetails")
     elif command == 'logon':
-        print color["bpurple"], "logon: " + color["blue"] + "Enables logging to file."
+        verbose(color["bpurple"] + "logon: " + color["blue"] + "Enables logging to file.")
     elif command == 'logoff':
-        print color["bpurple"], "logoff: " + color["blue"] + "Disables logging to file."
+        verbose(color["bpurple"] + "logoff: " + color["blue"] + "Disables logging to file.")
     elif command == 'recent':
-        print color["bpurple"], "recent: " + color["blue"] + "Shows a list of recently grabbed torrents. The list can be cleared with"+color["dgrey"]+" recentclear"
+        verbose(color["bpurple"] + "recent: " + color["blue"] + "Shows a list of recently grabbed torrents. The list can be cleared with"+color["dgrey"]+" recentclear")
     elif command == 'recentclear':
-        print color["bpurple"], "recentclear: " + color["blue"] + "Clears the list of recent torrent downloads"
+        verbose(color["bpurple"] + "recentclear: " + color["blue"] + "Clears the list of recent torrent downloads")
     elif command == 'emailon':
-        print color["bpurple"], "emailon: " + color["blue"] + "Turns the emailing function on. Use 'emailoff' to turn it off"
+        verbose(color["bpurple"] + "emailon: " + color["blue"] + "Turns the emailing function on. Use 'emailoff' to turn it off")
     elif command == 'emailoff':
-        print color["bpurple"], "emailoff: " + color["blue"] + "Turns the emailing function off. Use 'emailon' to turn it on"
+        verbose(color["bpurple"] + "emailoff: " + color["blue"] + "Turns the emailing function off. Use 'emailon' to turn it on")
     elif command == 'setoutput':
-        print color["bpurple"], "setoutput: " + color["blue"] + "This command has been depreciated. You can now use anytab, thistab, or scctab."
+        verbose(color["bpurple"] + "setoutput: " + color["blue"] + "This command has been depreciated. You can now use anytab, thistab, or scctab.")
     elif command == 'deloutput':
-        print color["bpurple"], "deloutput: " + color["blue"] + "This command has been depreciated. You can now use anytab to reset the verbose output back to default."
+        verbose(color["bpurple"] + "deloutput: " + color["blue"] + "This command has been depreciated. You can now use anytab to reset the verbose output back to default.")
     elif command == 'anytab':
-        print color["bpurple"], "anytab: " + color["blue"] + "Changes the verbose output to be any currently active tab at the time of printing."
+        verbose(color["bpurple"] + "anytab: " + color["blue"] + "Changes the verbose output to be any currently active tab at the time of printing.")
     elif command == 'thistab':
-        print color["bpurple"], "thistab: " + color["blue"] + "Changes the verbose output to be the tab this command was used in. This will not change unless you use the anytab command."
+        verbose(color["bpurple"] + "thistab: " + color["blue"] + "Changes the verbose output to be the tab this command was used in. This will not change unless you use the anytab command.")
     elif command == 'scctab':
-        print color["bpurple"], "scctab: " + color["blue"] + "Creates a tab named SCCwatcher and directs all verbose output to it. This will not change unless you use the anytab command, or close the SCCwatcher tab."
+        verbose(color["bpurple"] + "scctab: " + color["blue"] + "Creates a tab named SCCwatcher and directs all verbose output to it. This will not change unless you use the anytab command, or close the SCCwatcher tab.")
     elif command == 'sslon':
-        print color["bpurple"], "sslon: " + color["blue"] + "This command will enable SSL downloading, which will download all torrents over an encrypted HTTPS connection. This may increase the amount of time it takes to grab a torrent."
+        verbose(color["bpurple"] + "sslon: " + color["blue"] + "This command will enable SSL downloading, which will download all torrents over an encrypted HTTPS connection. This may increase the amount of time it takes to grab a torrent.")
     elif command == 'ssloff':
-        print color["bpurple"], "ssloff: " + color["blue"] + "This command disables the SSL downloading feature, forcing SCCwatcher to download all torrents using an unencrypted HTTP connection."
+        verbose(color["bpurple"] + "ssloff: " + color["blue"] + "This command disables the SSL downloading feature, forcing SCCwatcher to download all torrents using an unencrypted HTTP connection.")
     elif command == 'cmdon':
-        print color["bpurple"], "cmdon: " + color["blue"] + "This will enable the execution of a specified external command, as configured in scc2.ini."
+        verbose(color["bpurple"] + "cmdon: " + color["blue"] + "This will enable the execution of a specified external command, as configured in scc2.ini.")
     elif command == 'cmdoff':
-        print color["bpurple"], "cmdoff: " + color["blue"] + "This will disable the execution of a specified external command."
+        verbose(color["bpurple"] + "cmdoff: " + color["blue"] + "This will disable the execution of a specified external command.")
     elif command == 'manualadd':
-        print color["bpurple"], "manualadd: " + color["blue"] + "This command allows you to manually download a torrent by pasting its announcement text (the entire line, start to finish) from #announce. SCCwatcher will then download and upload/save the torrent according to the way your configuration is set."
+        verbose(color["bpurple"] + "manualadd: " + color["blue"] + "This command allows you to manually download a torrent by pasting its announcement text (the entire line, start to finish) from #announce. SCCwatcher will then download and upload/save the torrent according to the way your configuration is set.")
     else:
-        print color["red"], "Unknown command, "+color["black"]+command
+        verbose(color["red"] + "Unknown command, " + color["black"] + command)
 
 def update_ftp(details):
     if details is not None:
         detailscheck = re.match("ftp:\/\/(.*):(.*)@(.*):([^\/]*.)/(.*)", details)
         if detailscheck is not None:
-            print color["blue"] + "FTPdetails have been updated successfully. Please use 'ftpon' to reenable FTP uploading."
+            verbose(color["blue"] + "FTPdetails have been updated successfully. Please use 'ftpon' to reenable FTP uploading.")
             option["global"]["ftpdetails"] = details
         else:
-            print color["red"]+"There is a problem with your ftp details, the proper format is: " + color["dgrey"] + "ftp://username:password@server:port/directory"
+            verbose(color["red"]+"There is a problem with your ftp details, the proper format is: " + color["dgrey"] + "ftp://username:password@server:port/directory")
 
 
 
 def add_avoid(item):
     if item is not None and len(item) > 0:
         tmpitem = "Temp_Avoid-%s" % str(item)
-        print "Temporarily adding", color["bpurple"] + item, color["black"] + "to the global avoidlist"
+        verbose("Temporarily adding " + color["bpurple"] + item + color["black"] + " to the global avoidlist")
         #Add to both global avoidlist and avoidlist dict
         option["global"]["avoidlist"].append(tmpitem)
         option["avoidlist"][tmpitem] = {"avoid_filter": str(item), "avoid_regex": 0}
@@ -1522,7 +1526,7 @@ def add_avoid(item):
         xchat.command('menu add "SCCwatcher/Avoidlist/Temporarily Remove Avoid/%s"' % str(tmpitem.replace("_", "__")))
         xchat.command('menu add "SCCwatcher/Avoidlist/Temporarily Remove Avoid/%s/Confirm Remove" "sccwatcher remavoid %s"' % (str(tmpitem), str(tmpitem)))
     else:
-        print color["red"], "Invalid entry. Add cannot be empty"
+        verbose(color["red"] + "Invalid entry. Add cannot be empty")
 
 def remove_avoid(delitem):
     if delitem is not None and len(delitem) > 0:
@@ -1530,7 +1534,7 @@ def remove_avoid(delitem):
         try:
             option["global"]["avoidlist"].index(delitem)
             option["avoidlist"][delitem]
-            print "Temporarily removing", color["bpurple"] + delitem, color["black"] + "from the global avoidlist"
+            verbose("Temporarily removing " + color["bpurple"] + delitem + color["black"] + " from the global avoidlist")
             option["global"]["avoidlist"].remove(delitem)
             del(option["avoidlist"][delitem])
             #remove the menu item. We have to delete the entire menu and rebuild it as a workaround to the underscore issue mentioned in the remove_watch function.
@@ -1544,21 +1548,19 @@ def remove_avoid(delitem):
             xchat.command('menu add "SCCwatcher/Avoidlist/Temporarily Remove Avoid"')
             for x in option["global"]["avoidlist"]:
                 #Underscores in GTK menus with mnemonics enabled need to be doubled to appear as underscores
-                x1 = x.replace("_", "__")
-                xchat.command('menu add "SCCwatcher/Avoidlist/Temporarily Remove Avoid/%s"' % str(x1))
+                xchat.command('menu add "SCCwatcher/Avoidlist/Temporarily Remove Avoid/%s"' % str(x.replace("_", "__")))
                 xchat.command('menu add "SCCwatcher/Avoidlist/Temporarily Remove Avoid/%s/Confirm Remove" "sccwatcher remavoid %s"' % (str(x), str(x)))
                 
-        except Exception as e:
-            print e
-            print color["bpurple"], delitem + color["red"], "was not found in the avoidlist"
+        except:
+            verbose(color["bpurple"] + delitem + color["red"] + " was not found in the avoidlist")
     else:
-        print color["red"], "Invalid entry. Are you sure you entered something?"
+        verbose(color["red"] + "Invalid entry. Are you sure you entered something?")
 
 
 def add_watch(item):
     if item is not None and len(item) > 0:
         tmpitem = "Temp_Watch-%s" % str(item)
-        print "Temporarily adding", color["bpurple"] + item, color["black"] + "to the watchlist"
+        verbose("Temporarily adding" + color["bpurple"] + item + color["black"] + " to the watchlist")
         option["global"]["watchlist"].append(tmpitem)
         
         #Support v1-style adds with category
@@ -1572,7 +1574,7 @@ def add_watch(item):
         xchat.command('menu add "SCCwatcher/Watchlist/Temporarily Remove Watch/%s"' % str(tmpitem.replace("_", "__")))
         xchat.command('menu add "SCCwatcher/Watchlist/Temporarily Remove Watch/%s/Confirm Remove" "sccwatcher remwatch %s"' % (str(tmpitem), str(tmpitem)))
     else:
-        print color["red"], "Invalid entry. Add cannot be empty"
+        verbose(color["red"] + "Invalid entry. Add cannot be empty")
 
 def remove_watch(delitem):
     if delitem is not None and len(delitem) > 0:
@@ -1580,7 +1582,7 @@ def remove_watch(delitem):
         try:
             option["global"]["watchlist"].index(delitem)
             option["watchlist"][delitem]
-            print "Temporarily removing", color["bpurple"] + delitem, color["black"] + "from the watchlist"
+            verbose("Temporarily removing " + color["bpurple"] + delitem + color["black"] + " from the watchlist")
             option["global"]["watchlist"].remove(delitem)
             del(option["watchlist"][delitem])
             
@@ -1602,9 +1604,9 @@ def remove_watch(delitem):
             
             
         except:
-            print color["bpurple"], delitem + color["red"], "was not found in the watchlist"
+            verbose(color["bpurple"] + delitem + color["red"] + " was not found in the watchlist")
     else:
-        print color["red"], "Invalid entry. Are you sure you entered something?"
+        verbose(color["red"] + "Invalid entry. Are you sure you entered something?")
 
 
 #This decoder class was borrowed from:
@@ -1950,7 +1952,7 @@ class upload(threading.Thread):
                 self.upload_finish(thread_data.start_time2, thread_data.ftpdetails)
             
         else:
-            print color["red"]+"There is a problem with your ftp details, please double check scc2.ini and make sure you have entered them properly. Temporarily disabling FTP uploading, you can reenable it by using /sccwatcher ftpon"
+            verbose(color["red"]+"There is a problem with your ftp details, please double check scc2.ini and make sure you have entered them properly. Temporarily disabling FTP uploading, you can reenable it by using /sccwatcher ftpon")
             option["global"]["ftpenable"] = 'off'
             xchat.command('menu -t0 add "SCCwatcher/FTP Uploading" "sccwatcher ftpon" "sccwatcher ftpoff"')
         if option["global"]["smtp_emailer"] == "on":
@@ -1984,7 +1986,6 @@ class webui_upload(threading.Thread):
         threading.Thread.__init__(self)    
         
     def run(self):
-        print self.specific_options["debug"]
         if self.specific_options["debug"] == "on":
             DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: uTorrent WebUI upload operation has started."
             verbose(DEBUG_MESSAGE)
@@ -2275,7 +2276,7 @@ def on_local(word, word_eol, userdata):
         ftrigger[1] = ftrigger[1].lower()
         sccwhelp(ftrigger)
     else:
-        print "No argument given, for help type: /sccwatcher help"
+        verbose("No argument given, for help type: /sccwatcher help")
     #Before all text was being lower()'d but remwatch and remavoid are case sensitive, so this only turns the first arg to lower, leaving the other args intact
     
     return xchat.EAT_ALL
@@ -2295,22 +2296,22 @@ def sccwhelp(trigger):
             trigger[2]
             more_help(trigger[2])
         except:
-            print color["blue"], "Current accepted commands are: "
-            print color["dgrey"], "Help, Loud, Quiet, Rehash, Addwatch, Addavoid, Remwatch, Remavoid, Status, Watchlist, Avoidlist, On, Off, ftpon, ftpoff, updateftp, ftpdetails, logon, logoff, recent, recentclear, detectnetwork, emailon, emailoff, anytab, thistab, sccab, sslon, ssloff, cmdon, cmdoff, manualadd" 
-            print color["blue"], "To see info on individual commands use: "+color["bpurple"]+"/sccwatcher help <command>"
+            verbose(color["blue"] + "Current accepted commands are: ")
+            verbose(color["dgrey"] + "Help, Loud, Quiet, Rehash, Addwatch, Addavoid, Remwatch, Remavoid, Status, Watchlist, Avoidlist, On, Off, ftpon, ftpoff, updateftp, ftpdetails, logon, logoff, recent, recentclear, detectnetwork, emailon, emailoff, anytab, thistab, sccab, sslon, ssloff, cmdon, cmdoff, manualadd" )
+            verbose(color["blue"] + "To see info on individual commands use: "+color["bpurple"]+"/sccwatcher help <command>")
             
     elif trigger[1] == 'ftpon':
         ftpdetails = re.match("ftp:\/\/(.*):(.*)@(.*):([^\/]*.)/(.*)", option["global"]["ftpdetails"])
         if ftpdetails is not None:
-            print color["blue"]+"FTP Uploading is now enabled, use 'ftpoff' to turn it back off"
+            verbose(color["blue"]+"FTP Uploading is now enabled, use 'ftpoff' to turn it back off")
             option["global"]["ftpenable"] = 'on'
             xchat.command('menu -t1 add "SCCwatcher/FTP Uploading" "sccwatcher ftpon" "sccwatcher ftpoff"')
         else:
             xchat.command('menu -t0 add "SCCwatcher/FTP Uploading" "sccwatcher ftpon" "sccwatcher ftpoff"')
-            print color["red"]+"There is a problem with your ftp details, please double check scc2.ini and make sure you have entered them properly. You can also you 'updateftp' to update the FTP details"
+            verbose(color["red"]+"There is a problem with your ftp details, please double check scc2.ini and make sure you have entered them properly. You can also you 'updateftp' to update the FTP details")
     
     elif trigger[1] == 'ftpoff':
-        print color["blue"]+"FTP Uploading is now disabled, use 'ftpon' to turn it back on"
+        verbose(color["blue"]+"FTP Uploading is now disabled, use 'ftpon' to turn it back on")
         xchat.command('menu -t0 add "SCCwatcher/FTP Uploading" "sccwatcher ftpon" "sccwatcher ftpoff"')
         option["global"]["ftpenable"] = 'off'
     
@@ -2318,26 +2319,26 @@ def sccwhelp(trigger):
         if len(trigger) > 2:
             update_ftp(trigger[2])
         else:
-            print color["bpurple"], "No FTP details supplied. See " + color["dgrey"], "/sccwatcher help updateftp"
+            verbose(color["bpurple"] + "No FTP details supplied. See " + color["dgrey"] + "/sccwatcher help updateftp")
     
     elif trigger[1] == 'ftpdetails':
-        print color["bpurple"], "Current FTPdetails are: " + color["blue"] + option["global"]["ftpdetails"]
+        verbose(color["bpurple"] + "Current FTPdetails are: " + color["blue"] + option["global"]["ftpdetails"])
     
     elif trigger[1] == 'detectnetwork':
         starttimer(0)
     
     elif trigger[1] == 'loud':
-        print color["blue"]+"Verbose output turned on, use 'quiet' to turn it back off"
+        verbose(color["blue"]+"Verbose output turned on, use 'quiet' to turn it back off")
         option["global"]["verbose"] = 'on'
         xchat.command('menu -t1 add "SCCwatcher/Verbose Output" "sccwatcher loud" "sccwatcher quiet"')
 
     elif trigger[1] == 'quiet':
-        print color["blue"]+"Verbose output turned off, use 'loud' to turn it back on"
+        verbose(color["blue"]+"Verbose output turned off, use 'loud' to turn it back on")
         option["global"]["verbose"] = 'off'
         xchat.command('menu -t0 add "SCCwatcher/Verbose Output" "sccwatcher loud" "sccwatcher quiet"')
 
     elif trigger[1] == 'rehash' or trigger[1] == "reload":
-        print color["blue"], "Reloading scc2.ini...."
+        verbose(color["blue"] + "Reloading scc2.ini....")
         reload_vars()
 
     elif trigger[1] == 'addwatch':
@@ -2359,9 +2360,9 @@ def sccwhelp(trigger):
     elif trigger[1] == 'recent':
         if len(recent_list) > 0:
             for item in recent_list:
-                print item
+                verbose(item)
         else:
-            print color["red"] + "No items in recent list."
+            verbose(color["red"] + "No items in recent list.")
         
     elif trigger[1] == 'recentclear':
         #Clear the recent list menu
@@ -2371,32 +2372,32 @@ def sccwhelp(trigger):
         last5recent_list = []
         recent_list = []
         
-        print color["red"] + "Recent list cleared."
+        verbose(color["red"] + "Recent list cleared.")
     
     elif trigger[1] == 'logon':
-        print color["blue"]+"Logging to file is now turned on, use 'logoff' to turn it back off"
+        verbose(color["blue"]+"Logging to file is now turned on, use 'logoff' to turn it back off")
         option["global"]["logenabled"] = 'on'
         xchat.command('menu -t1 add "SCCwatcher/Logging to File" "sccwatcher logon" "sccwatcher logoff"')
     
     elif trigger[1] == 'logoff':
-        print color["blue"]+"Logging to file is now turned off, use 'logon' to turn it back on"
+        verbose(color["blue"]+"Logging to file is now turned off, use 'logon' to turn it back on")
         option["global"]["logenabled"] = 'off'
         xchat.command('menu -t0 add "SCCwatcher/Logging to File" "sccwatcher logon" "sccwatcher logoff"')
 
     elif trigger[1] == 'status':
-        print color["bpurple"], "SCCwatcher version " +color["blue"] + __module_version__
+        verbose(color["bpurple"] + "SCCwatcher version " +color["blue"] + __module_version__)
         if option["global"]["debug"] == "on":
-            print color["bpurple"], "Debug output is: " + color["blue"] + option["global"]["debug"]
-        print color["bpurple"], "Auto downloading is: " + color["blue"] + option["global"]["service"]
-        print color["bpurple"], "SSL downloading is: " + color["blue"] + option["global"]["download_ssl"]
+            verbose(color["bpurple"] + "Debug output is: " + color["blue"] + option["global"]["debug"])
+        verbose(color["bpurple"] + "Auto downloading is: " + color["blue"] + option["global"]["service"])
+        verbose(color["bpurple"] + "SSL downloading is: " + color["blue"] + option["global"]["download_ssl"])
         if option["global"].has_key("cfbypass_cookiefile") and len(option["global"]["cfbypass_cookiefile"]) > 2 and option["global"].has_key("cfbypass_useragent") and len(option["global"]["cfbypass_useragent"]) > 5:
-            print color["bpurple"], "Cloudflare workaround is " + color["blue"] + "Enabled"
+            verbose(color["bpurple"] + "Cloudflare workaround is " + color["blue"] + "Enabled")
         else:
-            print color["bpurple"], "Cloudflare workaround is " + color["blue"] + "Disabled"
+            verbose(color["bpurple"] + "Cloudflare workaround is " + color["blue"] + "Disabled")
         
-        print color["bpurple"], "Maximum redownload tries is : " + color["blue"] + option["global"]["max_dl_tries"]
-        print color["bpurple"], "Delay (in seconds) between download retry is: " + color["blue"] + option["global"]["retry_wait"]
-        print color["bpurple"], "Dupechecking is: " + color["blue"] + option["global"]["dupecheck"]
+        verbose(color["bpurple"] + "Maximum redownload tries is : " + color["blue"] + option["global"]["max_dl_tries"])
+        verbose(color["bpurple"] + "Delay (in seconds) between download retry is: " + color["blue"] + option["global"]["retry_wait"])
+        verbose(color["bpurple"] + "Dupechecking is: " + color["blue"] + option["global"]["dupecheck"])
         
         #Shorthand to make the code cleaner
         ul = option["global"]["upper_sizelimit"] # Upper Limit
@@ -2406,89 +2407,89 @@ def sccwhelp(trigger):
         if ll is None or ll == "" or ll == 0 or len(ll) < 2:
                 ll = "No Lower Limit"
         
-        print color["bpurple"], "Torrent size limit (lower): " + color["blue"] + ll
-        print color["bpurple"], "Torrent size limit (upper): " + color["blue"] + ul
+        verbose(color["bpurple"] + "Torrent size limit (lower): " + color["blue"] + ll)
+        verbose(color["bpurple"] + "Torrent size limit (upper): " + color["blue"] + ul)
         
-        print color["bpurple"], "Recent list size: " + color["blue"] + str(len(recent_list)) + color["bpurple"] + " items."
-        print color["bpurple"], "Start delay is set to:" + color["blue"],option["global"]["startdelay"]+ " seconds"
-        print color["bpurple"], "Verbose output is: " + color["blue"] + option["global"]["verbose"]
-        print color["bpurple"], "Using custom tab for verbose output is: " + color["blue"] + option["global"]["_extra_context_"]
-        print color["bpurple"], "Logging to file is: " + color["blue"] + option["global"]["logenabled"]
-        print color["bpurple"], "Uploading to ftp is: " + color["blue"] + option["global"]["ftpenable"]
+        verbose(color["bpurple"] + "Recent list size: " + color["blue"] + str(len(recent_list)) + color["bpurple"] + " items.")
+        verbose(color["bpurple"] + "Start delay is set to:" + color["blue"] + option["global"]["startdelay"]+ " seconds")
+        verbose(color["bpurple"] + "Verbose output is: " + color["blue"] + option["global"]["verbose"])
+        verbose(color["bpurple"] + "Using custom tab for verbose output is: " + color["blue"] + option["global"]["_extra_context_"])
+        verbose(color["bpurple"] + "Logging to file is: " + color["blue"] + option["global"]["logenabled"])
+        verbose(color["bpurple"] + "Uploading to ftp is: " + color["blue"] + option["global"]["ftpenable"])
         
         if int(option["global"]["utorrent_mode"]) == 0: ut_mode = "Disabled"
         elif int(option["global"]["utorrent_mode"]) == 1: ut_mode = "Normal DL and WebUI Upload"
         elif int(option["global"]["utorrent_mode"]) == 2: ut_mode = "WebUI Uploading Only"
         else: ut_mode = "Disabled"
-        print color["bpurple"], "uTorrent WebUI Mode: " + color["blue"] + ut_mode
-        print color["bpurple"], "Savepath is set to: " + color["blue"] + option["global"]["savepath"]
-        print color["bpurple"], "Logpath is set to: " + color["blue"] + option["global"]["logpath"]
-        print color["bpurple"], "Emailing is set to: " + color["blue"] + option["global"]["smtp_emailer"]
+        verbose(color["bpurple"] + "uTorrent WebUI Mode: " + color["blue"] + ut_mode)
+        verbose(color["bpurple"] + "Savepath is set to: " + color["blue"] + option["global"]["savepath"])
+        verbose(color["bpurple"] + "Logpath is set to: " + color["blue"] + option["global"]["logpath"])
+        verbose(color["bpurple"] + "Emailing is set to: " + color["blue"] + option["global"]["smtp_emailer"])
         if option["global"]["smtp_emailer"] == "on":
-            print color["bpurple"], "Email server is: " + color["blue"] + str(option["global"]["smtp_server"]) + ":" + option["global"]["smtp_port"]
-            print color["bpurple"], "Email TLS is set to: " + color["blue"] + str(option["global"]["smtp_tls"])
+            verbose(color["bpurple"] + "Email server is: " + color["blue"] + str(option["global"]["smtp_server"]) + ":" + option["global"]["smtp_port"])
+            verbose(color["bpurple"] + "Email TLS is set to: " + color["blue"] + str(option["global"]["smtp_tls"]))
         if option["global"]["use_external_command"] == "on":
-            print color["bpurple"], "External command is: " + color["blue"] + option["global"]["use_external_command"].strip()
+            verbose(color["bpurple"] + "External command is: " + color["blue"] + option["global"]["use_external_command"].strip())
         else:
-            print color["bpurple"], "External command is: " + color["blue"] + "Off"
+            verbose(color["bpurple"] + "External command is: " + color["blue"] + "Off")
             
         
-        print color["lblue"], "Current watchlist: " + color["dgreen"] + str(option["global"]["watchlist"])
-        print color["lblue"], "Current avoidlist: " + color["dred"] + str(option["global"]["avoidlist"])
+        verbose(color["lblue"] + "Current watchlist: " + color["dgreen"] + str(option["global"]["watchlist"]))
+        verbose(color["lblue"] + "Current avoidlist: " + color["dred"] + str(option["global"]["avoidlist"]))
         
         
     elif trigger[1] == 'watchlist':
-        print color["lblue"] + "Current watchlist: " + color["dgreen"] + str(option["global"]["watchlist"])
+        verbose(color["lblue"] + "Current watchlist: " + color["dgreen"] + str(option["global"]["watchlist"]))
         
     elif trigger[1] == 'avoidlist':
-        print color["lblue"] + "Current avoidlist: " + color["dred"] + str(option["global"]["avoidlist"])
+        verbose(color["lblue"] + "Current avoidlist: " + color["dred"] + str(option["global"]["avoidlist"]))
     
     elif trigger[1] == 'off':
         option["global"]["service"] = 'off'
         xchat.command('menu -t0 add "SCCwatcher/Enable Autograbbing" "sccwatcher on" "sccwatcher off"')
-        print color["red"], "Autodownloading has been turned off"
+        verbose(color["red"] + "Autodownloading has been turned off")
 
     elif trigger[1] == 'on':
         if option["global"]["service"] == 'notdetected':
             xchat.command('menu -t0 add "SCCwatcher/Enable Autograbbing" "sccwatcher on" "sccwatcher off"')
-            print color["red"] + "Didn't detected the correct network infos! Autodownloading is disabled. Make sure you have joined #announce channel and then redetect the network through the SCCwatcher toolbar menu."      
+            verbose(color["red"] + "Didn't detected the correct network infos! Autodownloading is disabled. Make sure you have joined #announce channel and then redetect the network through the SCCwatcher toolbar menu.")
         else:
             if len(option["global"]["passkey"]) == 32:
                 if xchat.find_context(channel='#announce') is not None:
                         option["global"]["service"] = 'on'
                         xchat.command('menu -t1 add "SCCwatcher/Enable Autograbbing" "sccwatcher on" "sccwatcher off"')
-                        print color["dgreen"] + "Autodownloading has been turned on"
+                        verbose(color["dgreen"] + "Autodownloading has been turned on")
                 else:
                         option["global"]["service"] = 'off'
-                        print color["red"] + "Didn't detected the correct network infos! Autodownloading is disabled. Make sure you have joined #announce channel and then redetect the network through the SCCwatcher toolbar menu."      
+                        verbose(color["red"] + "Didn't detected the correct network infos! Autodownloading is disabled. Make sure you have joined #announce channel and then redetect the network through the SCCwatcher toolbar menu.")
                         xchat.command('menu -t0 add "SCCwatcher/Enable Autograbbing" "sccwatcher on" "sccwatcher off"')
             else:
                 option["global"]["service"] = 'off'
-                print color["red"] + "Your passkey is incomplete, please double check it and try again."
+                verbose(color["red"] + "Your passkey is incomplete, please double check it and try again.")
                 xchat.command('menu -t0 add "SCCwatcher/Enable Autograbbing" "sccwatcher on" "sccwatcher off"')
     
     elif trigger[1] == 'emailoff':
         option["global"]["smtp_emailer"] = 'off'
         xchat.command('menu -t0 add "SCCwatcher/E-Mail On Grab" "sccwatcher emailon" "sccwatcher emailoff"')
-        print color["red"], "Emailing has been turned off, use 'emailon' to turn it back on"
+        verbose(color["red"] + "Emailing has been turned off, use 'emailon' to turn it back on")
     
     elif trigger[1] == 'emailon':
         option["global"]["smtp_emailer"] = 'on'
         xchat.command('menu -t1 add "SCCwatcher/E-Mail On Grab" "sccwatcher emailon" "sccwatcher emailoff"')
-        print color["red"], "Emailing has been turned on, use 'emailoff' to turn it back off"
+        verbose(color["red"] + "Emailing has been turned on, use 'emailoff' to turn it back off")
     
     elif trigger[1] == 'sslon':
         option["global"]["download_ssl"] = 'on'
         xchat.command('menu -t1 add "SCCwatcher/SSL Downloading" "sccwatcher sslon" "sccwatcher ssloff"')
-        print color["red"], "SSL downloading is now enabled, use 'ssloff' to disable it."
+        verbose(color["red"] + "SSL downloading is now enabled, use 'ssloff' to disable it.")
         
     elif trigger[1] == 'ssloff':
         option["global"]["download_ssl"] = 'off'
         xchat.command('menu -t0 add "SCCwatcher/SSL Downloading" "sccwatcher sslon" "sccwatcher ssloff"')
-        print color["red"], "SSL downloading is now disabled, use 'sslon' to enable it."
+        verbose(color["red"] + "SSL downloading is now disabled, use 'sslon' to enable it.")
     
     elif trigger[1] == "setoutput":
-        print color["red"] + "This command has been depreciated. You can now use anytab, thistab, or scctab. The deloutput command has also been removed in favor of anytab."
+        verbose(color["red"] + "This command has been depreciated. You can now use anytab, thistab, or scctab. The deloutput command has also been removed in favor of anytab.")
     
     elif trigger[1] == "thistab":
         #Use extra context
@@ -2517,11 +2518,11 @@ def sccwhelp(trigger):
     elif trigger[1] == "anytab":
         option["global"]["_extra_context_"] = "off"
         option["global"]["_current_context_type_"] = "ANYTAB"
-        print color["red"] + "SCCwatcher will now output all text to whichever tab is active at the time of printing."
+        verbose(color["red"] + "SCCwatcher will now output all text to whichever tab is active at the time of printing.")
         xchat.command('menu -e0 -t0 add "SCCwatcher/Verbose Output Settings/Using Non-Default Output?" "echo"')
     
     elif trigger[1] == 'deloutput':
-        print color["red"] + "This command has been depreciated. You can now use anytab to reset the verbose output to default."
+        verbose(color["red"] + "This command has been depreciated. You can now use anytab to reset the verbose output to default.")
     
     #These commands below are internal commands the menu uses.
     elif trigger[1] == "_guiaddwatch":
@@ -2540,17 +2541,17 @@ def sccwhelp(trigger):
         
     elif trigger[1] == "cmdon":
         option["global"]["use_external_command"] = "on"
-        print color["red"], "External Command Execution has been enabled, use cmdoff to turn it off."
+        verbose(color["red"] + "External Command Execution has been enabled, use cmdoff to turn it off.")
         xchat.command('menu -t1 add "SCCwatcher/Use External Command" "sccwatcher cmdon" "sccwatcher cmdoff"')
     
     elif trigger[1] == "cmdoff":
         option["global"]["use_external_command"] = "off"
-        print color["red"], "External Command Execution has been disabled, use cmdoff to turn it on."
+        verbose(color["red"] + "External Command Execution has been disabled, use cmdoff to turn it on.")
         xchat.command('menu -t0 add "SCCwatcher/Use External Command" "sccwatcher cmdon" "sccwatcher cmdoff"')
     
     else:
-        print color["red"], "Unknown command, " + color["black"] + trigger[1]
-        print color["red"], "For help type: /sccwatcher help"
+        verbose(color["red"] + "Unknown command, " + color["black"] + trigger[1])
+        verbose(color["red"] + "For help type: /sccwatcher help")
 
 def manual_torrent_add(word, word_eol, userdata):
     #All we are doing is sending the input data directly to on_text. The only thing we do first is make sure the entered data actually works, that way we can inform the user if it's incorrect.
@@ -2673,7 +2674,7 @@ def unload_cb(userdata):
         os.remove(gettempdir() + os.sep + "sccw_port.txt")
     except:
         pass
-    print quitmsg
+    verbose(quitmsg)
     
     try:
         server_thread.quit_thread()
@@ -2698,12 +2699,13 @@ xchat.hook_command('manualadd_special', manual_torrent_add_special, help="Manual
 xchat.hook_command('test_line', announce_line_tester, help="This will test a line to see if it would be downloaded by your current settings in scc2.ini")
 xchat.hook_unload(unload_cb)
 
-
+#Load message
+verbose("\0034 "+__module_name__+" "+__module_version__+" has been loaded\003")
 
 # This gets the script movin
 if (__name__ == "__main__"):
     main()
 
 #LICENSE GPL
-#Last modified 07-14-16 (MM/DD/YY)
+#Last modified 08-20-16 (MM/DD/YY)
 
