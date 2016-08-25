@@ -22,7 +22,7 @@
 #                                                                            #
 ##############################################################################
 __module_name__ = "SCCwatcher"
-__module_version__ = "2.1b1"
+__module_version__ = "2.1b2"
 __module_description__ = "SCCwatcher"
 
 import xchat
@@ -118,6 +118,8 @@ class server(threading.Thread):
         self.address = ("127.0.0.1", 0)
         self.shutdown_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.shutdown_socket.bind(("127.0.0.1", 0))
+        # Would use a pipe instead of a socket for local-only connections but the
+        # select() function in windows only supports sockets and not file descriptors.
         self.shutdown_port = self.shutdown_socket.getsockname()[1]
         self.shutdown_socket.listen(1)
         super(server, self).__init__()
@@ -142,7 +144,7 @@ class server(threading.Thread):
                 for sock in readable:
                     if sock == self.main_socket:
                         self.connection, addy = sock.accept()
-                        self.connection.setblocking(0)
+                        self.connection.setblocking(1)
                         self.connected = True
                     elif sock == self.shutdown_socket:
                         self.shutdown_socket.accept()
@@ -157,9 +159,8 @@ class server(threading.Thread):
         self.main_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             self.main_socket.bind(self.address)
-            portnum = self.main_socket.getsockname()[1]
-            self.port = portnum
-            writePortNum(portnum)
+            self.port = self.main_socket.getsockname()[1]
+            writePortNum(self.port)
             self.main_socket.listen(1)
         except:
             return
@@ -173,13 +174,13 @@ class server(threading.Thread):
                 continue
             
             while self.connected is True and self.quitting is False:
-                rawdata = None
-                while rawdata is None and self.quitting is False and self.connected is True:
+                data = None
+                while data is None and self.quitting is False and self.connected is True:
                     try:
-                        readable, _, _ = select.select([self.connection, self.shutdown_socket], [], [self.connection], 60)
+                        readable, _, _ = select.select([self.connection, self.shutdown_socket], [], [], 60)
                         for sock in readable:
                             if sock == self.connection:
-                                rawdata = self.connection.recv(4096)
+                                data = self.connection.recv(4096)
                                 continue
                             elif sock == self.shutdown_port:
                                 self.shutdown_socket.accept()
@@ -192,16 +193,11 @@ class server(threading.Thread):
                         continue
                 
                 #Got some data, do what was requested:
-                if rawdata is not None and len(rawdata) > 0:
-                    returndata = None
-                    data_split = re.split(";;;", rawdata)
-                    for data in data_split:
-                        if len(data) == 0:
-                            continue
-                            
+                if data is not None and len(data) > 0:
                         #Execute cmds from GUI
                         if data == "RELOAD_SCRIPT_SETTINGS":
-                            reload_vars()
+                            #Attempt to fix random crashes. This runs the command in the main thread instead of in our thread.
+                            xchat.hook_timer(1, reload_vars, "TEST")
                             returndata = getCurrentStatus()
                         
                         #Toggle autodl status
@@ -224,8 +220,6 @@ class server(threading.Thread):
                         
                         if returndata is not None:
                             preturndata = cPickle.dumps(returndata)
-                            #We surround our data with special chars to make it easier to pick out of the jumble of keep-alives we will find in our recv buffer
-                            preturndata = ":::" + str(preturndata) + ";;;"
                             try:
                                 self.connection.send(preturndata)
                             except:
@@ -423,7 +417,7 @@ def loadSettingsFile(file_location):
         return False
 
 
-def reload_vars():
+def reload_vars(userdata=None):
     load_vars(rld=True)
     
     
@@ -545,8 +539,10 @@ def setupMenus(global_option, rld=False):
             xchat.command('menu -e0 -t0 add "SCCwatcher/Verbose Output Settings/Using Non-Default Output?" "echo"')
         
         #Rebuild the recent list menu
-        for entry_name in recent_list[-5:]:        
-            xchat.command('menu -e0 add "SCCwatcher/Recent Grab List/Recent List/%s" "echo"' % entry_name)
+        if len(last5recent_list) > 0:
+            xchat.command('menu DEL "SCCwatcher/Recent Grab List/Recent List/(none)')
+            for entry_name in last5recent_list:        
+                xchat.command('menu -e0 add "SCCwatcher/Recent Grab List/Recent List/%s" "echo"' % entry_name)
         
     else:
         #Some stuff that only happens on first load.
@@ -804,6 +800,10 @@ def verbose(text):
         else:
             currloc = xchat.find_context()
             currloc.prnt(text)
+    else:
+        #Repeating stuff is cool
+        currloc = xchat.find_context()
+        currloc.prnt(text)
     
 def logging(text, operation):
     #Check if logging has been enabled
@@ -2668,7 +2668,7 @@ def announce_line_tester(word, word_eol, userdata):
 
 def unload_cb(userdata):
     global server_thread
-    quitmsg = "\0034 "+__module_name__+" "+__module_version__+" has been unloaded\003"
+    quitmsg = "\0034"+__module_name__+" "+__module_version__+" has been unloaded\003"
     #Remove our status file
     try:
         os.remove(gettempdir() + os.sep + "sccw_port.txt")
@@ -2700,12 +2700,12 @@ xchat.hook_command('test_line', announce_line_tester, help="This will test a lin
 xchat.hook_unload(unload_cb)
 
 #Load message
-verbose("\0034 "+__module_name__+" "+__module_version__+" has been loaded\003")
+verbose("\0034"+__module_name__+" "+__module_version__+" has been loaded\003")
 
 # This gets the script movin
 if (__name__ == "__main__"):
     main()
 
 #LICENSE GPL
-#Last modified 08-20-16 (MM/DD/YY)
+#Last modified 08-24-16 (MM/DD/YY)
 
