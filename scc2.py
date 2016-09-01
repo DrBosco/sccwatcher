@@ -22,7 +22,7 @@
 #                                                                            #
 ##############################################################################
 __module_name__ = "SCCwatcher"
-__module_version__ = "2.1b2"
+__module_version__ = "2.1"
 __module_description__ = "SCCwatcher"
 
 import xchat
@@ -55,8 +55,6 @@ try:
     os.remove(gettempdir() + os.sep + "sccw_port.txt")
 except:
     pass
-
-    
 
 #the globals go here
 xchat.command('menu DEL SCCwatcher')
@@ -197,7 +195,7 @@ class server(threading.Thread):
                         #Execute cmds from GUI
                         if data == "RELOAD_SCRIPT_SETTINGS":
                             #Attempt to fix random crashes. This runs the command in the main thread instead of in our thread.
-                            xchat.hook_timer(1, reload_vars, "TEST")
+                            xchat.hook_timer(1, reload_vars)
                             returndata = getCurrentStatus()
                         
                         #Toggle autodl status
@@ -267,11 +265,8 @@ def loadSettingsFile(file_location):
     option["global"]["watchlist"] = []
     option["global"]["avoidlist"] = []
     
-    #These are the defaults here. I thought laying them out flat, while taking up more lines, would make it easier to understand the defaults.
-    #Compared to a one-liner that is, and nobody wants those. So here are all of the default general settings. Some are blank while some are set.
-    #Zeros are off, Two's are on, and One's are half-ticked boxes (only uTorrent mode does this)
-    #We set service by default here to off because we by default don't have a passkey. This just prevents any weird problems associated with running
-    #without customizing the config. Really the program should detect no passkey and not do anything.
+    #These are the defaults
+    #For checkboxes, Zeros are off, Two's are on, and One's are half-ticked boxes (only uTorrent mode does this)
     option["global"]["service"] = "0"
     option["global"]["verbose"] = "2"
     option["global"]["verbose_tab"] = ""
@@ -538,11 +533,7 @@ def setupMenus(global_option, rld=False):
         else:
             xchat.command('menu -e0 -t0 add "SCCwatcher/Verbose Output Settings/Using Non-Default Output?" "echo"')
         
-        #Rebuild the recent list menu
-        if len(last5recent_list) > 0:
-            xchat.command('menu DEL "SCCwatcher/Recent Grab List/Recent List/(none)')
-            for entry_name in last5recent_list:        
-                xchat.command('menu -e0 add "SCCwatcher/Recent Grab List/Recent List/%s" "echo"' % entry_name)
+        rebuild_recent_menu()
         
     else:
         #Some stuff that only happens on first load.
@@ -813,7 +804,7 @@ def logging(text, operation):
         if logdir_is_available is False:
             os.mkdir(option["global"]["logpath"])
         
-        fullpath = option["global"]["logpath"] + os.sep +  "sccwatcher.log"
+        fullpath = os.path.join(option["global"]["logpath"], "sccwatcher.log")
         current_time = time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())
         text = current_time+" - "+operation+":"+text+"\n"
         scclog = open(fullpath, 'a')
@@ -929,6 +920,21 @@ class dir_check:
             
 
 
+def rebuild_recent_menu(entry_name=None):
+    #Tear down and rebuild menu
+    xchat.command('menu DEL "SCCwatcher/Recent Grab List/Recent List"')
+    xchat.command('menu -p1 add "SCCwatcher/Recent Grab List/Recent List"')
+    xchat.command('menu -e0 add "SCCwatcher/Recent Grab List/Recent List/Last 5 Grabs" "echo"')
+    xchat.command('menu add "SCCwatcher/Recent Grab List/Recent List/-')
+    xchat.command('menu -e0 add "SCCwatcher/Recent Grab List/Recent List/(none)" "echo"')
+    
+    #Rebuild the recent list menu
+    if len(last5recent_list) > 0:
+        xchat.command('menu DEL "SCCwatcher/Recent Grab List/Recent List/(none)')
+        for entry_name in last5recent_list:        
+            xchat.command('menu -e0 -p2 add "SCCwatcher/Recent Grab List/Recent List/%s" "echo"' % str(entry_name).replace("_", "__"))
+    
+
 def update_recent(entry_name, dldir, size, dduration):
     global recent_list, last5recent_list
     
@@ -943,15 +949,13 @@ def update_recent(entry_name, dldir, size, dduration):
     formatted = color["bpurple"] + entry_number + sep + color["dgrey"] + time_now + sep + color["bpurple"] + entry_name + sep + color["dgrey"] + size + sep + color["bpurple"] + dduration+" Seconds" + sep + color["dgrey"] + os.path.normcase(dldir)
     #recent list update
     recent_list.append(formatted)
-        
+    
     #And heres where we update the menu items
-    if len(last5recent_list) < 5:
-        last5recent_list.append(entry_name)
-    else:
-        #pop the first one, moving all others down. Then add the new one to the end.
-        xchat.command('menu DEL "SCCwatcher/Recent Grab List/Recent List/%s' % last5recent_list.pop(0))
-        last5recent_list.append(entry_name)
-    xchat.command('menu -e0 add "SCCwatcher/Recent Grab List/Recent List/%s" "echo"' % entry_name)
+    if len(last5recent_list) > 4:
+        last5recent_list.pop(0)
+    last5recent_list.append(entry_name)
+    rebuild_recent_menu()
+    
     
 
 
@@ -1097,14 +1101,6 @@ def on_text(word, word_eol, userdata):
                     
                     #Now the fun part, we have to match against the new scc2.ini
                     check_filter = watch_data["watch_filter"]
-
-#Remove these for super debug mode. Too annoying even for normal users.                    
-#                    if watch_specific_options["debug"] == "on":
-#                            DEBUG_MESSAGE = color["bpurple"]+"DEBUG_OUTPUT: Checking watchlist entry: " + color["dgrey"] + str(watch_entry)
-#                            verbose(DEBUG_MESSAGE)
-#                            logging(xchat.strip(DEBUG_MESSAGE), "DEBUG_OUTPUT")
-                    
-                    
                     #Generate an up-to-date representation of the default settings. These will then be overriden by watch-specific options.
                     #We do this so that if a watch entry has no options but the basics it won't fail.
                     watch_specific_defaults = {}
@@ -1118,6 +1114,13 @@ def on_text(word, word_eol, userdata):
                     watch_specific_defaults["use_ftp_upload"] = option["global"]["ftpenable"]
                     watch_specific_defaults["use_emailer"] = option["global"]["smtp_emailer"]
                     watch_specific_options = DC(watch_data)
+                    #Fix wrong entry in sizelimit by allowing global data to replace it
+                    if watch_specific_options.has_key("lower_sizelimit"):
+                        if len(watch_specific_options["lower_sizelimit"]) == 0 or re.search("([0-9]{1,6}(?:\.[0-9]{1,2})?)(?:(?:.*)(M|m|K|k|G|g)B?)?(?:.*)", watch_specific_options["lower_sizelimit"]) is None:
+                            del(watch_specific_options["lower_sizelimit"])
+                    if watch_specific_options.has_key("upper_sizelimit"):
+                        if len(watch_specific_options["upper_sizelimit"]) == 0 or re.search("([0-9]{1,6}(?:\.[0-9]{1,2})?)(?:(?:.*)(M|m|K|k|G|g)B?)?(?:.*)", watch_specific_options["upper_sizelimit"]) is None:
+                            del(watch_specific_options["upper_sizelimit"])
                     #Fill in any options the watch was missing using defaults, then global options
                     for key, value in watch_specific_defaults.iteritems():
                         if watch_specific_options.has_key(key) is False:
@@ -1410,11 +1413,11 @@ def return_bytes_from_sizedetail(sizedetail):
     multi = 1
     if sizedetail == "" or sizedetail is None or len(sizedetail) < 2:
         return (0)
-    sizedetail_reg = re.search("([0-9]{1,6}(?:\.[0-9]{1,2})?)(?:(.*)(M|m|K|k|G|g)B?)?(.*)", sizedetail)
+    sizedetail_reg = re.search("([0-9]{1,6}(?:\.[0-9]{1,2})?)(?:(?:.*)(M|m|K|k|G|g)B?)?(?:.*)", sizedetail)
     if sizedetail_reg is None:
         verbose(color["dgrey"] + str(sizedetail) + color["red"] + " is not a valid entry for sizelimit. Valid examples: 150K, 150M, 150G. Ignoring set size limit.")
         return(0)
-    nicesize = str(sizedetail_reg.group(3)).lower()
+    nicesize = str(sizedetail_reg.group(2)).lower()
     
     if nicesize == "":
         multi=1
@@ -2366,11 +2369,9 @@ def sccwhelp(trigger):
         
     elif trigger[1] == 'recentclear':
         #Clear the recent list menu
-        for x in last5recent_list:
-            xchat.command('menu DEL "SCCwatcher/Recent Grab List/Recent List/%s' % x)
-        xchat.command('menu -e0 add "SCCwatcher/Recent Grab List/Recent List/(none)" "echo"')
         last5recent_list = []
         recent_list = []
+        rebuild_recent_menu()
         
         verbose(color["red"] + "Recent list cleared.")
     
@@ -2707,5 +2708,5 @@ if (__name__ == "__main__"):
     main()
 
 #LICENSE GPL
-#Last modified 08-24-16 (MM/DD/YY)
+#Last modified 08-31-16 (MM/DD/YY)
 
