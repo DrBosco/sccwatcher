@@ -1,3 +1,22 @@
+Updated to 2.1
+
+Changes:
+
+Script:
+# Switched to using sockets instead of a temp file for GUI<->Script communication. This now allows the GUI to issue commands to reload the scc2.ini or enable/disable autodownloading. There may be more commands in the future if someone requests it.
+# Now using context-aware hexchat.prnt() instead of normal prints. This means almost all text output will be put in either the specified verbose-output tab or the currently selected tab if a custom tab is not in-use.
+# Omitted, invalid, or empty watch-specific sizelimit options now default to global values instead of no limit. To specify no limit use a zero.
+# Recent grabs menu is now ordered from newest to oldest.
+# Recent menu now properly supports torrents with underscores in their name.
+
+GUI:
+# Added Undo/Redo system. Any change you make inside the GUI can now be undone or redone at will.
+# Added script control section to General tab. Now you can reload the script settings, enable/disable autodownloading, or load the current scc2.ini into SCCwatcher-GUI for editing, all with the click of a button. This effectively means you don't need to switch to hexchat to manage the SCCwatcher script anymore.
+# Updated script<->GUI communication to use sockets instead of a file. This has all sorts of positive benefits but the most noticeable will be faster updates between something changing in the script and that change being reflected in the GUI.
+# Not packing with UPX anymore. This will make the binaries a bit larger but will speed up launch times and prevent false-positives in antivirus scanners.
+
+----------------------------------
+
 Updated to 2.0
 Completely new config system with new features!
 
