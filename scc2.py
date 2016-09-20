@@ -22,7 +22,7 @@
 #                                                                            #
 ##############################################################################
 __module_name__ = "SCCwatcher"
-__module_version__ = "2.1"
+__module_version__ = "2.11"
 __module_description__ = "SCCwatcher"
 
 import xchat
@@ -58,11 +58,11 @@ except:
 
 #the globals go here
 xchat.command('menu DEL SCCwatcher')
-extra_paths = "no"
+extra_paths = "no" #Get rid of this
 recent_list = []
 last5recent_list = []
 dupelist = []
-full_xpath = ""
+full_xpath = "" #Get rid of this too
 option = {}
 has_tab_data = False
 sccnet = None
@@ -88,6 +88,12 @@ def writePortNum(portnum):
     tempfile.write(str(portnum))
     tempfile.close()
 
+
+#Better way to do this might be to have an internal loop only running when we have an active connection to our server
+#When we are connected the GUI is already asking every 5 seconds or something for updates, so instead of having to do this
+#every 5 seconds AND respond/transmit information to the GUI client, we simply run the check ourselves every 5s and only
+#send data to the GUI client when something changes. This would reduce communication between the GUI and client AND make the
+#connection more responsive since changes are immediately reported to the GUI instead of every 5 seconds.
 def getCurrentStatus():
         data = {}
         data["version"] = __module_version__
@@ -175,7 +181,7 @@ class server(threading.Thread):
                 data = None
                 while data is None and self.quitting is False and self.connected is True:
                     try:
-                        readable, _, _ = select.select([self.connection, self.shutdown_socket], [], [], 60)
+                        readable, _, _ = select.select([self.connection, self.shutdown_socket], [], [], 60) #60 second timeout
                         for sock in readable:
                             if sock == self.connection:
                                 data = self.connection.recv(4096)
@@ -192,7 +198,6 @@ class server(threading.Thread):
                 
                 #Got some data, do what was requested:
                 if data is not None and len(data) > 0:
-                        #Execute cmds from GUI
                         if data == "RELOAD_SCRIPT_SETTINGS":
                             #Attempt to fix random crashes. This runs the command in the main thread instead of in our thread.
                             xchat.hook_timer(1, reload_vars)
@@ -991,7 +996,7 @@ def convert_int_opts_to_word(options_dict):
             try:
                 int(options_dict[item])
                 if int(options_dict[item]) == 0: options_dict[item] = "off"
-                elif item == "utorrent_mode":
+                elif item == "utorrent_mode" or item == "use_utorrent_webui":
                         if int(options_dict[item]) == 0:
                                 options_dict[item] = "off"
                         elif int(options_dict[item]) == 1:
@@ -1391,16 +1396,15 @@ def on_text(word, word_eol, userdata):
                     download(downloadurl, filename, zxfpath, matchedtext, disp_path, nicesize, extra_paths, nice_watch_entry_name, watch_specific_options).start()
                     # The upload will be cascaded from the download thread to prevent a train wreck.   
                 # If utorrent adding is enabled, perform those operations
-                if watch_specific_options["use_utorrent_webui"] == "on":
-                    if watch_specific_options["utorrent_mode"] == "_MIDWAY_" or watch_specific_options["utorrent_mode"] == "on":
-                        verbtext = color["bpurple"]+"SCCwatcher is adding torrent for " + color["dgrey"] + matchedtext.group(3) + color["bpurple"] + " to the uTorrent WebUI at " + color["dgrey"] + watch_specific_options["utorrent_hostname"]
-                        verbose(verbtext)
-                        verbtext3 = xchat.strip(verbtext)
-                        logging(verbtext3, "START_UTOR_ADD")
-                        webui_upload(downloadurl, matchedtext, nicesize, nice_watch_entry_name, watch_specific_options).start()
-                    if watch_specific_options["utorrent_mode"] != "off" and watch_specific_options["utorrent_mode"] != "_MIDWAY_" and watch_specific_options["utorrent_mode"] != "on":
-                        verbtext = color["bpurple"]+"SCCwatcher cannot download because you have set utorrent_mode to an invalid number. Please check your scc2.ini and fix this error. utorrent_mode is currently set to: " + color["dgrey"] + watch_specific_options["utorrent_mode"]
-                        verbose(verbtext)
+                if watch_specific_options["use_utorrent_webui"] == "_MIDWAY_" or watch_specific_options["use_utorrent_webui"] == "on":
+                    verbtext = color["bpurple"]+"SCCwatcher is adding torrent for " + color["dgrey"] + matchedtext.group(3) + color["bpurple"] + " to the uTorrent WebUI at " + color["dgrey"] + watch_specific_options["utorrent_hostname"]
+                    verbose(verbtext)
+                    verbtext3 = xchat.strip(verbtext)
+                    logging(verbtext3, "START_UTOR_ADD")
+                    webui_upload(downloadurl, matchedtext, nicesize, nice_watch_entry_name, watch_specific_options).start()
+                elif watch_specific_options["use_utorrent_webui"] != "off":
+                    verbtext = color["bpurple"]+"SCCwatcher cannot download because you have set utorrent_mode to an invalid number. Please check your scc2.ini and fix this error. utorrent_mode is currently set to: " + color["dgrey"] + watch_specific_options["utorrent_mode"]
+                    verbose(verbtext)
             
             elif userdata == "TESTING" and counter > 0:
                 verbose_text = color["bpurple"] + "SCCwatcher would have downloaded that release."
@@ -2121,7 +2125,7 @@ class email(threading.Thread):
                     verbose(thread_data.verbtext)
                     thread_data.verbtext = xchat.strip(thread_data.verbtext)
                     logging(xchat.strip(thread_data.verbtext), "SMTP_FAIL")
-        if option["global"]["use_external_command"] == "on":
+        if self.specific_options["use_external_command"] == "on":
             do_cmd(self.matchedtext, self.disp_path, self.nicesize, self.nice_watch_entry_name, self.specific_options).start()
 
     #Here we build our email message
@@ -2226,20 +2230,19 @@ class do_cmd(threading.Thread):
             thread_data.ftpstring = "BAD_FTP_DETAILS"
         thread_data.utstring = option["global"]["utorrent_hostname"] + ":" + option["global"]["utorrent_port"]
         thread_data.nice_cat = self.matchedtext.group(2).replace('/','-')
-        thread_data.command_args =  self.specific_options["external_command_args"].replace('%torrent%', self.matchedtext.group(3))
-        thread_data.command_args = thread_data.command_args.replace('%category%', thread_data.nice_cat)
-        thread_data.command_args = thread_data.command_args.replace('%size%', self.nicesize)
-        thread_data.command_args = thread_data.command_args.replace('%time%', thread_data.current_time)
-        thread_data.command_args = thread_data.command_args.replace('%dlpath%', self.disp_path)
-        thread_data.command_args = thread_data.command_args.replace('%ulpath%', thread_data.ftpstring)
-        thread_data.command_args = thread_data.command_args.replace('%utserver%', thread_data.utstring)
-        thread_data.command_args = thread_data.command_args.replace('%watchname%', self.nice_watch_entry_name)
-        thread_data.command_args = thread_data.command_args.replace('%torrentpath%', thread_data.fulltpath)
-        thread_data.command_args = thread_data.command_args.replace('%sccgrptree%', thread_data.sccgrptree)
-        thread_data.command_args = thread_data.command_args.replace('%sccgrp%', thread_data.sccgrp)
-        thread_data.command_args = thread_data.command_args.replace('%sccdate%', thread_data.sccdate)
-        
-        thread_data.command_string =  self.specific_options["external_command"] + " " + thread_data.command_args
+        thread_data.command_string = self.specific_options["external_command"] + " " + self.specific_options["external_command_args"]
+        thread_data.command_string.replace('%torrent%', self.matchedtext.group(3))
+        thread_data.command_string = thread_data.command_string.replace('%category%', thread_data.nice_cat)
+        thread_data.command_string = thread_data.command_string.replace('%size%', self.nicesize)
+        thread_data.command_string = thread_data.command_string.replace('%time%', thread_data.current_time)
+        thread_data.command_string = thread_data.command_string.replace('%dlpath%', self.disp_path)
+        thread_data.command_string = thread_data.command_string.replace('%ulpath%', thread_data.ftpstring)
+        thread_data.command_string = thread_data.command_string.replace('%utserver%', thread_data.utstring)
+        thread_data.command_string = thread_data.command_string.replace('%watchname%', self.nice_watch_entry_name)
+        thread_data.command_string = thread_data.command_string.replace('%torrentpath%', thread_data.fulltpath)
+        thread_data.command_string = thread_data.command_string.replace('%sccgrptree%', thread_data.sccgrptree)
+        thread_data.command_string = thread_data.command_string.replace('%sccgrp%', thread_data.sccgrp)
+        thread_data.command_string = thread_data.command_string.replace('%sccdate%', thread_data.sccdate)
         
         #Check what OS we are on so we know if we need to use 'shell=True' with subprocess.Popen
         thread_data.osver = platform.system()
@@ -2708,5 +2711,5 @@ if (__name__ == "__main__"):
     main()
 
 #LICENSE GPL
-#Last modified 08-31-16 (MM/DD/YY)
+#Last modified 09-20-16 (MM/DD/YY)
 
