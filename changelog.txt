@@ -1,3 +1,15 @@
+Updated to 2.11
+
+Bugfixes:
+* Fixed a bug that caused watch-specific utorrent webUI options to be either off or utorrent ui only.
+* Fixed a bug where SCCwatcher ignored the watch-specific webUI upload options and instead used global ones.
+* Fixed a bug that prevented the external command from running when email was enabled and the global option for the external command was disabled. SCCwatcher now correctly reads the watch-specific external command settings.
+
+Changes:
+* Modified the way the external command replaces special strings. Previously it would only replace the strings contained within the external_command_args option. SCCwatcher now replaces special strings in both external_command and external_command_args.
+
+----------------------------------
+
 Updated to 2.1
 
 Changes:
