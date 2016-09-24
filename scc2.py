@@ -22,7 +22,7 @@
 #                                                                            #
 ##############################################################################
 __module_name__ = "SCCwatcher"
-__module_version__ = "2.11"
+__module_version__ = "2.2a1"
 __module_description__ = "SCCwatcher"
 
 import xchat
@@ -113,20 +113,98 @@ def getCurrentStatus():
         data["ini_path"] = xchatdir + os.sep + "scc2.ini"
         return data
 
-class server(threading.Thread):
-    def __init__(self):
+class Connection(threading.Thread):
+    def __init__(self, client_socket, shutdown_socket, close_callback):
+        self.client_socket = client_socket
+        self.shutdown_socket = shutdown_socket
+        self.quitting = False
+        self.close_callback = close_callback
+        super(Connection, self).__init__()
+        
+    def quit_thread(self):
+        self.quitting = True
+        self.client_socket.close()
+        shutdown_socket_sender = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            shutdown_socket_sender.connect(("127.0.0.1", self.shutdown_port))
+            shutdown_socket_sender.close()
+        except:
+            pass
+        xchat.hook_timer(100, self.close_callback, userdata=self)
+    
+        
+    
+    def run(self):
+        while self.quitting == False:
+            data = None
+            try:
+                readable, _, _ = select.select([self.client_socket, self.shutdown_socket], [], [], 60) #60 second timeout
+                for sock in readable:
+                    if sock == self.client_socket:
+                        data = self.client_socket.recv(4096)
+                        continue
+                    elif sock == self.shutdown_port:
+                        self.shutdown_socket.accept()
+                        self.shutdown_socket.close()
+                        self.quitting = True
+                        continue
+            except:
+                self.quit_thread()
+                continue
+        
+            #Got some data, do what was requested:
+            if data is not None and len(data) > 0:
+                    returndata = None
+                    data = data.strip()
+                    if data == "RELOAD_SCRIPT_SETTINGS":
+                        #Attempt to fix random crashes. This runs the command in the main thread instead of in our thread.
+                        xchat.hook_timer(1, reload_vars)
+                        returndata = getCurrentStatus()
+                    
+                    #Toggle autodl status
+                    elif data == "TOGGLE_AUTODL":
+                        if option["global"]["service"] == "off":
+                            sccwhelp(["", "on"])
+                        else:
+                            sccwhelp(["", "off"])
+                        returndata = getCurrentStatus()
+                    
+                    #Closing    
+                    elif data == "CONNECTION_CLOSING":
+                        self.quit_thread()
+                        continue
+                    
+                    #Return script status to GUI
+                    elif data == "GET_SCRIPT_STATUS":
+                        returndata = getCurrentStatus()
+                    
+                    if returndata is not None:
+                        preturndata = cPickle.dumps(returndata)
+                        try:
+                            self.client_socket.send(preturndata)
+                        except:
+                            self.quit_thread()
+                            continue
+                    
+            else:
+                self.quit_thread()
+                continue
+
+class Server(threading.Thread):
+    def __init__(self, port=0):
         self.quitting = False
         self.port = None
         self.connected = False
         self.connection = None
-        self.address = ("127.0.0.1", 0)
+        self.address = ("0.0.0.0", port)
         self.shutdown_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.shutdown_socket.bind(("127.0.0.1", 0))
         # Would use a pipe instead of a socket for local-only connections but the
         # select() function in windows only supports sockets and not file descriptors.
         self.shutdown_port = self.shutdown_socket.getsockname()[1]
         self.shutdown_socket.listen(1)
-        super(server, self).__init__()
+        self.connections = []
+        super(Server, self).__init__()
     
     
     def quit_thread(self):
@@ -137,19 +215,37 @@ class server(threading.Thread):
             shutdown_socket_sender.close()
         except:
             pass
+        self.stop_client_threads()
+        
+    def stop_client_threads(self):
+        for index, cli_thread in enumerate(self.connections):
+            if cli_thread is None:
+                self.connections.pop(index)
+            cli_thread.quit_thread()
+        
             
-
+    def close_connection_callback(self, connection_obj):
+        #Try to join the thread
+        connection_obj.join()
+        self.connections.remove(connection_obj)
+    
     
     def get_connection(self):
         #Connect loop
-        while self.connected is False and self.quitting is False:
+        while self.quitting is False:
             try:
                 readable, _, _ = select.select([self.main_socket, self.shutdown_socket], [], [], 60)
                 for sock in readable:
                     if sock == self.main_socket:
-                        self.connection, addy = sock.accept()
-                        self.connection.setblocking(1)
-                        self.connected = True
+                        connection, addy = sock.accept()
+                        connection.setblocking(1)
+                        #Send first status update manually
+                        connection.send(cPickle.dumps(getCurrentStatus()))
+                        #Create new thread to handle connection
+                        connection_thread = Connection(connection, self.shutdown_socket, self.close_connection_callback)
+                        connection_thread.start()
+                        #Append connection_thread to our connection stack
+                        self.connections.append(connection_thread)
                     elif sock == self.shutdown_socket:
                         self.shutdown_socket.accept()
                         self.shutdown_socket.close()
@@ -169,81 +265,13 @@ class server(threading.Thread):
         except:
             return
         
-        
-        
-        #While we arent being told to quit
+        #This should halt run() until we get the quit signal 
         while self.quitting is False:
-            if self.connected is False:
-                self.get_connection()
-                continue
+            self.get_connection()
             
-            while self.connected is True and self.quitting is False:
-                data = None
-                while data is None and self.quitting is False and self.connected is True:
-                    try:
-                        readable, _, _ = select.select([self.connection, self.shutdown_socket], [], [], 60) #60 second timeout
-                        for sock in readable:
-                            if sock == self.connection:
-                                data = self.connection.recv(4096)
-                                continue
-                            elif sock == self.shutdown_port:
-                                self.shutdown_socket.accept()
-                                self.shutdown_socket.close()
-                                self.quitting = True
-                                continue
-                    except:
-                        self.connection.close()
-                        self.connected = False
-                        continue
-                
-                #Got some data, do what was requested:
-                if data is not None and len(data) > 0:
-                        if data == "RELOAD_SCRIPT_SETTINGS":
-                            #Attempt to fix random crashes. This runs the command in the main thread instead of in our thread.
-                            xchat.hook_timer(1, reload_vars)
-                            returndata = getCurrentStatus()
-                        
-                        #Toggle autodl status
-                        elif data == "TOGGLE_AUTODL":
-                            if option["global"]["service"] == "off":
-                                sccwhelp(["", "on"])
-                            else:
-                                sccwhelp(["", "off"])
-                            returndata = getCurrentStatus()
-                        
-                        #Closing    
-                        elif data == "CONNECTION_CLOSING":
-                            self.connection.close()
-                            self.connected = False
-                            continue
-                        
-                        #Return script status to GUI
-                        elif data == "GET_SCRIPT_STATUS":
-                            returndata = getCurrentStatus()
-                        
-                        if returndata is not None:
-                            preturndata = cPickle.dumps(returndata)
-                            try:
-                                self.connection.send(preturndata)
-                            except:
-                                self.connected = False
-                                self.connection = None
-                                continue
-                        
-                else:
-                    self.connection.close()
-                    self.connected = False
-                    continue
-                
+         
         #make sure everything has shut down
-        try:
-            self.connection.send("CONNECTION_CLOSING")
-        except:
-            pass
-        try:
-            self.connection.close()
-        except:
-            pass
+        self.stop_client_threads()
         try:
             self.main_socket.close()
         except:
@@ -254,6 +282,7 @@ class server(threading.Thread):
             pass
         
         return
+
 
 
 #This function takes the ini file as an argument, and returns the loaded options dict
@@ -691,7 +720,7 @@ def load_vars(rld=False):
         
         #Start up coms server on first boot
         if rld is False:
-            server_thread = server()
+            server_thread = Server()
             server_thread.start()
         
         return True
@@ -763,6 +792,7 @@ def main():
     
 def verbose(text):
     global option
+    text = str(text)
     #Make sure verbose is enabled:
     if option.has_key("global") is True and option["global"]["verbose"] == 'on':
         #Check if the user wants the script to beep when it prints
@@ -2153,6 +2183,7 @@ class email(threading.Thread):
         thread_data.utstring = option["global"]["utorrent_hostname"] + ":" + option["global"]["utorrent_port"]
         
         
+        #Replace all these string.replace()'s with re.sub's. re.sub("%specstring%", data, thread_data.email_body, flags=re.I)
         thread_data.email_body = option["global"]["smtp_message"].replace('%torrent%', self.matchedtext.group(3))
         thread_data.email_body = thread_data.email_body.replace('%category%', self.matchedtext.group(2))
         thread_data.email_body = thread_data.email_body.replace('%size%', self.nicesize)
@@ -2711,5 +2742,5 @@ if (__name__ == "__main__"):
     main()
 
 #LICENSE GPL
-#Last modified 09-20-16 (MM/DD/YY)
+#Last modified 09-23-16 (MM/DD/YY)
 
